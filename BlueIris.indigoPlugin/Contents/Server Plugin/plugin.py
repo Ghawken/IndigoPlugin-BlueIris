@@ -112,7 +112,7 @@ class Plugin(indigo.PluginBase):
             self.serverport = int(valuesDict.get('serverport', '80'))
             self.serverusername = valuesDict.get('serverusername', '')
             self.serverpassword = valuesDict.get('serverpassword','')
-
+            self.prefsUpdated = True
             self.debugextra = valuesDict.get('debugextra', False)
             # Attempt to connnect to BlueIris and get sesion
             if self.connectServer():
@@ -213,7 +213,7 @@ class Plugin(indigo.PluginBase):
         x =0
         for i in range(len(results)):
             if 'ManRecLimit' in results[i]:
-                self.logger.info(results[i]['optionValue'])
+                #self.logger.info(results[i]['optionValue'])
                 #self.logger.info(unicode(results[i]))
                 camlist[x] = []
                 camlist[x].append(results[i])
@@ -279,7 +279,8 @@ class Plugin(indigo.PluginBase):
                              else:
                                  dev.updateStateOnServer('deviceIsOnline', value=False, uiValue="Offline")
                                  dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
-
+                             update_time = t.strftime('%c')
+                             dev.updateStateOnServer('deviceLastUpdated', value=str(update_time))
 
                      if FoundDevice == False:
                          self.logger.debug(u'No matching Camera Device Found - creating one..')
@@ -328,7 +329,8 @@ class Plugin(indigo.PluginBase):
                          else:
                              device.updateStateOnServer('deviceIsOnline', value=False, uiValue="Offline")
                              device.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
-
+                         update_time = t.strftime('%c')
+                         dev.updateStateOnServer('deviceLastUpdated', value=str(update_time))
                 x=x+1
             #now fill with data
                 self.sleep(1)
@@ -427,19 +429,27 @@ class Plugin(indigo.PluginBase):
     def runConcurrentThread(self):
 
         try:
-
-            while True:
-
-                self.debugLog(u" ")
-                self.sleep(60)
+            while self.pluginIsShuttingDown == False:
+                self.prefsUpdated = False
+                self.sleep(0.5)
+                updateCams = t.time() + 60
+                while self.prefsUpdated == False:
+                #self.debugLog(u" ")
+                    if t.time()>updateCams:
+                        # update and create current blueIris Camera List
+                        self.getCameraList()
+                        updateCams = t.time()+300
+                    self.sleep(1)
 
         except self.StopThread:
-            self.debugLog(u'Restarting/or error. Stopping  thread.')
+            self.logger.info(u'Restarting/or error. Stopping  thread.')
             pass
 
     def shutdown(self):
 
         self.debugLog(u"shutdown() method called.")
+        self.pluginIsShuttingDown = True
+        self.prefsUpdated = True
 
     def startup(self):
 
@@ -568,23 +578,14 @@ class Plugin(indigo.PluginBase):
         self.sendccommand("ptz", {"camera": str(camera),"button": int(ptzargs),"updown": 0})
         return
 
-    def ptzPanLeft(self, valuesDict):
-        self.logger.debug(u'ptzPanLeft Called')
-        self.logger.debug(unicode(valuesDict))
-        device = indigo.devices[valuesDict.deviceId]
-        cameraname = device.states['optionValue']
-        self.ptzmain(cameraname, 0)
-        return
-
     def ptzAction(self, valuesDict):
-        self.logger.debug(u'ptzPanLeft Called')
-        self.logger.debug(unicode(valuesDict))
+        self.logger.debug(u'ptzAction Called')
+        #self.logger.debug(unicode(valuesDict))
 
         action = valuesDict.pluginTypeId
         actionevent = -1
         device = indigo.devices[valuesDict.deviceId]
         cameraname = device.states['optionValue']
-
         self.logger.debug(u'Action is:'+unicode(action))
         self.logger.debug(u'Camera is:'+unicode(cameraname))
 
@@ -634,11 +635,37 @@ class Plugin(indigo.PluginBase):
         self.ptzmain(cameraname, actionevent)
         return
 
+    def ptzPreset(self, valuesDict):
+        self.logger.debug(u'ptzPreset Called')
+        # self.logger.debug(unicode(valuesDict))
 
-    def ptzIRon(self, valuesDict):
-        self.logger.debug(u'ptzPanLeft Called')
+        #self.logger.info(unicode(valuesDict))
+        action = valuesDict.pluginTypeId
+        actionevent = int(valuesDict.props['presetnum'])
+
         device = indigo.devices[valuesDict.deviceId]
         cameraname = device.states['optionValue']
-        self.logger.debug(u'Cameraname equals:' + unicode(cameraname))
-        self.ptzmain(cameraname, 34)
+        self.logger.debug(u'Action is:' + unicode(action)+u' & Camera is:' + unicode(cameraname))
+
+        self.ptzmain(cameraname, actionevent)
         return
+
+    def triggerCam(self, valuesDict):
+        self.logger.debug(u'triggerCam Called')
+        # self.logger.debug(unicode(valuesDict))
+
+        #self.logger.info(unicode(valuesDict))
+        action = valuesDict.pluginTypeId
+        #actionevent = int(valuesDict.props['presetnum'])
+
+        device = indigo.devices[valuesDict.deviceId]
+        cameraname = device.states['optionValue']
+        self.logger.debug(u'Action is:' + unicode(action)+u' & Camera is:' + unicode(cameraname))
+
+        self.sendccommand("trigger", {"camera": str(cameraname)})
+        return
+
+    def changeProfile(self, valuesDict):
+
+        self.logger.debug(unicode(self.profiles_list))
+

@@ -25,9 +25,9 @@
 			</Field>
 			<Field id="serverusername"
 				   type="textfield"
-				   tooltip="Enter the BlueIris Server Username"
+				   tooltip="Enter the BlueIris Server Username.  Must be admin for Trigger events"
 				   default="">
-				<Label>BlueIris Server:</Label>
+				<Label>BlueIris Username:</Label>
 			</Field>
 			<Field id="serverpassword"
 				   type="textfield"

@@ -1,6 +1,16 @@
 <?xml version="1.0"?>
 <Actions>
-  <Action id="Left" deviceFilter="self">
+
+    <Action id="Trigger" deviceFilter="self">
+    <Name>Trigger Motion</Name>
+    <CallbackMethod>triggerCam</CallbackMethod>
+  </Action>
+    <Action id="changeProfile" deviceFilter="self">
+    <Name>Change Active Profile</Name>
+    <CallbackMethod>changeProfile</CallbackMethod>
+  </Action>
+
+    <Action id="Left" deviceFilter="self">
     <Name>Ptz: Pan Left</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
@@ -16,6 +26,45 @@
     <Name>Ptz: Tilt Down</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
+
+    <Action id="Preset" deviceFilter="self">
+    <Name>Ptz: Set Preset</Name>
+    <CallbackMethod>ptzPreset</CallbackMethod>
+    <ConfigUI>
+        <Field id="presetnum" type="menu">
+            <Label>Preset:</Label>
+            <List>
+            <Option value="101">Preset 1</Option>
+            <Option value="102">Preset 2</Option>
+            <Option value="103">Preset 3</Option>
+            <Option value="104">Preset 4</Option>
+            <Option value="105">Preset 5</Option>
+            <Option value="106">Preset 6</Option>
+                <Option value="107">Preset 7</Option>
+            <Option value="108">Preset 8</Option>
+            <Option value="109">Preset 9</Option>
+            <Option value="110">Preset 10</Option>
+            <Option value="111">Preset 11</Option>
+            <Option value="112">Preset 12</Option>
+           <Option value="113">Preset 13</Option>
+            <Option value="114">Preset 14</Option>
+            <Option value="115">Preset 15</Option>
+            <Option value="116">Preset 16</Option>
+                <Option value="117">Preset 17</Option>
+            <Option value="118">Preset 18</Option>
+            <Option value="119">Preset 19</Option>
+            <Option value="120">Preset 20</Option>
+
+
+        </List>
+
+        </Field>
+
+    </ConfigUI>
+
+  </Action>
+
+
   <Action id="Home" deviceFilter="self">
     <Name>Ptz: Home</Name>
     <CallbackMethod>ptzAction</CallbackMethod>

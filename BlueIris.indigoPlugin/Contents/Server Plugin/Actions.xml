@@ -1,0 +1,147 @@
+<?xml version="1.0"?>
+<Actions>
+  <Action id="Left" deviceFilter="self">
+    <Name>Ptz: Pan Left</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+  <Action id="Right" deviceFilter="self">
+    <Name>Ptz: Pan Right</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+   <Action id="Up" deviceFilter="self">
+    <Name>Ptz: Tilt Up</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+  <Action id="Down" deviceFilter="self">
+    <Name>Ptz: Tilt Down</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+  <Action id="Home" deviceFilter="self">
+    <Name>Ptz: Home</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+  <Action id="ZoomIn" deviceFilter="self">
+    <Name>Ptz: Zoom In</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+  <Action id="ZoomOut" deviceFilter="self">
+    <Name>Ptz: Zoom Out</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+   <Action id="Hz50" deviceFilter="self">
+    <Name>Ptz: 50 Hz</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+  <Action id="Hz60" deviceFilter="self">
+    <Name>Ptz: 60 Hz</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+  <Action id="Outdoor" deviceFilter="self">
+    <Name>Ptz: Outdoor</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+
+    <Action id="IRon" deviceFilter="self">
+    <Name>Ptz: InfraRed On</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+    <Action id="IRoff" deviceFilter="self">
+    <Name>Ptz: InfraRed Off</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+
+  <Action id="B0" deviceFilter="self">
+    <Name>Ptz: Brightness 0</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+      <Action id="B1" deviceFilter="self">
+    <Name>Ptz: Brightness 1</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+      <Action id="B2" deviceFilter="self">
+    <Name>Ptz: Brightness 2</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+      <Action id="B3" deviceFilter="self">
+    <Name>Ptz: Brightness 3</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+    <Action id="B4" deviceFilter="self">
+    <Name>Ptz: Brightness 4</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+  <Action id="B5" deviceFilter="self">
+    <Name>Ptz: Brightness 5</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+   <Action id="B6" deviceFilter="self">
+    <Name>Ptz: Brightness 6</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+      <Action id="B7" deviceFilter="self">
+    <Name>Ptz: Brightness 7</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+      <Action id="B8" deviceFilter="self">
+    <Name>Ptz: Brightness 8</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+      <Action id="B9" deviceFilter="self">
+    <Name>Ptz: Brightness 9</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+    <Action id="B10" deviceFilter="self">
+    <Name>Ptz: Brightness 10</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+  <Action id="B11" deviceFilter="self">
+    <Name>Ptz: Brighness 11</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+  <Action id="B12" deviceFilter="self">
+    <Name>Ptz: Brightness 12</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+      <Action id="B13" deviceFilter="self">
+    <Name>Ptz: Brightness 13</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+    <Action id="B14" deviceFilter="self">
+    <Name>Ptz: Brightness 14</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+  <Action id="B15" deviceFilter="self">
+    <Name>Ptz: Brightness 15</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+<Action id="C0" deviceFilter="self">
+    <Name>Ptz: Contrast 0</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+      <Action id="C1" deviceFilter="self">
+    <Name>Ptz: Contrast 1</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+      <Action id="C2" deviceFilter="self">
+    <Name>Ptz: Contrast 2</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+      <Action id="C3" deviceFilter="self">
+    <Name>Ptz: Contrast 3</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+    <Action id="C4" deviceFilter="self">
+    <Name>Ptz: Contrast 4</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+  <Action id="C5" deviceFilter="self">
+    <Name>Ptz: Contrast 5</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+   <Action id="C6" deviceFilter="self">
+    <Name>Ptz: Contrast 6</Name>
+    <CallbackMethod>ptzAction</CallbackMethod>
+  </Action>
+
+</Actions>
+

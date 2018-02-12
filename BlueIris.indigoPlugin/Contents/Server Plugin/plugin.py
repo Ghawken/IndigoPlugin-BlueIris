@@ -286,7 +286,7 @@ class Plugin(indigo.PluginBase):
                          self.logger.debug(u'No matching Camera Device Found - creating one..')
                          self.logger.debug(unicode(deviceName)+'  created Device')
                          device = indigo.device.create(address=deviceName, deviceTypeId='BlueIrisCamera',name=deviceName,protocol=indigo.kProtocol.Plugin, folder='BlueIris')
-                         self.sleep(1)
+                         self.sleep(2)
                          stateList = [
                              {'key': 'ManRecLimit', 'value': camlist[i][0]['ManRecLimit']},
                              {'key': 'FPS', 'value': camlist[i][0]['FPS']},
@@ -329,8 +329,9 @@ class Plugin(indigo.PluginBase):
                          else:
                              device.updateStateOnServer('deviceIsOnline', value=False, uiValue="Offline")
                              device.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+
                          update_time = t.strftime('%c')
-                         dev.updateStateOnServer('deviceLastUpdated', value=str(update_time))
+                         device.updateStateOnServer('deviceLastUpdated', value=str(update_time))
                 x=x+1
             #now fill with data
                 self.sleep(1)

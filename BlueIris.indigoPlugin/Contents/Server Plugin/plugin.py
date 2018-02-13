@@ -426,6 +426,17 @@ class Plugin(indigo.PluginBase):
             self.logger.exception(u'Exception with connectServer:')
             return False
 
+    def myProfiles(self, filter=0, valuesDict=None, typeId="", targetId=0):
+        self.logger.debug(u'myProfiles called')
+        # update profile list by calling server
+
+        if self.connectServer():
+            self.sleep(0.3)
+            return self.profiles_list
+        else:
+            return 'Error Connecting','Error Connecting'
+
+
 
     def runConcurrentThread(self):
 
@@ -668,5 +679,16 @@ class Plugin(indigo.PluginBase):
 
     def changeProfile(self, valuesDict):
 
-        self.logger.debug(unicode(self.profiles_list))
+        self.logger.debug(unicode(valuesDict))
+        profileselected = str(valuesDict.props['targetProfile'])
+        try:
+            profile_id = self.profiles_list.index(profileselected)
+            self.logger.debug(u'Selected Profile ID Equals:'+unicode(profile_id))
+        except:
+            self.logger.info(u'Could not find Profile with that name')
+        self.logger.info(u'Setting BlueIris active Profile to: %s  (id: %d)' % (profileselected, profile_id))
+        self.sendccommand("status", {"profile": profile_id})
+        return
+
+
 

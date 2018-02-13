@@ -4,10 +4,18 @@
     <Action id="Trigger" deviceFilter="self">
     <Name>Trigger Motion</Name>
     <CallbackMethod>triggerCam</CallbackMethod>
-  </Action>
-    <Action id="changeProfile" deviceFilter="self">
+    </Action>
+
+    <Action id="changeProfile">
     <Name>Change Active Profile</Name>
-    <CallbackMethod>changeProfile</CallbackMethod>
+        <CallbackMethod>changeProfile</CallbackMethod>
+        <ConfigUI>
+			<Field id="targetProfile" type="menu">
+				<Label>Profile:</Label>
+				<List class='self' filter="" method = "myProfiles"  />
+
+			</Field>
+    </ConfigUI>
   </Action>
 
     <Action id="Left" deviceFilter="self">

@@ -13,7 +13,6 @@
 			<Field id="targetProfile" type="menu">
 				<Label>Profile:</Label>
 				<List class='self' filter="" method = "myProfiles"  />
-
 			</Field>
     </ConfigUI>
   </Action>

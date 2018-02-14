@@ -1,11 +1,181 @@
 <?xml version="1.0"?>
 <Devices>
-    <Device type="custom" id="BlueIrisCamera" >
+
+  <Device type="custom" id="BlueIrisServer">
+    <Name>BlueIris Server</Name>
+    <ConfigUI>
+     <Field id="sep1" type="separator"/>
+
+      <Field id="loginOK"
+				   type="textfield"
+				   hidden="true"
+				   default="False">
+			</Field>
+
+      <Field id="serverip"
+				   type="textfield"
+				   tooltip="Enter the BlueIris Server IP"
+				   default="">
+				<Label>BlueIris Server:</Label>
+			</Field>
+			<Field id="serverport"
+				   type="textfield"
+				   tooltip="Enter your BlueIris Server Port eg. 80"
+				   default="80"
+				   secure = "False">
+				<Label>Enter your Port:</Label>
+			</Field>
+			<Field id="serverusername"
+				   type="textfield"
+				   tooltip="Enter the BlueIris Server Username.  Must be admin for Trigger events"
+				   default="">
+				<Label>BlueIris Username:</Label>
+			</Field>
+			<Field id="serverpassword"
+				   type="textfield"
+				   tooltip="Enter your BlueIris Server Password"
+				   default=""
+				   secure = "True">
+				<Label>Enter your Password:</Label>
+			</Field>
+
+      <Field id="sep3" type="separator"/>
+       <Field id="loginServer"
+				   type="button"
+				   tooltip="Click on this Login to Server"  >
+				<Label>Login BI Server</Label>
+				<Title>Login to Server</Title>
+				<CallbackMethod>loginServer</CallbackMethod>
+	</Field>
+
+
+      <Field id="sep4" type="separator"/>
+
+      <Field id="generateCameras"
+				   type="button"
+				   tooltip="Click on this button to Generate Cameras"
+                  visibleBindingId="loginOK" visibleBindingValue="true">
+				<Label>Generate Cameras Indigo Devices</Label>
+				<Title>Generate Cameras Devices</Title>
+				<CallbackMethod>generateCameras</CallbackMethod>
+	</Field>
+   <Field id="sep5" type="separator" visibleBindingId="loginOK" visibleBindingValue="true"  />
+
+    </ConfigUI>
+     <States>
+
+          <State id="cpu">
+                <ValueType>Number</ValueType>
+                <TriggerLabel>CPU Usage</TriggerLabel>
+                <ControlPageLabel>CPU Usage</ControlPageLabel>
+            </State>
+          <State id="deviceState">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Device State Summary</TriggerLabel>
+                <ControlPageLabel>Device State Summary</ControlPageLabel>
+            </State>
+          <State id="deviceIsOnline">
+                <ValueType>Boolean</ValueType>
+                <TriggerLabel>Device online?</TriggerLabel>
+                <ControlPageLabel>Device online?</ControlPageLabel>
+            </State>
+
+              <State id="deviceLastUpdated">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Device Last Updated</TriggerLabel>
+                <ControlPageLabel>Device Last Updated</ControlPageLabel>
+            </State>
+            <State id="deviceTimestamp">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Device Timestamp</TriggerLabel>
+                <ControlPageLabel>Device Timestamp</ControlPageLabel>
+            </State>
+       <State id="cxns">
+                <ValueType>String</ValueType>
+                <TriggerLabel>cxns</TriggerLabel>
+                <ControlPageLabel>cxns</ControlPageLabel>
+            </State>
+            <State id="profile">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Selected Profile</TriggerLabel>
+                <ControlPageLabel>Selected Profile</ControlPageLabel>
+            </State>
+        <State id="uptime">
+                <ValueType>String</ValueType>
+                <TriggerLabel>uptime</TriggerLabel>
+                <ControlPageLabel>uptime</ControlPageLabel>
+            </State>
+            <State id="schedule">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Selected schedule</TriggerLabel>
+                <ControlPageLabel>Selected schedule</ControlPageLabel>
+            </State>
+        <State id="mem">
+                <ValueType>String</ValueType>
+                <TriggerLabel>mem</TriggerLabel>
+                <ControlPageLabel>mem</ControlPageLabel>
+            </State>
+            <State id="lock">
+                <ValueType>String</ValueType>
+                <TriggerLabel>lock</TriggerLabel>
+                <ControlPageLabel>lock</ControlPageLabel>
+            </State>
+        <State id="signal">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Signal</TriggerLabel>
+                <ControlPageLabel>Signal</ControlPageLabel>
+            </State>
+            <State id="alerts">
+                <ValueType>String</ValueType>
+                <TriggerLabel>alerts</TriggerLabel>
+                <ControlPageLabel>alerts</ControlPageLabel>
+            </State>
+         <State id="tzone">
+                <ValueType>String</ValueType>
+                <TriggerLabel>tzone</TriggerLabel>
+                <ControlPageLabel>tzone</ControlPageLabel>
+            </State>
+            <State id="clips">
+                <ValueType>String</ValueType>
+                <TriggerLabel>clips</TriggerLabel>
+                <ControlPageLabel>clips</ControlPageLabel>
+            </State>
+        <State id="memload">
+                <ValueType>String</ValueType>
+                <TriggerLabel>memload</TriggerLabel>
+                <ControlPageLabel>memload</ControlPageLabel>
+            </State>
+            <State id="memfree">
+                <ValueType>String</ValueType>
+                <TriggerLabel>memfree</TriggerLabel>
+                <ControlPageLabel>memfree</ControlPageLabel>
+            </State>
+             <State id="warnings">
+                <ValueType>String</ValueType>
+                <TriggerLabel>warnings</TriggerLabel>
+                <ControlPageLabel>warnings</ControlPageLabel>
+            </State>
+
+
+     </States>
+
+    <UiDisplayStateId>deviceState</UiDisplayStateId>
+  </Device>
+
+  <Device type="custom" id="BlueIrisCamera" >
         <Name>BlueIris Camera</Name>
 
 
         <States>
-            <State id="deviceIsOnline">
+
+          <State id="Motion">
+                <ValueType>Boolean</ValueType>
+                <TriggerLabel>Motion Detected</TriggerLabel>
+                <ControlPageLabel>Motion Detected</ControlPageLabel>
+            </State>
+
+
+          <State id="deviceIsOnline">
                 <ValueType>Boolean</ValueType>
                 <TriggerLabel>Device online?</TriggerLabel>
                 <ControlPageLabel>Device online?</ControlPageLabel>
@@ -192,7 +362,7 @@
 
         </States>
 
-        <UiDisplayStateId>deviceIsOnline</UiDisplayStateId>
+        <UiDisplayStateId>Motion</UiDisplayStateId>
 
     </Device>
 

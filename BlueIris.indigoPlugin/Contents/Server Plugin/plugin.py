@@ -81,7 +81,21 @@ class Plugin(indigo.PluginBase):
         self.configUpdaterForceUpdate = self.pluginPrefs.get('configUpdaterForceUpdate', False)
 
         self.pluginIsInitializing = False
+        indigo.variables.subscribeToChanges()
 
+    def createupdatevariable(self, variable, result):
+
+        self.logger.debug(u'createupdate variable called.')
+        if 'BlueIris' not in indigo.variables.folders:
+            indigo.variables.folder.create('BlueIris')
+
+        if variable not in indigo.variables:
+            indigo.variable.create(variable, str(result), folder='BlueIris')
+            return
+        else:
+            indigo.variable.updateValue(str(variable), str(result))
+
+        return
 
     def __del__(self):
         if self.debugLevel >= 2:
@@ -189,7 +203,7 @@ class Plugin(indigo.PluginBase):
     def deviceStartComm(self, dev):
 
         self.debugLog(u"deviceStartComm() method called.")
-
+        dev.stateListOrDisplayStateIdChanged()
 
     # Shut 'em down.
     def deviceStopComm(self, dev):
@@ -200,27 +214,245 @@ class Plugin(indigo.PluginBase):
     def forceUpdate(self):
         self.updater.update(currentVersion='0.0.0')
 
-    def getCameraList(self):
-
-        self.logger.debug(u'get CameraList called')
+    def generateCameras(self, valuesDict):
+        self.logger.debug(u'generate Cameras called')
+        # Generate Cameras - main check will not create cameras if deleted
 
         camlist = {}
-
         results = self.sendccommand('camlist')
-        #self.logger.info(unicode(results))
-        #self.logger.info(unicode('----------------------------'))
-        #self.logger.info(results[2])
+        x = 0
+        for i in range(len(results)):
+            if 'ManRecLimit' in results[i]:
+                camlist[x] = []
+                camlist[x].append(results[i])
+                x = x + 1
+        # send camera list to check devices
+        try:
+            if camlist is not None:
+                x = 1
+                for i in range(len(camlist)):
+                     deviceName = 'BlueIris Camera '+str(camlist[i][0]['optionDisplay'])
+                     FoundDevice = False
+                     for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
+                         if dev.name == deviceName:
+                             self.logger.debug(u'Found BlueIris Camera Device Matching:'+unicode(deviceName))
+                             FoundDevice = True
+                             stateList = [
+                                 {'key': 'ManRecLimit', 'value': camlist[i][0]['ManRecLimit']},
+                                 {'key': 'FPS', 'value': camlist[i][0]['FPS']},
+                                 {'key': 'color', 'value': camlist[i][0]['color']},
+                                 {'key': 'nClips', 'value': camlist[i][0]['nClips']},
+                                 {'key': 'nAlerts', 'value': camlist[i][0]['nAlerts']},
+                                 {'key': 'height', 'value': camlist[i][0]['height']},
+                                 {'key': 'active', 'value': camlist[i][0]['active']},
+                                 {'key': 'isAlerting', 'value': camlist[i][0]['isAlerting']},
+                                 {'key': 'ptz', 'value': camlist[i][0]['ptz']},
+                                 {'key': 'isYellow', 'value': camlist[i][0]['isYellow']},
+                                 {'key': 'isNoSignal', 'value': camlist[i][0]['isNoSignal']},
+                                 {'key': 'lastalert', 'value': camlist[i][0]['lastalert']},
+                                 {'key': 'isEnabled', 'value': camlist[i][0]['isEnabled']},
+                                 {'key': 'nTriggers', 'value': camlist[i][0]['nTriggers']},
+                                 {'key': 'width', 'value': camlist[i][0]['width']},
+                                 {'key': 'alertutc', 'value': camlist[i][0]['alertutc']},
+                                 {'key': 'hidden', 'value': camlist[i][0]['hidden']},
+                                 {'key': 'type', 'value': camlist[i][0]['type']},
+                                 {'key': 'profile', 'value': camlist[i][0]['profile']},
+                                 {'key': 'isOnline', 'value': camlist[i][0]['isOnline']},
+                                 {'key': 'isManRec', 'value': camlist[i][0]['isManRec']},
+                                 {'key': 'isRecording', 'value': camlist[i][0]['isRecording']},
+                                 {'key': 'pause', 'value': camlist[i][0]['pause']},
+                                 {'key': 'optionDisplay', 'value': camlist[i][0]['optionDisplay']},
+                                 {'key': 'webcast', 'value': camlist[i][0]['webcast']},
+                                 {'key': 'optionValue', 'value': camlist[i][0]['optionValue']},
+                                 {'key': 'isTriggered', 'value': camlist[i][0]['isTriggered']},
+                                 {'key': 'isMotion', 'value': camlist[i][0]['isMotion']},
+                                 {'key': 'newalerts', 'value': camlist[i][0]['newalerts']},
+                                 {'key': 'isPaused', 'value': camlist[i][0]['isPaused']},
+                                 {'key': 'error', 'value': camlist[i][0]['error']},
+                                 {'key': 'audio', 'value': camlist[i][0]['audio']},
+                                 {'key': 'nNoSignal', 'value': camlist[i][0]['nNoSignal']}
+                             ]
+                             dev.updateStatesOnServer(stateList)
+                             if camlist[i][0]['isOnline'] == True and camlist[i][0]['isEnabled']:
+                                 dev.updateStateOnServer('deviceIsOnline', value=True, uiValue="Online")
+                                 dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
+                                 dev.updateStateOnServer('Motion', value=False )
+                             else:
+                                 dev.updateStateOnServer('deviceIsOnline', value=False, uiValue="Offline")
+                                 dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+                                 dev.updateStateOnServer('Motion', value=False, uiValue='Disabled')
+                             update_time = t.strftime('%c')
+                             dev.updateStateOnServer('deviceLastUpdated', value=str(update_time))
+
+                     if FoundDevice == False:
+                         self.logger.debug(u'No matching Camera Device Found - creating one:')
+                         self.logger.debug(unicode(deviceName)+'  created Device')
+                         device = indigo.device.create(address=deviceName, deviceTypeId='BlueIrisCamera',name=deviceName,protocol=indigo.kProtocol.Plugin, folder='BlueIris')
+                         self.sleep(0.2)
+                         stateList = [
+                             {'key': 'ManRecLimit', 'value': camlist[i][0]['ManRecLimit']},
+                             {'key': 'FPS', 'value': camlist[i][0]['FPS']},
+                             {'key': 'color', 'value': camlist[i][0]['color']},
+                             {'key': 'nClips', 'value': camlist[i][0]['nClips']},
+                             {'key': 'nAlerts', 'value': camlist[i][0]['nAlerts']},
+                             {'key': 'height', 'value': camlist[i][0]['height']},
+                             {'key': 'active', 'value': camlist[i][0]['active']},
+                             {'key': 'isAlerting', 'value': camlist[i][0]['isAlerting']},
+                             {'key': 'ptz', 'value': camlist[i][0]['ptz']},
+                             {'key': 'isYellow', 'value': camlist[i][0]['isYellow']},
+                             {'key': 'isNoSignal', 'value': camlist[i][0]['isNoSignal']},
+                             {'key': 'lastalert', 'value': camlist[i][0]['lastalert']},
+                             {'key': 'isEnabled', 'value': camlist[i][0]['isEnabled']},
+                             {'key': 'nTriggers', 'value': camlist[i][0]['nTriggers']},
+                             {'key': 'width', 'value': camlist[i][0]['width']},
+                             {'key': 'alertutc', 'value': camlist[i][0]['alertutc']},
+                             {'key': 'hidden', 'value': camlist[i][0]['hidden']},
+                             {'key': 'type', 'value': camlist[i][0]['type']},
+                             {'key': 'profile', 'value': camlist[i][0]['profile']},
+                             {'key': 'isOnline', 'value': camlist[i][0]['isOnline']},
+                             {'key': 'isManRec', 'value': camlist[i][0]['isManRec']},
+                             {'key': 'isRecording', 'value': camlist[i][0]['isRecording']},
+                             {'key': 'pause', 'value': camlist[i][0]['pause']},
+                             {'key': 'optionDisplay', 'value': camlist[i][0]['optionDisplay']},
+                             {'key': 'webcast', 'value': camlist[i][0]['webcast']},
+                             {'key': 'optionValue', 'value': camlist[i][0]['optionValue']},
+                             {'key': 'isTriggered', 'value': camlist[i][0]['isTriggered']},
+                             {'key': 'isMotion', 'value': camlist[i][0]['isMotion']},
+                             {'key': 'newalerts', 'value': camlist[i][0]['newalerts']},
+                             {'key': 'isPaused', 'value': camlist[i][0]['isPaused']},
+                             {'key': 'error', 'value': camlist[i][0]['error']},
+                             {'key': 'audio', 'value': camlist[i][0]['audio']},
+                             {'key': 'nNoSignal', 'value': camlist[i][0]['nNoSignal']}
+                         ]
+                         device.updateStatesOnServer(stateList)
+                         if camlist[i][0]['isOnline']==True and camlist[i][0]['isEnabled']:
+                            device.updateStateOnServer('deviceIsOnline', value=True, uiValue="Online")
+                            device.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
+                            device.updateStateOnServer('Motion', value=False)
+                         else:
+                             device.updateStateOnServer('deviceIsOnline', value=False, uiValue="Offline")
+                             device.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+
+                         update_time = t.strftime('%c')
+                         device.updateStateOnServer('deviceLastUpdated', value=str(update_time))
+
+                     #create motion variable in folder
+                     self.createupdatevariable(str(camlist[i][0]['optionValue']).replace(' ',''), camlist[i][0]['isTriggered'])
+                x=x+1
+            #now fill with data
+                self.sleep(0.1)
+
+
+
+
+        except:
+            self.logger.exception('Exception in generate Cameras')
+
+
+        return valuesDict
+
+
+
+    def loginServer(self, valuesDict):
+        self.logger.debug(u'loginServer Called.')
+
+        #self.logger.debug(unicode(valuesDict))
+        statusresults = self.sendccommand('status','')
+        #result = statusresults['mem']
+        #self.logger.info(unicode(result))
+        # update BlueIris Server Device
+        FoundDevice = False
+
+        for dev in indigo.devices.itervalues('self.BlueIrisServer'):
+            FoundDevice = True
+        try:
+            if FoundDevice == False:
+            # Create New Server Device
+                deviceName = 'Blue Iris Server Device'
+                dev = indigo.device.create(address=deviceName, deviceTypeId='BlueIrisServer', name=deviceName,
+                                              protocol=indigo.kProtocol.Plugin, folder='BlueIris')
+                FoundDevice = True
+        except:
+            self.logger.exception(u'Exception creating Server Device')
+            valuesDict['loginOK'] = False
+            return
+
+        if self.updateBIServerdevice(dev, statusresults):
+            valuesDict['loginOK'] = True
+        else:
+            valuesDict['loginOK'] = False
+
+        return valuesDict
+
+    def updateStatus(self):
+        self.logger.debug(u'Update Status called')
+
+        statusresults = self.sendccommand('status', '')
+        FoundDevice = False
+        for dev in indigo.devices.itervalues('self.BlueIrisServer'):
+            FoundDevice = True
+            self.logger.debug(u'Found Device:'+unicode(dev.name))
+
+        if FoundDevice==False:
+            self.logger.error(u'Please use Plugin Config Settings to Login/Create Main BI server Device')
+            return
+
+        if self.updateBIServerdevice(dev, statusresults):
+            self.logger.debug(u'Updated BI Server')
+        else:
+            self.logger.error(u'Failed to update BI Server Device')
+
+        return
+
+
+    def updateBIServerdevice(self, dev, statusresults):
+        self.logger.debug(u' updateBIServerdevice called')
+
+        try:
+            #dev = indigo.devices[devId]
+            stateList = [
+                                 {'key': 'cxns', 'value': statusresults['cxns']},
+                                 {'key': 'profile', 'value': statusresults['profile']},
+                                 {'key': 'uptime', 'value': statusresults['uptime']},
+                                 {'key': 'schedule', 'value': statusresults['schedule']},
+                                 {'key': 'mem', 'value': statusresults['mem']},
+                                 {'key': 'lock', 'value': statusresults['lock']},
+                                 {'key': 'signal', 'value': statusresults['signal']},
+                                 {'key': 'alerts', 'value': statusresults['alerts']},
+                                 {'key': 'tzone', 'value': statusresults['tzone']},
+                                 {'key': 'clips', 'value': statusresults['clips']},
+                                 {'key': 'memload', 'value': statusresults['memload']},
+                                 {'key': 'memfree', 'value': statusresults['memfree']},
+                                 {'key': 'warnings', 'value': statusresults['warnings']},
+                                 {'key': 'cpu', 'value': statusresults['cpu']}
+            ]
+            dev.updateStatesOnServer(stateList)
+            update_time = t.strftime('%c')
+            deviceState = str('Cpu :')+str(statusresults['cpu'])+'% MemFree :'+str(statusresults['memfree'])
+            dev.updateStateOnServer('deviceLastUpdated', value=str(update_time))
+            dev.updateStateOnServer('deviceTimestamp', value=str(t.time()))
+            dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOn)
+            dev.updateStateOnServer('deviceIsOnline', value=True, uiValue="Online")
+            dev.updateStateOnServer('deviceState', value=str(deviceState))
+            return True
+        except:
+            self.logger.exception(u'Exception in updateBIServer Device')
+            dev.updateStateImageOnServer(indigo.kStateImageSel.SensorTripped)
+            dev.updateStateOnServer('deviceIsOnline', value=True, uiValue="Offline")
+            return False
+
+
+    def getCameraList(self):
+        self.logger.debug(u'get CameraList called')
+        camlist = {}
+        results = self.sendccommand('camlist')
+
         x =0
         for i in range(len(results)):
             if 'ManRecLimit' in results[i]:
-                #self.logger.info(results[i]['optionValue'])
-                #self.logger.info(unicode(results[i]))
                 camlist[x] = []
                 camlist[x].append(results[i])
                 x=x+1
-        #self.logger.debug(u'Camera List:')
-        #self.logger.debug(unicode(camlist))
-
         # send camera list to check devices
         self.checkCamDevices(camlist)
 
@@ -275,63 +507,22 @@ class Plugin(indigo.PluginBase):
                              dev.updateStatesOnServer(stateList)
                              if camlist[i][0]['isOnline'] == True and camlist[i][0]['isEnabled']:
                                  dev.updateStateOnServer('deviceIsOnline', value=True, uiValue="Online")
-                                 dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOn)
+                                 dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
+                                 dev.updateStateOnServer('Motion', value=False )
                              else:
                                  dev.updateStateOnServer('deviceIsOnline', value=False, uiValue="Offline")
                                  dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+                                 dev.updateStateOnServer('Motion', value=False, uiValue='Disabled')
                              update_time = t.strftime('%c')
                              dev.updateStateOnServer('deviceLastUpdated', value=str(update_time))
 
                      if FoundDevice == False:
-                         self.logger.debug(u'No matching Camera Device Found - creating one..')
-                         self.logger.debug(unicode(deviceName)+'  created Device')
-                         device = indigo.device.create(address=deviceName, deviceTypeId='BlueIrisCamera',name=deviceName,protocol=indigo.kProtocol.Plugin, folder='BlueIris')
-                         self.sleep(2)
-                         stateList = [
-                             {'key': 'ManRecLimit', 'value': camlist[i][0]['ManRecLimit']},
-                             {'key': 'FPS', 'value': camlist[i][0]['FPS']},
-                             {'key': 'color', 'value': camlist[i][0]['color']},
-                             {'key': 'nClips', 'value': camlist[i][0]['nClips']},
-                             {'key': 'nAlerts', 'value': camlist[i][0]['nAlerts']},
-                             {'key': 'height', 'value': camlist[i][0]['height']},
-                             {'key': 'active', 'value': camlist[i][0]['active']},
-                             {'key': 'isAlerting', 'value': camlist[i][0]['isAlerting']},
-                             {'key': 'ptz', 'value': camlist[i][0]['ptz']},
-                             {'key': 'isYellow', 'value': camlist[i][0]['isYellow']},
-                             {'key': 'isNoSignal', 'value': camlist[i][0]['isNoSignal']},
-                             {'key': 'lastalert', 'value': camlist[i][0]['lastalert']},
-                             {'key': 'isEnabled', 'value': camlist[i][0]['isEnabled']},
-                             {'key': 'nTriggers', 'value': camlist[i][0]['nTriggers']},
-                             {'key': 'width', 'value': camlist[i][0]['width']},
-                             {'key': 'alertutc', 'value': camlist[i][0]['alertutc']},
-                             {'key': 'hidden', 'value': camlist[i][0]['hidden']},
-                             {'key': 'type', 'value': camlist[i][0]['type']},
-                             {'key': 'profile', 'value': camlist[i][0]['profile']},
-                             {'key': 'isOnline', 'value': camlist[i][0]['isOnline']},
-                             {'key': 'isManRec', 'value': camlist[i][0]['isManRec']},
-                             {'key': 'isRecording', 'value': camlist[i][0]['isRecording']},
-                             {'key': 'pause', 'value': camlist[i][0]['pause']},
-                             {'key': 'optionDisplay', 'value': camlist[i][0]['optionDisplay']},
-                             {'key': 'webcast', 'value': camlist[i][0]['webcast']},
-                             {'key': 'optionValue', 'value': camlist[i][0]['optionValue']},
-                             {'key': 'isTriggered', 'value': camlist[i][0]['isTriggered']},
-                             {'key': 'isMotion', 'value': camlist[i][0]['isMotion']},
-                             {'key': 'newalerts', 'value': camlist[i][0]['newalerts']},
-                             {'key': 'isPaused', 'value': camlist[i][0]['isPaused']},
-                             {'key': 'error', 'value': camlist[i][0]['error']},
-                             {'key': 'audio', 'value': camlist[i][0]['audio']},
-                             {'key': 'nNoSignal', 'value': camlist[i][0]['nNoSignal']}
-                         ]
-                         device.updateStatesOnServer(stateList)
-                         if camlist[i][0]['isOnline']==True and camlist[i][0]['isEnabled']:
-                            device.updateStateOnServer('deviceIsOnline', value=True, uiValue="Online")
-                            device.updateStateImageOnServer(indigo.kStateImageSel.SensorOn)
-                         else:
-                             device.updateStateOnServer('deviceIsOnline', value=False, uiValue="Offline")
-                             device.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
-
-                         update_time = t.strftime('%c')
-                         device.updateStateOnServer('deviceLastUpdated', value=str(update_time))
+                         self.logger.debug(u'No matching Camera Device Found - Ignoring one..')
+                         #self.logger.debug(unicode(deviceName)+'  created Device')
+                         #device = indigo.device.create(address=deviceName, deviceTypeId='BlueIrisCamera',name=deviceName,protocol=indigo.kProtocol.Plugin, folder='BlueIris')
+                         #self.sleep(2)
+                     #create motion variable in folder
+                     self.createupdatevariable(str(camlist[i][0]['optionValue']).replace(' ',''), camlist[i][0]['isTriggered'])
                 x=x+1
             #now fill with data
                 self.sleep(1)
@@ -445,13 +636,17 @@ class Plugin(indigo.PluginBase):
                 self.prefsUpdated = False
                 self.sleep(0.5)
                 updateCams = t.time() + 60
+                updateServer = t.time() +10
                 while self.prefsUpdated == False:
                 #self.debugLog(u" ")
                     if t.time()>updateCams:
                         # update and create current blueIris Camera List
-                        self.getCameraList()
+                        self.getCameraList()     # modifed to update Cameras
                         updateCams = t.time()+300
                     self.sleep(1)
+                    if t.time()>updateServer:
+                        self.updateStatus()
+                        updateServer = t.time()+120
 
         except self.StopThread:
             self.logger.info(u'Restarting/or error. Stopping  thread.')
@@ -690,5 +885,37 @@ class Plugin(indigo.PluginBase):
         self.sendccommand("status", {"profile": profile_id})
         return
 
+### subscribe variable changes
+
+    def variableUpdated(self, origVariable, newVariable):
+
+        folderId = indigo.variables.folders['BlueIris'].id
+        #self.logger.info(u'Folder Id equals:'+unicode(folderId))
+        #self.logger.debug(u'Variable Updated called..')
+        if len(newVariable.value) < 3: return
+        if origVariable.folderId != folderId:
+            return
+        if newVariable.value =='False':
+            # Self triggered
+            #self.logger.debug(u'Variable = False. Ignore.')
+            return
+
+        #self.logger.debug(u'original :'+unicode(origVariable)+' , new :'+unicode(newVariable))
+        #self.logger.debug(u'Camera Triggered:'+unicode(origVariable.name))
+
+        for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
+            if dev.states['optionValue'] == origVariable.name:
+
+                #  Should add check for true
+                # trigger trigger for this dev camera &
+                #
+                self.logger.debug(u'Trigger Motion for this Camera:'+unicode(origVariable.name))
+                dev.updateStateOnServer('Motion', value=True)
+                dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensorTripped)
+                self.sleep(0.5)
+                # Only triggered if change - so quickly change back to False
+                indigo.variable.updateValue(origVariable.id, 'False')
+
+        return
 
 

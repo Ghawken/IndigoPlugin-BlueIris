@@ -383,6 +383,7 @@ class Plugin(indigo.PluginBase):
         else:
             valuesDict['loginOK'] = False
 
+        self.logger.info(u'Login to Server, Create BI Server Device Complete.')
         return valuesDict
 
     def updateStatus(self):

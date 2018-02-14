@@ -285,8 +285,8 @@ class Plugin(indigo.PluginBase):
                              dev.updateStateOnServer('deviceLastUpdated', value=str(update_time))
 
                      if FoundDevice == False:
-                         self.logger.debug(u'No matching Camera Device Found - creating one:')
-                         self.logger.debug(unicode(deviceName)+'  created Device')
+                         self.logger.info(u'No matching Camera Device Found - creating one:')
+                         self.logger.info(unicode(deviceName)+'  created Device')
                          device = indigo.device.create(address=deviceName, deviceTypeId='BlueIrisCamera',name=deviceName,protocol=indigo.kProtocol.Plugin, folder='BlueIris')
                          self.sleep(0.2)
                          stateList = [
@@ -342,6 +342,7 @@ class Plugin(indigo.PluginBase):
             #now fill with data
                 self.sleep(0.1)
 
+            self.logger.info(u'generate Cameras complete.')
 
 
 

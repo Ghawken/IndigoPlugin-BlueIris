@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <Actions>
 
-    <Action id="Trigger" deviceFilter="self">
+    <Action id="Trigger" deviceFilter="self.BlueIrisCamera">
     <Name>Trigger Motion</Name>
     <CallbackMethod>triggerCam</CallbackMethod>
     </Action>
@@ -17,24 +17,24 @@
     </ConfigUI>
   </Action>
 
-    <Action id="Left" deviceFilter="self">
+    <Action id="Left" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Pan Left</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-  <Action id="Right" deviceFilter="self">
+  <Action id="Right" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Pan Right</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-   <Action id="Up" deviceFilter="self">
+   <Action id="Up" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Tilt Up</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-  <Action id="Down" deviceFilter="self">
+  <Action id="Down" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Tilt Down</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
 
-    <Action id="Preset" deviceFilter="self">
+    <Action id="Preset" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Set Preset</Name>
     <CallbackMethod>ptzPreset</CallbackMethod>
     <ConfigUI>
@@ -72,129 +72,129 @@
   </Action>
 
 
-  <Action id="Home" deviceFilter="self">
+  <Action id="Home" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Home</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-  <Action id="ZoomIn" deviceFilter="self">
+  <Action id="ZoomIn" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Zoom In</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-  <Action id="ZoomOut" deviceFilter="self">
+  <Action id="ZoomOut" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Zoom Out</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-   <Action id="Hz50" deviceFilter="self">
+   <Action id="Hz50" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: 50 Hz</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-  <Action id="Hz60" deviceFilter="self">
+  <Action id="Hz60" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: 60 Hz</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-  <Action id="Outdoor" deviceFilter="self">
+  <Action id="Outdoor" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Outdoor</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
 
-    <Action id="IRon" deviceFilter="self">
+    <Action id="IRon" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: InfraRed On</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-    <Action id="IRoff" deviceFilter="self">
+    <Action id="IRoff" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: InfraRed Off</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
 
-  <Action id="B0" deviceFilter="self">
+  <Action id="B0" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Brightness 0</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-      <Action id="B1" deviceFilter="self">
+      <Action id="B1" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Brightness 1</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-      <Action id="B2" deviceFilter="self">
+      <Action id="B2" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Brightness 2</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-      <Action id="B3" deviceFilter="self">
+      <Action id="B3" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Brightness 3</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-    <Action id="B4" deviceFilter="self">
+    <Action id="B4" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Brightness 4</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-  <Action id="B5" deviceFilter="self">
+  <Action id="B5" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Brightness 5</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-   <Action id="B6" deviceFilter="self">
+   <Action id="B6" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Brightness 6</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-      <Action id="B7" deviceFilter="self">
+      <Action id="B7" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Brightness 7</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-      <Action id="B8" deviceFilter="self">
+      <Action id="B8" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Brightness 8</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-      <Action id="B9" deviceFilter="self">
+      <Action id="B9" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Brightness 9</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-    <Action id="B10" deviceFilter="self">
+    <Action id="B10" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Brightness 10</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-  <Action id="B11" deviceFilter="self">
+  <Action id="B11" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Brighness 11</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-  <Action id="B12" deviceFilter="self">
+  <Action id="B12" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Brightness 12</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-      <Action id="B13" deviceFilter="self">
+      <Action id="B13" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Brightness 13</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-    <Action id="B14" deviceFilter="self">
+    <Action id="B14" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Brightness 14</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-  <Action id="B15" deviceFilter="self">
+  <Action id="B15" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Brightness 15</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-<Action id="C0" deviceFilter="self">
+<Action id="C0" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Contrast 0</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-      <Action id="C1" deviceFilter="self">
+      <Action id="C1" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Contrast 1</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-      <Action id="C2" deviceFilter="self">
+      <Action id="C2" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Contrast 2</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-      <Action id="C3" deviceFilter="self">
+      <Action id="C3" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Contrast 3</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-    <Action id="C4" deviceFilter="self">
+    <Action id="C4" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Contrast 4</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-  <Action id="C5" deviceFilter="self">
+  <Action id="C5" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Contrast 5</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
-   <Action id="C6" deviceFilter="self">
+   <Action id="C6" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Contrast 6</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>

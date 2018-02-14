@@ -3,65 +3,7 @@
 
   <Device type="custom" id="BlueIrisServer">
     <Name>BlueIris Server</Name>
-    <ConfigUI>
-     <Field id="sep1" type="separator"/>
 
-      <Field id="loginOK"
-				   type="textfield"
-				   hidden="true"
-				   default="False">
-			</Field>
-
-      <Field id="serverip"
-				   type="textfield"
-				   tooltip="Enter the BlueIris Server IP"
-				   default="">
-				<Label>BlueIris Server:</Label>
-			</Field>
-			<Field id="serverport"
-				   type="textfield"
-				   tooltip="Enter your BlueIris Server Port eg. 80"
-				   default="80"
-				   secure = "False">
-				<Label>Enter your Port:</Label>
-			</Field>
-			<Field id="serverusername"
-				   type="textfield"
-				   tooltip="Enter the BlueIris Server Username.  Must be admin for Trigger events"
-				   default="">
-				<Label>BlueIris Username:</Label>
-			</Field>
-			<Field id="serverpassword"
-				   type="textfield"
-				   tooltip="Enter your BlueIris Server Password"
-				   default=""
-				   secure = "True">
-				<Label>Enter your Password:</Label>
-			</Field>
-
-      <Field id="sep3" type="separator"/>
-       <Field id="loginServer"
-				   type="button"
-				   tooltip="Click on this Login to Server"  >
-				<Label>Login BI Server</Label>
-				<Title>Login to Server</Title>
-				<CallbackMethod>loginServer</CallbackMethod>
-	</Field>
-
-
-      <Field id="sep4" type="separator"/>
-
-      <Field id="generateCameras"
-				   type="button"
-				   tooltip="Click on this button to Generate Cameras"
-                  visibleBindingId="loginOK" visibleBindingValue="true">
-				<Label>Generate Cameras Indigo Devices</Label>
-				<Title>Generate Cameras Devices</Title>
-				<CallbackMethod>generateCameras</CallbackMethod>
-	</Field>
-   <Field id="sep5" type="separator" visibleBindingId="loginOK" visibleBindingValue="true"  />
-
-    </ConfigUI>
      <States>
 
           <State id="cpu">

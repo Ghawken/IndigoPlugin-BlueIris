@@ -80,8 +80,15 @@ class Plugin(indigo.PluginBase):
         self.configUpdaterInterval = self.pluginPrefs.get('configUpdaterInterval', 24)
         self.configUpdaterForceUpdate = self.pluginPrefs.get('configUpdaterForceUpdate', False)
 
-        self.pluginIsInitializing = False
+
+        if 'BlueIris' not in indigo.variables.folders:
+            indigo.variables.folder.create('BlueIris')
+
+
+
         indigo.variables.subscribeToChanges()
+
+        self.pluginIsInitializing = False
 
     def createupdatevariable(self, variable, result):
 
@@ -890,6 +897,10 @@ class Plugin(indigo.PluginBase):
 ### subscribe variable changes
 
     def variableUpdated(self, origVariable, newVariable):
+
+        if self.pluginIsInitializing:
+            self.logger.debug(u'variableUpdate called - Initializing returning')
+            return
 
         folderId = indigo.variables.folders['BlueIris'].id
         #self.logger.info(u'Folder Id equals:'+unicode(folderId))

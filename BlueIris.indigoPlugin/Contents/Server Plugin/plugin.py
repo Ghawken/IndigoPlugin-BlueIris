@@ -372,7 +372,12 @@ class Plugin(indigo.PluginBase):
         #self.logger.debug(unicode(valuesDict))
         statusresults = self.sendccommand('status','')
         #result = statusresults['mem']
-        #self.logger.info(unicode(result))
+        #self.logger.info(unicode(statusresults))
+
+        if statusresults is None:
+            self.logger.info(u'Cannot login to BI Server.  Are details correct?')
+            return
+
         # update BlueIris Server Device
         FoundDevice = False
 
@@ -414,6 +419,8 @@ class Plugin(indigo.PluginBase):
         if statusresults is None:
             self.logger.error(u'Please enter correct Login Server Details in Plugin Config')
             return
+
+       #login self.logger.info(unicode(statusresults  ))
 
         if self.updateBIServerdevice(dev, statusresults):
             self.logger.debug(u'Updated BI Server')
@@ -630,8 +637,7 @@ class Plugin(indigo.PluginBase):
             if 'session' in r.json():
                 self.session = r.json()["session"]
             else:
-                self.logger.debug(u'Session empty ')
-                self.logger.info(u'Session information not returned. Reason:'+unicode(r.text))
+                self.logger.info(u'Connection to BI Server denied.  Reason:'+unicode(r.json()['data']['reason']))
                 return False
 
             if self.debugextra:

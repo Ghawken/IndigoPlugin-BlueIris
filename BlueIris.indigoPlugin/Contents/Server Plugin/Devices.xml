@@ -109,9 +109,14 @@
 
     <ConfigUI>
             <Field id="sep4" type="separator"/>
-      <Field id="saveimage" type="checkbox" tooltip="Save Image if Motion.">
+
+        <Field id="saveimage" type="checkbox" tooltip="Save Image if Motion.">
         <Label/>
         <Description>Save Image if Camera Triggered</Description>
+    </Field>
+        <Field id="widthimage" type="textfield" tooltip="Width of Image.">
+            <Label>Width in Pixels of Image:</Label>
+        <Description>Width of Image Saved</Description>
     </Field>
         <Field id="sep3" type="separator"/>
 

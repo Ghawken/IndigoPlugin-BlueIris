@@ -75,6 +75,7 @@ class Plugin(indigo.PluginBase):
 
         self.debugLevel = self.pluginPrefs.get('showDebugLevel', "20")
         self.debugextra = self.pluginPrefs.get('debugextra', False)
+        self.debugimage = self.pluginPrefs.get('debugimage', False)
 
         self.prefServerTimeout = int(self.pluginPrefs.get('configMenuServerTimeout', "15"))
         self.configUpdaterInterval = self.pluginPrefs.get('configUpdaterInterval', 24)
@@ -135,6 +136,7 @@ class Plugin(indigo.PluginBase):
             self.serverpassword = valuesDict.get('serverpassword','')
             self.prefsUpdated = True
             self.debugextra = valuesDict.get('debugextra', False)
+            self.debugimage = valuesDict.get('debugimage', False)
             # Attempt to connnect to BlueIris and get sesion
             if self.connectServer():
                 self.logger.debug(u'Connection established to Blueiris Server:'+unicode(self.system_name))
@@ -211,8 +213,9 @@ class Plugin(indigo.PluginBase):
 
         self.debugLog(u"deviceStartComm() method called.")
         dev.stateListOrDisplayStateIdChanged()
-        dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
-        dev.updateStateOnServer('Motion', value=False, uiValue='False')
+        if dev.deviceTypeId == 'BlueIrisCamera':
+            dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
+            dev.updateStateOnServer('Motion', value=False, uiValue='False')
 
     # Shut 'em down.
     def deviceStopComm(self, dev):
@@ -220,8 +223,10 @@ class Plugin(indigo.PluginBase):
         self.debugLog(u"deviceStopComm() method called.")
         indigo.server.log(u"Stopping device: " + dev.name)
         dev.updateStateOnServer('deviceIsOnline', value=False, uiValue="Offline")
+
         dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
-        dev.updateStateOnServer('Motion', value=False, uiValue='Disabled')
+        if dev.deviceTypeId == 'BlueIrisCamera':
+            dev.updateStateOnServer('Motion', value=False, uiValue='Disabled')
 
 
     def forceUpdate(self):
@@ -989,11 +994,17 @@ class Plugin(indigo.PluginBase):
         try:
 
             cameraname = dev.states['optionValue']
+            widthimage = dev.pluginProps.get('widthimage',0)
             MAChome = os.path.expanduser("~") + "/"
             folderLocation = MAChome + "Documents/Indigo-BlueIris/"
             path = folderLocation + str(cameraname) + '.jpg'
+            if widthimage <=0:
+                self.url = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/image/' +cameraname
+            else:
+                self.url = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/image/' + cameraname +'?w='+str(widthimage)
+            if self.debugimage:
+                self.logger.debug(u'Image:  Getting url:'+unicode(self.url)+' with path:'+unicode(path))
 
-            self.url = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/image/' +cameraname
             r = requests.get(self.url, auth=(str(self.serverusername),str(self.serverpassword)), stream=True )
             if r.status_code ==200:
                 #self.logger.debug(u'Yah Code 200....')

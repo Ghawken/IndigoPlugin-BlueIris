@@ -100,9 +100,9 @@
         <Label/>
         <Description>Debug BlueIris Server Session Key</Description>
     </Field>
-    <Field id="debugextra2" type="checkbox" tooltip="Enabling will result Debuggin Distance Matrix API showing maps.">
+    <Field id="debugimage" type="checkbox" tooltip="Enabling will result Image Debug.">
         <Label/>
-        <Description>Debug Extra 2</Description>
+        <Description>Debug Images</Description>
     </Field>
     <Field id="debugextra3" type="checkbox" tooltip="Enabling will result Debugging Geofence Log Creation.">
         <Label/>

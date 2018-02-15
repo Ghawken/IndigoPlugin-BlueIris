@@ -13,7 +13,7 @@ import json
 import hashlib
 import datetime
 import time as t
-import urllib2
+import urllib
 import os
 import shutil
 
@@ -211,12 +211,18 @@ class Plugin(indigo.PluginBase):
 
         self.debugLog(u"deviceStartComm() method called.")
         dev.stateListOrDisplayStateIdChanged()
+        dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
+        dev.updateStateOnServer('Motion', value=False, uiValue='False')
 
     # Shut 'em down.
     def deviceStopComm(self, dev):
 
         self.debugLog(u"deviceStopComm() method called.")
         indigo.server.log(u"Stopping device: " + dev.name)
+        dev.updateStateOnServer('deviceIsOnline', value=False, uiValue="Offline")
+        dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+        dev.updateStateOnServer('Motion', value=False, uiValue='Disabled')
+
 
     def forceUpdate(self):
         self.updater.update(currentVersion='0.0.0')
@@ -288,7 +294,7 @@ class Plugin(indigo.PluginBase):
                              if camlist[i][0]['isOnline'] == True and camlist[i][0]['isEnabled']:
                                  dev.updateStateOnServer('deviceIsOnline', value=True, uiValue="Online")
                                  dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
-                                 dev.updateStateOnServer('Motion', value=False )
+                                 dev.updateStateOnServer('Motion', value=False, uiValue='False' )
                              else:
                                  dev.updateStateOnServer('deviceIsOnline', value=False, uiValue="Offline")
                                  dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
@@ -539,7 +545,7 @@ class Plugin(indigo.PluginBase):
                              if camlist[i][0]['isOnline'] == True and camlist[i][0]['isEnabled']:
                                  dev.updateStateOnServer('deviceIsOnline', value=True, uiValue="Online")
                                  dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
-                                 dev.updateStateOnServer('Motion', value=False )
+                                 dev.updateStateOnServer('Motion', value=False, uiValue='False' )
                              else:
                                  dev.updateStateOnServer('deviceIsOnline', value=False, uiValue="Offline")
                                  dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
@@ -683,8 +689,8 @@ class Plugin(indigo.PluginBase):
             while self.pluginIsShuttingDown == False:
                 self.prefsUpdated = False
                 self.sleep(0.5)
-                updateCams = t.time() + 60
-                updateServer = t.time() +10
+                updateCams = t.time() + 5
+                updateServer = t.time() +2
                 while self.prefsUpdated == False:
                 #self.debugLog(u" ")
                     if t.time()>updateCams:
@@ -709,7 +715,10 @@ class Plugin(indigo.PluginBase):
     def startup(self):
 
         self.debugLog(u"Starting Plugin. startup() method called.")
-
+        MAChome = os.path.expanduser("~") + "/"
+        folderLocation = MAChome + "Documents/Indigo-BlueIris/"
+        if not os.path.exists(folderLocation):
+            os.makedirs(folderLocation)
 
 
     def setStatestonil(self, dev):
@@ -962,12 +971,42 @@ class Plugin(indigo.PluginBase):
                 # trigger trigger for this dev camera &
                 #
                 self.logger.debug(u'Trigger Motion for this Camera:'+unicode(origVariable.name))
-                dev.updateStateOnServer('Motion', value=True)
+                dev.updateStateOnServer('Motion', value=True, uiValue='True')
                 dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensorTripped)
+                #self.logger.info(unicode(dev.pluginProps))
+                if dev.pluginProps.get('saveimage', False):
+                    self.downloadImage(dev)
                 self.sleep(0.5)
                 # Only triggered if change - so quickly change back to False
                 indigo.variable.updateValue(origVariable.id, 'False')
 
         return
+
+    ### Download Image
+
+    def downloadImage(self, dev):
+        self.logger.debug(u'downloadImage Called')
+        try:
+
+            cameraname = dev.states['optionValue']
+            MAChome = os.path.expanduser("~") + "/"
+            folderLocation = MAChome + "Documents/Indigo-BlueIris/"
+            path = folderLocation + str(cameraname) + '.jpg'
+
+            self.url = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/image/' +cameraname
+            r = requests.get(self.url, auth=(str(self.serverusername),str(self.serverpassword)), stream=True )
+            if r.status_code ==200:
+                #self.logger.debug(u'Yah Code 200....')
+                with open (path, 'wb') as f:
+                    r.raw.decode_content = True
+                    shutil.copyfileobj(r.raw, f)
+
+            else:
+                self.logger.debug(u'Issue with BI connection. No image downloaded.')
+                return
+        except:
+            self.logger.exception(u'Exception in download Camera Image')
+            return
+
 
 

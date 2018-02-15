@@ -107,6 +107,15 @@
   <Device type="custom" id="BlueIrisCamera" >
         <Name>BlueIris Camera</Name>
 
+    <ConfigUI>
+            <Field id="sep4" type="separator"/>
+      <Field id="saveimage" type="checkbox" tooltip="Save Image if Motion.">
+        <Label/>
+        <Description>Save Image if Camera Triggered</Description>
+    </Field>
+        <Field id="sep3" type="separator"/>
+
+    </ConfigUI>
 
         <States>
 

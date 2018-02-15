@@ -227,6 +227,11 @@ class Plugin(indigo.PluginBase):
 
         camlist = {}
         results = self.sendccommand('camlist')
+
+        if results is None:
+            self.logger.error(u'Cannot create Cameras.  ?Login/Server details correct')
+            return
+
         x = 0
         for i in range(len(results)):
             if 'ManRecLimit' in results[i]:
@@ -406,6 +411,10 @@ class Plugin(indigo.PluginBase):
             self.logger.error(u'Please use Plugin Config Settings to Login/Create Main BI server Device')
             return
 
+        if statusresults is None:
+            self.logger.error(u'Please enter correct Login Server Details in Plugin Config')
+            return
+
         if self.updateBIServerdevice(dev, statusresults):
             self.logger.debug(u'Updated BI Server')
         else:
@@ -456,6 +465,12 @@ class Plugin(indigo.PluginBase):
         camlist = {}
         results = self.sendccommand('camlist')
 
+        if results is None:
+            self.logger.debug(u'No Cameras found.  Please create from within Plugin Config.')
+            return
+        if len(results)<=0:
+            self.logger.debug(u'No Cameras found.2.  Please create from within Plugin Config.')
+            return
         x =0
         for i in range(len(results)):
             if 'ManRecLimit' in results[i]:
@@ -547,8 +562,11 @@ class Plugin(indigo.PluginBase):
 
         self.logger.debug(u'sendcommand called')
 
-        self.connectServer()  #this commands updates session key before command called
-
+        if self.connectServer():  #this commands updates session key before command called
+            self.logger.debug(u'Connection to Server Complete')
+        else:
+            self.logger.debug(u'Failed connection to server.')
+            return
 
         if len(self.session)==0:
             self.logger.debug(u'No self.session cannot run command')
@@ -597,9 +615,24 @@ class Plugin(indigo.PluginBase):
                     self.logger.debug( r.status_code)
                     self.logger.debug( r.text)
                 return False
+
+            if r.json() is None:
+                if self.debugextra:
+                    self.logger.debug(u'Nothing returned from BI')
+                    self.logger.debug(unicode(r.text))
+                    self.logger.error(u'Connected.  But nothing returned from BI')
+                    return False
+
             if self.debugextra:
                 self.logger.debug(u'Status code returned:'+unicode(r.status_code)+' Text result:'+unicode(r.text))
-            self.session = r.json()["session"]
+
+
+            if 'session' in r.json():
+                self.session = r.json()["session"]
+            else:
+                self.logger.debug(u'Session empty ')
+                self.logger.info(u'Session information not returned. Reason:'+unicode(r.text))
+                return False
 
             if self.debugextra:
                 self.logger.debug(u'Session returned:'+unicode(self.session))

@@ -95,7 +95,7 @@ class Plugin(indigo.PluginBase):
 
     def createupdatevariable(self, variable, result):
 
-        self.logger.debug(u'createupdate variable called.')
+        #self.logger.debug(u'createupdate variable called.')
         if 'BlueIris' not in indigo.variables.folders:
             indigo.variables.folder.create('BlueIris')
 
@@ -239,7 +239,8 @@ class Plugin(indigo.PluginBase):
         self.updater.update(currentVersion='0.0.0')
 
     def generateCameras(self, valuesDict):
-        self.logger.debug(u'generate Cameras called')
+        if self.debugextra:
+            self.logger.debug(u'generate Cameras called')
         # Generate Cameras - main check will not create cameras if deleted
 
         camlist = {}
@@ -264,7 +265,8 @@ class Plugin(indigo.PluginBase):
                      FoundDevice = False
                      for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
                          if dev.name == deviceName:
-                             self.logger.debug(u'Found BlueIris Camera Device Matching:'+unicode(deviceName))
+                             if self.debugextra:
+                                self.logger.debug(u'Found BlueIris Camera Device Matching:'+unicode(deviceName))
                              FoundDevice = True
                              stateList = [
                                  {'key': 'ManRecLimit', 'value': camlist[i][0]['ManRecLimit']},
@@ -384,7 +386,8 @@ class Plugin(indigo.PluginBase):
 
 
     def loginServer(self, valuesDict):
-        self.logger.debug(u'loginServer Called.')
+        if self.debugextra:
+            self.logger.debug(u'loginServer Called.')
 
         #self.logger.debug(unicode(valuesDict))
         statusresults = self.sendccommand('status','')
@@ -421,13 +424,15 @@ class Plugin(indigo.PluginBase):
         return valuesDict
 
     def updateStatus(self):
-        self.logger.debug(u'Update Status called')
+        if self.debugextra:
+            self.logger.debug(u'Update Status called')
 
         statusresults = self.sendccommand('status', '')
         FoundDevice = False
         for dev in indigo.devices.itervalues('self.BlueIrisServer'):
             FoundDevice = True
-            self.logger.debug(u'Found Device:'+unicode(dev.name))
+            if self.debugextra:
+                self.logger.debug(u'Found Device:'+unicode(dev.name))
 
         if FoundDevice==False:
             self.logger.error(u'Please use Plugin Config Settings to Login/Create Main BI server Device')
@@ -440,7 +445,8 @@ class Plugin(indigo.PluginBase):
        #login self.logger.info(unicode(statusresults  ))
 
         if self.updateBIServerdevice(dev, statusresults):
-            self.logger.debug(u'Updated BI Server')
+            if self.debugextra:
+                self.logger.debug(u'Updated BI Server')
         else:
             self.logger.error(u'Failed to update BI Server Device')
 
@@ -448,7 +454,8 @@ class Plugin(indigo.PluginBase):
 
 
     def updateBIServerdevice(self, dev, statusresults):
-        self.logger.debug(u' updateBIServerdevice called')
+        if self.debugextra:
+            self.logger.debug(u' updateBIServerdevice called')
 
         try:
             #dev = indigo.devices[devId]
@@ -485,7 +492,8 @@ class Plugin(indigo.PluginBase):
 
 
     def getCameraList(self):
-        self.logger.debug(u'get CameraList called')
+        if self.debugextra:
+            self.logger.debug(u'get CameraList called')
         camlist = {}
         results = self.sendccommand('camlist')
 
@@ -505,7 +513,8 @@ class Plugin(indigo.PluginBase):
         self.checkCamDevices(camlist)
 
     def checkCamDevices(self, camlist):
-        self.logger.debug(u'checkCamDevices Called')
+        if self.debugextra:
+            self.logger.debug(u'checkCamDevices Called')
 
         try:
             if camlist is not None:
@@ -515,7 +524,8 @@ class Plugin(indigo.PluginBase):
                      FoundDevice = False
                      for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
                          if dev.name == deviceName:
-                             self.logger.debug(u'Found BlueIris Camera Device Matching:')
+                             if self.debugextra:
+                                self.logger.debug(u'Found BlueIris Camera Device Matching:')
                              FoundDevice = True
                              stateList = [
                                  {'key': 'ManRecLimit', 'value': camlist[i][0]['ManRecLimit']},
@@ -565,7 +575,8 @@ class Plugin(indigo.PluginBase):
                              dev.updateStateOnServer('deviceLastUpdated', value=str(update_time))
 
                      if FoundDevice == False:
-                         self.logger.debug(u'No matching Camera Device Found - Ignoring one..')
+                         if self.debugextra:
+                            self.logger.debug(u'No matching Camera Device Found - Ignoring one..')
                          #self.logger.debug(unicode(deviceName)+'  created Device')
                          #device = indigo.device.create(address=deviceName, deviceTypeId='BlueIrisCamera',name=deviceName,protocol=indigo.kProtocol.Plugin, folder='BlueIris')
                          #self.sleep(2)
@@ -583,11 +594,12 @@ class Plugin(indigo.PluginBase):
 
 
     def sendccommand(self, cmd, params=dict()):
-
-        self.logger.debug(u'sendcommand called')
+        if self.debugextra:
+            self.logger.debug(u'sendcommand called')
 
         if self.connectServer():  #this commands updates session key before command called
-            self.logger.debug(u'Connection to Server Complete')
+            if self.debugextra:
+                self.logger.debug(u'Connection to Server Complete')
         else:
             self.logger.debug(u'Failed connection to server.')
             return
@@ -629,7 +641,8 @@ class Plugin(indigo.PluginBase):
 
     def connectServer(self):
 
-        self.logger.debug(u'connect Server started')
+        if self.debugextra:
+            self.logger.debug(u'connect Server started')
         try:
             self.url = "http://" + str(self.serverip) + ':'+str(self.serverport)+'/json'
 
@@ -984,7 +997,8 @@ class Plugin(indigo.PluginBase):
                     #  Should add check for true
                     # trigger trigger for this dev camera &
                     #
-                    self.logger.debug(u'Trigger Motion for this Camera:'+unicode(origVariable.name))
+                    if self.debugextra:
+                        self.logger.debug(u'Trigger Motion for this Camera:'+unicode(origVariable.name))
                     dev.updateStateOnServer('Motion', value=True, uiValue='True')
                     dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensorTripped)
                     update_time = t.strftime('%c')
@@ -1001,7 +1015,8 @@ class Plugin(indigo.PluginBase):
     ### Download Image
 
     def downloadImage(self, dev):
-        self.logger.debug(u'downloadImage Called')
+        if self.debugextra:
+            self.logger.debug(u'downloadImage Called')
         try:
 
             cameraname = dev.states['optionValue']
@@ -1059,9 +1074,10 @@ class Plugin(indigo.PluginBase):
 
                 if self.debugtriggers:
                     self.logger.debug("Checking Trigger %s (%s), Type: %s, Camera: %s" % (trigger.name, trigger.id, trigger.pluginTypeId, camera))
+                    #self.logger.debug(unicode(trigger))
                 #self.logger.error(unicode(trigger))
-
-                if trigger.pluginProps['deviceCamera'] != str(device.id):
+                # Change to List for all Cameras
+                if str(device.id) not in trigger.pluginProps['deviceCamera']:
                     if self.debugtriggers:
                         self.logger.debug("\t\tSkipping Trigger %s (%s), wrong Camera: %s" % (trigger.name, trigger.id, device.id))
                 elif trigger.pluginTypeId == "motionTrigger":

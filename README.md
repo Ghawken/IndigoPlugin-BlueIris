@@ -1,22 +1,26 @@
-Hi
-
 ## BlueIris Indigo Plugin
 ![http://blueirissoftware.com/media/Download_03.png](http://blueirissoftware.com/media/Download_03.png)
 
-Have put together the Indigo Plugin for BlueIris windows based Cam Server Software.
+Have put together the Indigo Plugin for BlueIris windows based Cam Server Software. http://blueirissoftware.com/
 
 https://github.com/Ghawken/IndigoPlugin-BlueIris
+&
+http://forums.indigodomo.com/viewtopic.php?f=222&t=20174&p=154546#p154546
 
-**Indigo 7 Only**
 
-Currently:
+# ** Indigo 7 Only**
+
+
+
 Install
+
 Go to Plugin Config
+
 Enter:
 BlueIris Server: IP address
 Port Used for Webserver:
-Username
-Password
+BlueIris Username
+BlueIris Password
 
 Click Login/Generate Server Device
 (This will generate a main BI server device in either BlueIris directory or main)
@@ -28,7 +32,7 @@ Select Debugging options
 
 Click Save.
 
-## **Update 0.2.7:**
+## **Update 0.3.0:**
 
 See github main link for download
 
@@ -64,7 +68,7 @@ to each camera in BlueIris;  Camera: Alerts, request from web service:  When tri
 ![http://i63.tinypic.com/6i8rkm.png](http://i63.tinypic.com/6i8rkm.png)
 
 
-**For Indigo with Basic Authenication:**
+## **For Indigo with Basic Authenication:**
 
 Remembering to put this in all alert boxes for every BI Camera:
 
@@ -73,23 +77,25 @@ Remembering to put this in all alert boxes for every BI Camera:
 
 DOES NOT Need to be changed - same lines with correct username/password/IP/Port for every camera - just copy and paste - took me 60 seconds for 15 cameras.
 
-**For Indigo with  Digest Authenication  (Default):**
+## **For Indigo with  Digest Authenication  (Default):**
 
 1. Download and install curl for Windows [[url]https://curl.haxx.se/download.html[/url]].  Put the files in c:\curl or somewhere you can find them.
 2. In BI, instead of using a web service on the alert action, choose "Run a program or execute a script"
 3. In the File, navigate to the appropriate place and select your curl.exe file, e.g.  **c:\curl\curl.exe**
 4. In Parameters, put this:
 `-u username:password --digest http://192.168.x.x:8176/variables/&CAM?_method=put&value=True`
-Remember that CAM gets replaced by the BI short name, which is the variable created by the plugin
-
+[Remember that CAM gets replaced by the BI short name, which is the variable created by the plugin]
+5.  Do this for every Camera within BlueIris
 
 
 This will trigger and update camera in Indigo everytime triggered or motion sensor changes - this happens immediately.
 
-Will add Indigo based specific triggers for camera motion soon. but meanwhile can use device state changes - to trigger actions if interested.
+Can use Indigo Events/Triggers to trigger action on Motion
 
-Multiple Action Groups created which can be selected for each camera, from Ptz controls, contrast, select preset, IR on off etc., select Profiles.
+There Multiple Action Groups created which can be selected for each camera, from Ptz controls, contrast, select preset, IR on off etc., select Profiles.
 These can all be triggered from within Indigo as you required.
+
+
 
 
 To come:

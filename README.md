@@ -68,6 +68,10 @@ to each camera in BlueIris;  Camera: Alerts, request from web service:  When tri
 ![http://i63.tinypic.com/6i8rkm.png](http://i63.tinypic.com/6i8rkm.png)
 
 
+
+--------------------------------------------------------------------------------------------------------------------
+For Triggering within Indigo need to do one of the following for each Camera
+--------------------------------------------------------------------------------------------------------------------
 ## **For Indigo with Basic Authenication:**
 
 Remembering to put this in all alert boxes for every BI Camera:
@@ -76,7 +80,9 @@ Remembering to put this in all alert boxes for every BI Camera:
     indigousername:indigopassword@indigoIP:8176/variables/&CAM?_method=put&value=True
 
 DOES NOT Need to be changed - same lines with correct username/password/IP/Port for every camera - just copy and paste - took me 60 seconds for 15 cameras.
-
+--------------------------------------------------------------------------------------------------------------------
+OR
+--------------------------------------------------------------------------------------------------------------------
 ## **For Indigo with  Digest Authenication  (Default):**
 
 1. Download and install curl for Windows [[url]https://curl.haxx.se/download.html[/url]].  Put the files in c:\curl or somewhere you can find them.
@@ -87,6 +93,8 @@ DOES NOT Need to be changed - same lines with correct username/password/IP/Port 
 [Remember that CAM gets replaced by the BI short name, which is the variable created by the plugin]
 5.  Do this for every Camera within BlueIris
 
+-------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------
 
 This will trigger and update camera in Indigo everytime triggered or motion sensor changes - this happens immediately.
 

@@ -33,7 +33,31 @@
     <Name>Ptz: Tilt Down</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
+    <Action id="camconfig" deviceFilter="self.BlueIrisCamera">
+    <Name>Config Camera</Name>
+    <CallbackMethod>camconfig</CallbackMethod>
+    <ConfigUI>
+        <Field id="Configargs" type="menu">
+            <Label>Options:  (need BlueIris admin access for these)</Label>
+            <List>
+            <Option value="reset:True">Send Reset to Camera</Option>
+            <Option value="enable:True">Enable Camera</Option>
+            <Option value="enable:False">Disable Camera</Option>
+            <Option value="motion:True">Enable Motion Detector</Option>
+            <Option value="motion:False">Disable Motion Detector</Option>
+            <Option value="pause:-1">Pause Camera</Option>
+                <Option value="pause:0">UnPause Camera</Option>
+            <Option value="ptzcycle:True">PTZ Cycle Enable</Option>
+            <Option value="ptzcycle:False">PTZ Cycle Disable</Option>
+        </List>
 
+
+
+        </Field>
+
+    </ConfigUI>
+
+  </Action>
     <Action id="Preset" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Set Preset</Name>
     <CallbackMethod>ptzPreset</CallbackMethod>

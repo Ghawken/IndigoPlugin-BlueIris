@@ -861,6 +861,33 @@ class Plugin(indigo.PluginBase):
 
 ###### Actions
 
+    def camconfig(self,valuesDict):
+        self.logger.debug(u'CamConfig Called: args'+unicode(valuesDict))
+
+        device = indigo.devices[valuesDict.deviceId]
+        cameraname = device.states['optionValue']
+        #self.logger.info(unicode(valuesDict))
+        action = str(valuesDict.props['Configargs'])
+        #split to get two arguments to send
+        conditions = action.split(':')
+
+        if conditions[1]=='False':
+            argtouse = False
+        elif conditions[1] =='True':
+            argtouse =True
+        else:
+            argtouse = conditions[1]
+
+
+        self.logger.debug(u'Action ArgtoUse:'+unicode(argtouse))
+        self.logger.debug(u'Action Called =' + unicode(action) + u' action event:' + unicode(conditions))
+
+        self.sendccommand('camconfig', {'camera': str(cameraname), conditions[0]:argtouse })
+        #self.sendccommand('camconfig', {'camera': str(cameraname), 'motion': False})
+
+        return
+
+
     def ptzmain(self, camera, ptzargs):
 
         self.logger.debug(u'Ptz Main Called')
@@ -920,9 +947,10 @@ class Plugin(indigo.PluginBase):
         if action in conditions.keys():
             actionevent = conditions[action]
             self.logger.debug(u'Action Called =' + unicode(action) + u' action event:' + unicode(actionevent))
+            self.ptzmain(cameraname, actionevent)
         else:
             self.logger.error(u'No such action event found: '+unicode(action))
-        self.ptzmain(cameraname, actionevent)
+
         return
 
     def ptzPreset(self, valuesDict):

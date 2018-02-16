@@ -142,6 +142,13 @@
                 <TriggerLabel>Device Last Updated</TriggerLabel>
                 <ControlPageLabel>Device Last Updated</ControlPageLabel>
             </State>
+
+            <State id="timeLastMotion">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Time of Last Motion</TriggerLabel>
+                <ControlPageLabel>Time of Last Motion</ControlPageLabel>
+            </State>
+
             <State id="deviceTimestamp">
                 <ValueType>String</ValueType>
                 <TriggerLabel>Device Timestamp</TriggerLabel>

@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<Events>
+  <SupportURL></SupportURL>
+    <Event id="motionTrigger">
+        <Name>Trigger on Camera Motion</Name>
+        <ConfigUI>
+            <Field id="deviceCamera" type="menu">
+                <Label>Select Camera</Label>
+                <List class="indigo.devices" filter="self.BlueIrisCamera"/>
+            </Field>
+        </ConfigUI>
+    </Event>
+
+</Events>
+

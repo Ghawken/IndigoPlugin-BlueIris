@@ -104,9 +104,13 @@
         <Label/>
         <Description>Debug Images</Description>
     </Field>
-    <Field id="debugextra3" type="checkbox" tooltip="Enabling will result Debugging Geofence Log Creation.">
+    <Field id="debugtriggers" type="checkbox" tooltip="Enabling will result Debugging Geofence Log Creation.">
         <Label/>
-        <Description>Debug Extra 3</Description>
+        <Description>Debug Triggers</Description>
+    </Field>
+    <Field id="debugother" type="checkbox" tooltip="Enabling will result Debugging Geofence Log Creation.">
+        <Label/>
+        <Description>Debug Other</Description>
     </Field>
     <Field id="showDebugLevel" type="menu" defaultValue="20" tooltip="Controls the amount of debug information written to the log.">
         <Label>Debug level:</Label>

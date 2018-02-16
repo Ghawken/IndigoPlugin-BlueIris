@@ -76,6 +76,8 @@ class Plugin(indigo.PluginBase):
         self.debugLevel = self.pluginPrefs.get('showDebugLevel', "20")
         self.debugextra = self.pluginPrefs.get('debugextra', False)
         self.debugimage = self.pluginPrefs.get('debugimage', False)
+        self.debugtriggers = self.pluginPrefs.get('debugtriggers', False)
+        self.debugother = self.pluginPrefs.get('debugother', False)
 
         self.prefServerTimeout = int(self.pluginPrefs.get('configMenuServerTimeout', "15"))
         self.configUpdaterInterval = self.pluginPrefs.get('configUpdaterInterval', 24)
@@ -85,7 +87,7 @@ class Plugin(indigo.PluginBase):
         if 'BlueIris' not in indigo.variables.folders:
             indigo.variables.folder.create('BlueIris')
 
-
+        self.folderId = indigo.variables.folders['BlueIris'].id
 
         indigo.variables.subscribeToChanges()
 
@@ -137,6 +139,9 @@ class Plugin(indigo.PluginBase):
             self.prefsUpdated = True
             self.debugextra = valuesDict.get('debugextra', False)
             self.debugimage = valuesDict.get('debugimage', False)
+            self.debugtriggers = valuesDict.get('debugtriggers', False)
+            self.debugother = valuesDict.get('debugother', False)
+
             # Attempt to connnect to BlueIris and get sesion
             if self.connectServer():
                 self.logger.debug(u'Connection established to Blueiris Server:'+unicode(self.system_name))
@@ -216,6 +221,7 @@ class Plugin(indigo.PluginBase):
         if dev.deviceTypeId == 'BlueIrisCamera':
             dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
             dev.updateStateOnServer('Motion', value=False, uiValue='False')
+            self.createupdatevariable(dev.states['optionValue'], 'False')
 
     # Shut 'em down.
     def deviceStopComm(self, dev):
@@ -596,7 +602,8 @@ class Plugin(indigo.PluginBase):
         args = {"session": self.session, "response": self.response, "cmd": cmd}
         args.update(params)
 
-        self.logger.debug('Command to be sent:'+unicode(args))
+        if self.debugextra:
+            self.logger.debug('Command to be sent:'+unicode(args))
 
         # print self.url
         # print "Sending Data: "
@@ -609,9 +616,10 @@ class Plugin(indigo.PluginBase):
             self.logger.debug(u'Error Running command')
         else:
             pass
-            self.logger.debug(u'SUCCESS Text :' + unicode(r.text))
-
-        self.logger.debug( unicode(r.json()))
+            if self.debugextra:
+                self.logger.debug(u'SUCCESS Text :' + unicode(r.text))
+        if self.debugextra:
+            self.logger.debug( unicode(r.json()))
 
         try:
             return r.json()["data"]
@@ -955,11 +963,11 @@ class Plugin(indigo.PluginBase):
             self.logger.debug(u'variableUpdate called - Initializing returning')
             return
 
-        folderId = indigo.variables.folders['BlueIris'].id
+        #folderId = indigo.variables.folders['BlueIris'].id
         #self.logger.info(u'Folder Id equals:'+unicode(folderId))
         #self.logger.debug(u'Variable Updated called..')
         if len(newVariable.value) < 3: return
-        if origVariable.folderId != folderId:
+        if origVariable.folderId != self.folderId:
             return
         if newVariable.value =='False':
             # Self triggered
@@ -970,21 +978,24 @@ class Plugin(indigo.PluginBase):
         #self.logger.debug(u'Camera Triggered:'+unicode(origVariable.name))
 
         for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
-            if dev.states['optionValue'] == origVariable.name:
+            if dev.enabled:
+                if dev.states['optionValue'] == origVariable.name:
 
-                #  Should add check for true
-                # trigger trigger for this dev camera &
-                #
-                self.logger.debug(u'Trigger Motion for this Camera:'+unicode(origVariable.name))
-                dev.updateStateOnServer('Motion', value=True, uiValue='True')
-                dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensorTripped)
-                #self.logger.info(unicode(dev.pluginProps))
-                if dev.pluginProps.get('saveimage', False):
-                    self.downloadImage(dev)
-                self.sleep(0.5)
-                # Only triggered if change - so quickly change back to False
-                indigo.variable.updateValue(origVariable.id, 'False')
-
+                    #  Should add check for true
+                    # trigger trigger for this dev camera &
+                    #
+                    self.logger.debug(u'Trigger Motion for this Camera:'+unicode(origVariable.name))
+                    dev.updateStateOnServer('Motion', value=True, uiValue='True')
+                    dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensorTripped)
+                    update_time = t.strftime('%c')
+                    dev.updateStateOnServer('timeLastMotion', value=str(update_time))
+                    #self.logger.info(unicode(dev.pluginProps))
+                    self.triggerCheck(dev, origVariable.name)
+                    if dev.pluginProps.get('saveimage', False):
+                        self.downloadImage(dev)
+                    #self.sleep(0.5)
+                    # Only triggered if change - so quickly change back to False
+                    indigo.variable.updateValue(origVariable.id, 'False')
         return
 
     ### Download Image
@@ -1011,7 +1022,6 @@ class Plugin(indigo.PluginBase):
                 with open (path, 'wb') as f:
                     r.raw.decode_content = True
                     shutil.copyfileobj(r.raw, f)
-
             else:
                 self.logger.debug(u'Issue with BI connection. No image downloaded.')
                 return
@@ -1019,5 +1029,50 @@ class Plugin(indigo.PluginBase):
             self.logger.exception(u'Exception in download Camera Image')
             return
 
+##################  Trigger
 
+    def triggerStartProcessing(self, trigger):
+        self.logger.debug("Adding Trigger %s (%d) - %s" % (trigger.name, trigger.id, trigger.pluginTypeId))
+        assert trigger.id not in self.triggers
+        self.triggers[trigger.id] = trigger
+
+    def triggerStopProcessing(self, trigger):
+        self.logger.debug("Removing Trigger %s (%d)" % (trigger.name, trigger.id))
+        assert trigger.id in self.triggers
+        del self.triggers[trigger.id]
+
+    def triggerCheck(self, device, camera):
+
+        if self.debugtriggers:
+            self.logger.debug('triggerCheck run.  device.id:'+unicode(device.id)+' Camera:'+unicode(camera))
+        try:
+            if self.pluginIsInitializing:
+                self.logger.info(u'Trigger: Ignore as BlueIris Plugin Just started.')
+                return
+
+            if device.states['deviceIsOnline'] == False:
+                if self.debugtriggers:
+                    self.logger.debug(u'Trigger Cancelled as Device is Not Online')
+                return
+
+            for triggerId, trigger in sorted(self.triggers.iteritems()):
+
+                if self.debugtriggers:
+                    self.logger.debug("Checking Trigger %s (%s), Type: %s, Camera: %s" % (trigger.name, trigger.id, trigger.pluginTypeId, camera))
+                #self.logger.error(unicode(trigger))
+
+                if trigger.pluginProps['deviceCamera'] != str(device.id):
+                    if self.debugtriggers:
+                        self.logger.debug("\t\tSkipping Trigger %s (%s), wrong Camera: %s" % (trigger.name, trigger.id, device.id))
+                elif trigger.pluginTypeId == "motionTrigger":
+                    if self.debugtriggers:
+                        self.logger.debug("===== Executing Trigger %s (%d)" % (trigger.name, trigger.id))
+                    indigo.trigger.execute(trigger)
+                else:
+                    if self.debugtriggers:
+                        self.logger.debug("Not Run Trigger Type %s (%d), %s" % (trigger.name, trigger.id, trigger.pluginTypeId))
+
+        except:
+            self.logger.exception(u'Exception within Trigger Check')
+            return
 

@@ -1,8 +1,13 @@
-## BlueIris Camera Server plugin for Indigodomo Indigo
+Hi
 
-Beta only Functions
+## BlueIris Indigo Plugin
+![http://blueirissoftware.com/media/Download_03.png](http://blueirissoftware.com/media/Download_03.png)
 
-Indigo 7 Only
+Have put together the Indigo Plugin for BlueIris windows based Cam Server Software.
+
+https://github.com/Ghawken/IndigoPlugin-BlueIris
+
+**Indigo 7 Only**
 
 Currently:
 Install
@@ -13,13 +18,85 @@ Port Used for Webserver:
 Username
 Password
 
-Debugging options
+Click Login/Generate Server Device
+(This will generate a main BI server device in either BlueIris directory or main)
+if all goes well -- Generate Cameras button should appear
+
+Click this - to generate all your camera devices...
+
+Select Debugging options
 
 Click Save.
 
-Within a minute or two will create BlueIris Camera Devices within a New Folder - called 'BlueIris' if it exists - or the main directory.
-These are your cameras and decide the options currently available for actions. The cameras have a whole pile of custom states listing what is happening. This is updated every 5 minutes or so.
+## **Update 0.2.7:**
 
-However - there are Multiple Action Groups created which can be selected for each camera, from Ptz, contrast, select preset, IR on off etc.
+See github main link for download
 
-Quite a bit more to come; but more than happy to take suggestions.
+Add Main BI Server Device.  This is generated in PluginConfig Page with the Login button
+
+![http://i66.tinypic.com/1qh4yf.png](http://i66.tinypic.com/1qh4yf.png)
+
+Generates this device with status options
+
+![http://i64.tinypic.com/fongab.png](http://i64.tinypic.com/fongab.png)
+
+Allows CPU,Mem Monitoring etc and triggering if CPU gets out of hand
+
+
+Change to generate Cameras - generate them in PluginConfig.  If deleted won't be recreated unless this button is pressed again.
+(if pressed again won't remove current devices)
+
+Generate Cameras button appears if login successful.
+
+Create Variables in BlueIris/Variable folder enabled BI to tell plugin what is happening
+
+Fix: Remove device from Profile selection
+
+**To trigger plugin - add**
+indigousername:indigopassword@indigoip:8176/variables/&CAM?_method=put&value=True
+to each camera in BlueIris;  Camera: Alerts, request from web service:  When triggered.
+
+
+**BI ScreenShots:**
+
+![http://i68.tinypic.com/egwprd.png](http://i68.tinypic.com/egwprd.png)
+&
+![http://i63.tinypic.com/6i8rkm.png](http://i63.tinypic.com/6i8rkm.png)
+
+
+**For Indigo with Basic Authenication:**
+
+Remembering to put this in all alert boxes for every BI Camera:
+
+
+    indigousername:indigopassword@indigoIP:8176/variables/&CAM?_method=put&value=True
+
+DOES NOT Need to be changed - same lines with correct username/password/IP/Port for every camera - just copy and paste - took me 60 seconds for 15 cameras.
+
+**For Indigo with  Digest Authenication  (Default):**
+
+1. Download and install curl for Windows [[url]https://curl.haxx.se/download.html[/url]].  Put the files in c:\curl or somewhere you can find them.
+2. In BI, instead of using a web service on the alert action, choose "Run a program or execute a script"
+3. In the File, navigate to the appropriate place and select your curl.exe file, e.g.  **c:\curl\curl.exe**
+4. In Parameters, put this:
+`-u username:password --digest http://192.168.x.x:8176/variables/&CAM?_method=put&value=True`
+Remember that CAM gets replaced by the BI short name, which is the variable created by the plugin
+
+
+
+This will trigger and update camera in Indigo everytime triggered or motion sensor changes - this happens immediately.
+
+Will add Indigo based specific triggers for camera motion soon. but meanwhile can use device state changes - to trigger actions if interested.
+
+Multiple Action Groups created which can be selected for each camera, from Ptz controls, contrast, select preset, IR on off etc., select Profiles.
+These can all be triggered from within Indigo as you required.
+
+
+To come:
+- generate animated gif to send via imsg or other
+- add static URLs for Image/Videos to Camera devices for Control Page usage
++ any suggestions!
+
+
+
+Glenn

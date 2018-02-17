@@ -85,7 +85,7 @@ class Plugin(indigo.PluginBase):
         self.configUpdaterInterval = self.pluginPrefs.get('configUpdaterInterval', 24)
 
         #self.configUpdaterForceUpdate = self.pluginPrefs.get('configUpdaterForceUpdate', False)
-
+        self.openStore = self.pluginPrefs.get('openStore', False)
         self.updateFrequency = float(self.pluginPrefs.get('updateFrequency', "24")) * 60.0 * 60.0
         self.next_update_check = t.time() +10
 
@@ -146,6 +146,8 @@ class Plugin(indigo.PluginBase):
             self.debugimage = valuesDict.get('debugimage', False)
             self.debugtriggers = valuesDict.get('debugtriggers', False)
             self.debugother = valuesDict.get('debugother', False)
+            self.openStore = valuesDict.get('openStore', False)
+
             self.updateFrequency = float(valuesDict.get('updateFrequency', "24")) * 60.0 * 60.0
 
             # Attempt to connnect to BlueIris and get sesion

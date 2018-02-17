@@ -46,6 +46,7 @@ class Plugin(indigo.PluginBase):
         self.pluginIsShuttingDown = False
         self.prefsUpdated = False
         self.system_name = ''
+        self.systemdata = None
         self.session =''
         self.logger.info(u"")
         self.logger.info(u"{0:=^130}".format(" Initializing New Plugin Session "))
@@ -230,6 +231,12 @@ class Plugin(indigo.PluginBase):
             dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
             dev.updateStateOnServer('Motion', value=False, uiValue='False')
             self.createupdatevariable(dev.states['optionValue'], 'False')
+            stateList = [
+                {'key': 'MotionDetection', 'value': None, 'uiValue': 'Unknown'},
+                {'key': 'PtzCycle', 'value': None, 'uiValue': 'Unknown'},
+                {'key': 'CameraPaused', 'value': 'unknown', 'uiValue': 'Unknown'}
+            ]
+            dev.updateStatesOnServer(stateList)
 
     # Shut 'em down.
     def deviceStopComm(self, dev):
@@ -520,6 +527,107 @@ class Plugin(indigo.PluginBase):
         # send camera list to check devices
         self.checkCamDevices(camlist)
 
+    def updateSystemDevice(self):
+        if self.debugextra:
+            self.logger.debug(u'updateSystemDevice Called')
+
+        try:
+            if self.systemdata is not None:
+                for dev in indigo.devices.itervalues('self.BlueIrisServer'):
+                    if dev.enabled:
+                        stateList = [
+                                {'key': 'systemName', 'value': self.systemdata['system name'] },
+                                {'key': 'admin', 'value': self.systemdata['admin']},
+                                {'key': 'audio', 'value': self.systemdata['audio']},
+                                {'key': 'clips', 'value': self.systemdata['clips']},
+                                {'key': 'user', 'value': self.systemdata['user']},
+                                {'key': 'latitude', 'value': self.systemdata['latitude']},
+                                {'key': 'longitude', 'value': self.systemdata['longitude']},
+                                {'key': 'version', 'value': self.systemdata['version']},
+                            ]
+                        dev.updateStatesOnServer(stateList)
+
+
+        except:
+            self.logger.exception(u'Exception within UpdateSystemDevice')
+        return
+
+    def camconfigUpdateData(self, configdata, camera):
+        if self.debugextra:
+            self.logger.debug(u'camConfig Update Data Called.')
+        try:
+            if camera.enabled :
+                cameraname = camera.states['optionValue']
+                if self.debugother:
+                    self.logger.debug(u'Attempting to Update CamConfig for Camera:' + cameraname)
+                #cameraconfigdata = self.sendccommand('camconfig', {'camera': str(cameraname)})
+                    self.logger.debug(u'ConfigData:'+unicode(configdata))
+                # Below - command only returns data if successful if not reason etc why
+                # so if a 'result' key in the data returned - it has not been successful.
+                if configdata is not None and 'result' not in configdata:
+                    stateList = [
+                    {'key': 'MotionDetection', 'value': configdata['motion']},
+                    {'key': 'PtzCycle', 'value': configdata['ptzcycle']},
+                    {'key': 'CameraPaused', 'value': configdata['pause']}
+                ]
+                    self.logger.debug(u'Sucessfully updated Camera:'+unicode(cameraname))
+                    camera.updateStatesOnServer(stateList)
+                else:
+                    self.logger.debug(u'CamConfig Update Data Failed. Most likely no longer admin user.')
+                    return
+        except:
+            self.logger.exception(u'Update CamConfig Update Data Exception')
+            return
+
+    def updatecamConfig(self):
+
+        # call CamConfig for each Camera to get Motion Detection Details
+        # Can't Hammer it otherwise timesout.
+
+        if self.debugextra:
+            self.logger.debug(u'updateCamConfig Called')
+        try:
+            if self.checkadminuser():
+                for camera in indigo.devices.itervalues('self.BlueIrisCamera'):
+                    if camera.enabled:
+                        cameraname = camera.states['optionValue']
+                        if self.debugother:
+                            self.logger.debug(u'Checking CamConfig for Camera:' + cameraname)
+                        self.sleep(0.1)
+                        cameraconfigdata = self.sendccommand('camconfig', {'camera': str(cameraname) })
+                        self.logger.info(unicode(cameraconfigdata))
+                        if cameraconfigdata is not None and 'result' not in cameraconfigdata:
+                        #if cameraconfigdata is not None :
+                            stateList = [
+                                        {'key': 'MotionDetection', 'value': cameraconfigdata['motion'] },
+                                        {'key': 'PtzCycle', 'value': cameraconfigdata['ptzcycle']},
+                                        {'key': 'CameraPaused', 'value': cameraconfigdata['pause']}
+                                        ]
+                            camera.updateStatesOnServer(stateList)
+            else:
+                if self.debugextra:
+                    self.logger.debug(u'Need to be Admin BI User to access these addtional states')
+                for camera in indigo.devices.itervalues('self.BlueIrisCamera'):
+                    #self.logger.error(u'Camera States MD are:'+unicode(camera.states['MotionDetection']))
+
+
+                    if camera.enabled and camera.states['MotionDetection'] != '':
+                        cameraname = camera.states['optionValue']
+                        if self.debugother:
+                            self.logger.debug(u'Removing CamConfig for Camera, as Not Admin User.  Camera:' + cameraname)
+                        stateList = [
+                                        {'key': 'MotionDetection', 'value': None, 'uiValue':'Unknown' },
+                                        {'key': 'PtzCycle', 'value':None, 'uiValue': 'Unknown'},
+                                        {'key': 'CameraPaused', 'value': 'unknown', 'uiValue': 'Unknown'}
+                                    ]
+                        camera.updateStatesOnServer(stateList)
+                return
+        except:
+            self.logger.debug(u'Exception within updateCamConfig:')
+            self.logger.debug(u'Most likely to many calls to quickly.')
+            return
+
+
     def checkCamDevices(self, camlist):
         if self.debugextra:
             self.logger.debug(u'checkCamDevices Called')
@@ -593,10 +701,6 @@ class Plugin(indigo.PluginBase):
                 x=x+1
             #now fill with data
                 self.sleep(1)
-
-
-
-
         except:
             self.logger.exception('Exception in checkcamDevices')
 
@@ -653,7 +757,6 @@ class Plugin(indigo.PluginBase):
             self.logger.debug(u'connect Server started')
         try:
             self.url = "http://" + str(self.serverip) + ':'+str(self.serverport)+'/json'
-
             if self.debugextra:
                 self.logger.debug(u'Attempting Connection to:'+unicode(self.url) )
             r = requests.post(self.url, data=json.dumps({"cmd": "login"}))
@@ -672,8 +775,6 @@ class Plugin(indigo.PluginBase):
 
             if self.debugextra:
                 self.logger.debug(u'Status code returned:'+unicode(r.status_code)+' Text result:'+unicode(r.text))
-
-
             if 'session' in r.json():
                 self.session = r.json()["session"]
             else:
@@ -688,7 +789,6 @@ class Plugin(indigo.PluginBase):
                 self.logger.debug( "session: %s response: %s" % (self.session, self.response))
 
             r = requests.post(self.url,data=json.dumps({"cmd": "login", "session": self.session, "response": self.response}))
-
             if r.status_code != 200 or r.json()["result"] != "success":
                 if self.debugextra:
                     self.logger.debug( r.status_code)
@@ -696,6 +796,7 @@ class Plugin(indigo.PluginBase):
                 return False
             if self.debugextra:
                 self.logger.debug(u'Session: Status code returned:' + unicode(r.status_code) + ' Text result:' + unicode(r.text))
+            self.systemdata = r.json()['data']
             self.system_name = r.json()["data"]["system name"]
             self.profiles_list = r.json()["data"]["profiles"]
             if self.debugextra:
@@ -742,10 +843,14 @@ class Plugin(indigo.PluginBase):
                         # update and create current blueIris Camera List
                         self.getCameraList()     # modifed to update Cameras
                         updateCams = t.time()+300
+                        self.sleep(0.2)
+                        self.updatecamConfig()
                     self.sleep(1)
                     if t.time()>updateServer:
                         self.updateStatus()
+                        self.sleep(0.2)
                         updateServer = t.time()+120
+                        self.updateSystemDevice()
 
         except self.StopThread:
             self.logger.info(u'Restarting/or error. Stopping  thread.')
@@ -878,10 +983,31 @@ class Plugin(indigo.PluginBase):
             self.logger.debug(u"New logLevel = " + str(self.logLevel))
             self.indigo_log_handler.setLevel(self.logLevel)
 
+
+    def checkadminuser(self):
+        if self.debugextra:
+            self.logger.debug(u'check Admin User called')
+        try:
+            admin = False
+            for dev in indigo.devices.itervalues('self.BlueIrisServer'):
+                if dev.enabled:
+                    if bool(dev.states['admin']):
+                        self.logger.debug(u'Check Admin User: Admin User Found.')
+                        return True
+            if admin == False:
+                self.logger.debug(u'BlueIris Server User is not Admin.')
+                return False
+        except:
+            self.logger.exception(u'Exception in Checkadmin User')
+            return False
 ###### Actions
 
     def camconfig(self,valuesDict):
         self.logger.debug(u'CamConfig Called: args'+unicode(valuesDict))
+
+        if self.checkadminuser() == False:
+            self.logger.info(u'BlueIris Server User is not admin these commands will not work.')
+            return
 
         device = indigo.devices[valuesDict.deviceId]
         cameraname = device.states['optionValue']
@@ -901,7 +1027,9 @@ class Plugin(indigo.PluginBase):
         self.logger.debug(u'Action ArgtoUse:'+unicode(argtouse))
         self.logger.debug(u'Action Called =' + unicode(action) + u' action event:' + unicode(conditions))
 
-        self.sendccommand('camconfig', {'camera': str(cameraname), conditions[0]:argtouse })
+        configdata = self.sendccommand('camconfig', {'camera': str(cameraname), conditions[0]:argtouse })
+        # if command set update camera now with data received
+        self.camconfigUpdateData(configdata, device)
         #self.sendccommand('camconfig', {'camera': str(cameraname), 'motion': False})
 
         return

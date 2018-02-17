@@ -16,6 +16,49 @@
                 <TriggerLabel>Device State Summary</TriggerLabel>
                 <ControlPageLabel>Device State Summary</ControlPageLabel>
             </State>
+                   <State id="systemName">
+                <ValueType>String</ValueType>
+                <TriggerLabel>BI Server Name</TriggerLabel>
+                <ControlPageLabel>BI Server Name</ControlPageLabel>
+            </State>
+         <State id="admin">
+                <ValueType>Boolean</ValueType>
+                <TriggerLabel>Admin User True False</TriggerLabel>
+                <ControlPageLabel>Admin User true False</ControlPageLabel>
+            </State>
+         <State id="audio">
+                <ValueType>Boolean</ValueType>
+                <TriggerLabel>Audio Access True False</TriggerLabel>
+                <ControlPageLabel>Audio Access true False</ControlPageLabel>
+            </State>
+                  <State id="clips">
+                <ValueType>Boolean</ValueType>
+                <TriggerLabel>Clips Access True False</TriggerLabel>
+                <ControlPageLabel>Clips Access true False</ControlPageLabel>
+            </State>
+
+          <State id="latitude">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Latitude</TriggerLabel>
+                <ControlPageLabel>Latitude</ControlPageLabel>
+            </State>
+           <State id="longitude">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Longitude</TriggerLabel>
+                <ControlPageLabel>Longitude</ControlPageLabel>
+            </State>
+               <State id="version">
+                <ValueType>String</ValueType>
+                <TriggerLabel>BI Server Version</TriggerLabel>
+                <ControlPageLabel>BI Server Version</ControlPageLabel>
+            </State>
+         <State id="user">
+                <ValueType>String</ValueType>
+                <TriggerLabel>username returned</TriggerLabel>
+                <ControlPageLabel>username returned</ControlPageLabel>
+            </State>
+
+
           <State id="deviceIsOnline">
                 <ValueType>Boolean</ValueType>
                 <TriggerLabel>Device online?</TriggerLabel>
@@ -130,6 +173,21 @@
                 <ControlPageLabel>Motion Detected</ControlPageLabel>
             </State>
 
+            <State id="MotionDetection">
+                <ValueType>Boolean</ValueType>
+                <TriggerLabel>Camera Motion Detection Enabled True False</TriggerLabel>
+                <ControlPageLabel>Camera Motion Detection Enabled True False</ControlPageLabel>
+            </State>
+          <State id="PtzCycle">
+                <ValueType>Boolean</ValueType>
+                <TriggerLabel>Ptz Cycle Enabled True False</TriggerLabel>
+                <ControlPageLabel>Ptz Cycle Enabled True False</ControlPageLabel>
+            </State>
+            <State id="CameraPaused">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Camera Paused</TriggerLabel>
+                <ControlPageLabel>Camera Paused</ControlPageLabel>
+            </State>
 
           <State id="deviceIsOnline">
                 <ValueType>Boolean</ValueType>

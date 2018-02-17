@@ -169,14 +169,14 @@
 
           <State id="Motion">
                 <ValueType>Boolean</ValueType>
-                <TriggerLabel>Motion Detected</TriggerLabel>
-                <ControlPageLabel>Motion Detected</ControlPageLabel>
+                <TriggerLabel>Motion Detected True/False</TriggerLabel>
+                <ControlPageLabel>Motion Detected True/False</ControlPageLabel>
             </State>
 
             <State id="MotionDetection">
                 <ValueType>Boolean</ValueType>
-                <TriggerLabel>Camera Motion Detection Enabled True False</TriggerLabel>
-                <ControlPageLabel>Camera Motion Detection Enabled True False</ControlPageLabel>
+                <TriggerLabel>Camera Motion Detector Enabled True False</TriggerLabel>
+                <ControlPageLabel>Camera Motion Detector Enabled True False</ControlPageLabel>
             </State>
           <State id="PtzCycle">
                 <ValueType>Boolean</ValueType>

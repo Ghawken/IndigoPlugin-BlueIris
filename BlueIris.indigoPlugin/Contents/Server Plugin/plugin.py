@@ -17,6 +17,8 @@ import urllib
 import os
 import shutil
 
+from ghpu import GitHubPluginUpdater
+
 try:
     import indigo
 except:
@@ -81,8 +83,11 @@ class Plugin(indigo.PluginBase):
 
         self.prefServerTimeout = int(self.pluginPrefs.get('configMenuServerTimeout', "15"))
         self.configUpdaterInterval = self.pluginPrefs.get('configUpdaterInterval', 24)
-        self.configUpdaterForceUpdate = self.pluginPrefs.get('configUpdaterForceUpdate', False)
 
+        #self.configUpdaterForceUpdate = self.pluginPrefs.get('configUpdaterForceUpdate', False)
+
+        self.updateFrequency = float(self.pluginPrefs.get('updateFrequency', "24")) * 60.0 * 60.0
+        self.next_update_check = t.time() +10
 
         if 'BlueIris' not in indigo.variables.folders:
             indigo.variables.folder.create('BlueIris')
@@ -141,6 +146,7 @@ class Plugin(indigo.PluginBase):
             self.debugimage = valuesDict.get('debugimage', False)
             self.debugtriggers = valuesDict.get('debugtriggers', False)
             self.debugother = valuesDict.get('debugother', False)
+            self.updateFrequency = float(valuesDict.get('updateFrequency', "24")) * 60.0 * 60.0
 
             # Attempt to connnect to BlueIris and get sesion
             if self.connectServer():
@@ -719,6 +725,17 @@ class Plugin(indigo.PluginBase):
                 updateServer = t.time() +2
                 while self.prefsUpdated == False:
                 #self.debugLog(u" ")
+                    if self.updateFrequency > 0:
+                        if t.time() > self.next_update_check:
+                            try:
+                                self.checkForUpdates()
+                                self.next_update_check = t.time() + self.updateFrequency
+                            except:
+                                self.logger.debug(
+                                u'Error checking for update - ? No Internet connection.  Checking again in 24 hours')
+                                self.next_update_check = t.time() + 86400;
+
+
                     if t.time()>updateCams:
                         # update and create current blueIris Camera List
                         self.getCameraList()     # modifed to update Cameras
@@ -745,7 +762,7 @@ class Plugin(indigo.PluginBase):
         folderLocation = MAChome + "Documents/Indigo-BlueIris/"
         if not os.path.exists(folderLocation):
             os.makedirs(folderLocation)
-
+        self.updater = GitHubPluginUpdater(self)
 
     def setStatestonil(self, dev):
 
@@ -1119,4 +1136,21 @@ class Plugin(indigo.PluginBase):
         except:
             self.logger.exception(u'Exception within Trigger Check')
             return
+## Update routines
 
+    def checkForUpdates(self):
+
+        updateavailable = self.updater.getLatestVersion()
+        if updateavailable and self.openStore:
+            self.logger.info(u'BlueIris Plugin: Update Checking.  Update is Available.  Taking you to plugin Store. ')
+            self.sleep(2)
+            self.pluginstoreUpdate()
+        elif updateavailable and not self.openStore:
+            self.errorLog(u'BlueIris Plugin: Update Checking.  Update is Available.  Please check Store for details/download.')
+
+    def updatePlugin(self):
+        self.updater.update()
+
+    def pluginstoreUpdate(self):
+        iurl = 'http://www.indigodomo.com/pluginstore/149/'
+        self.browserOpen(iurl)

@@ -76,12 +76,12 @@
     <Label>The amount of time that the plugin will wait between checking for updated version</Label>
   </Field>
 
-  <Field id="configUpdaterInterval" type="textfield" defaultValue="24" tooltip="Select preference for how often updates will be checked">
+  <Field id="updateFrequency" type="textfield" defaultValue="24" tooltip="Select preference for how often updates will be checked">
     <Label>Update Check Interval:(hours)</Label>
   </Field>
 
-  <Field id="configUpdaterForceUpdate" type="checkbox" tooltip="Will automatic install newer version at check.">
-    <Label> Automatically install newer version at time of check</Label>
+  <Field id="openStore" type="checkbox" tooltip="Will automatic install newer version at check.">
+    <Label> Open PluginStore if newer version at time of check</Label>
     <Description>Enable/Disable</Description>
   </Field>
  <Field id="sep9" type="separator"/>

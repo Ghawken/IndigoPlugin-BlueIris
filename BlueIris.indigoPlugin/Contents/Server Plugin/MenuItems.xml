@@ -1,14 +1,14 @@
 <?xml version="1.0"?>
 <MenuItems>
-  <MenuItem id="refreshData">
-    <Name>Refresh Data Now...</Name>
-    <CallbackMethod>refreshData</CallbackMethod>
-  </MenuItem>
 
-  <MenuItem id="getCamList">
-    <Name>get Camera List...</Name>
-    <CallbackMethod>getCameraList</CallbackMethod>
-  </MenuItem>
+    <MenuItem id="checkForUpdates">
+        <Name>Check for Updates</Name>
+        <CallbackMethod>checkForUpdates</CallbackMethod>
+    </MenuItem>
+    <MenuItem id="pluginstoreUpdate">
+        <Name>Open PluginStore for Download</Name>
+        <CallbackMethod>pluginstoreUpdate</CallbackMethod>
+    </MenuItem>
 
   <MenuItem id="toggleDebug">
     <Name>Toggle Debugging</Name>

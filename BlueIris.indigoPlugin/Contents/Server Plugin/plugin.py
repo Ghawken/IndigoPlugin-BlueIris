@@ -595,7 +595,7 @@ class Plugin(indigo.PluginBase):
                             self.logger.debug(u'Checking CamConfig for Camera:' + cameraname)
                         self.sleep(0.1)
                         cameraconfigdata = self.sendccommand('camconfig', {'camera': str(cameraname) })
-                        self.logger.info(unicode(cameraconfigdata))
+                        #self.logger.info(unicode(cameraconfigdata))
                         if cameraconfigdata is not None and 'result' not in cameraconfigdata:
                         #if cameraconfigdata is not None :
                             stateList = [

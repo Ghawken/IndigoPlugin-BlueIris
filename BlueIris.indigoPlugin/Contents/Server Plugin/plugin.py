@@ -88,7 +88,7 @@ class Plugin(indigo.PluginBase):
         #self.configUpdaterForceUpdate = self.pluginPrefs.get('configUpdaterForceUpdate', False)
         self.openStore = self.pluginPrefs.get('openStore', False)
         self.updateFrequency = float(self.pluginPrefs.get('updateFrequency', "24")) * 60.0 * 60.0
-        self.next_update_check = t.time() +10
+        self.next_update_check = t.time() + 20
 
         if 'BlueIris' not in indigo.variables.folders:
             indigo.variables.folder.create('BlueIris')
@@ -603,13 +603,14 @@ class Plugin(indigo.PluginBase):
                                         {'key': 'PtzCycle', 'value': cameraconfigdata['ptzcycle']},
                                         {'key': 'CameraPaused', 'value': cameraconfigdata['pause']}
                                         ]
+                            if self.debugother:
+                                self.logger.debug(u'Updated Camera with new States:'+unicode(stateList))
                             camera.updateStatesOnServer(stateList)
             else:
                 if self.debugextra:
                     self.logger.debug(u'Need to be Admin BI User to access these addtional states')
                 for camera in indigo.devices.itervalues('self.BlueIrisCamera'):
                     #self.logger.error(u'Camera States MD are:'+unicode(camera.states['MotionDetection']))
-
 
                     if camera.enabled and camera.states['MotionDetection'] != '':
                         cameraname = camera.states['optionValue']

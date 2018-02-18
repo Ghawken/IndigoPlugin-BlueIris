@@ -1438,7 +1438,8 @@ class Plugin(indigo.PluginBase):
                         r.raw.decode_content = True
                         shutil.copyfileobj(r.raw, f)
                 else:
-                    self.logger.debug(u'Issue with BI connection. No image downloaded.')
+                    self.logger.debug(u'Issue with BI connection. No image downloaded. Status code:'+unicode(r.status_code)+' Error:'+unicode(r.text))
+
                 Interval = time/15
                 self.sleep(Interval)
             return

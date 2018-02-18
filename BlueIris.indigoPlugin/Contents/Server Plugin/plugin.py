@@ -17,6 +17,9 @@ import urllib
 import os
 import shutil
 
+import subprocess
+import threading
+
 from ghpu import GitHubPluginUpdater
 
 try:
@@ -42,6 +45,8 @@ class Plugin(indigo.PluginBase):
     def __init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs):
         indigo.PluginBase.__init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs)
         self.startingUp = True
+        self.pathtoPlugin = os.getcwd()
+        self.pathtoGifsicle = self.pathtoPlugin+'/gifsicle/1.91/bin/giflossy'
         self.pluginIsInitializing = True
         self.pluginIsShuttingDown = False
         self.prefsUpdated = False
@@ -55,7 +60,8 @@ class Plugin(indigo.PluginBase):
         self.logger.info(u"{0:<30} {1}".format("Plugin ID:", pluginId))
         self.logger.info(u"{0:<30} {1}".format("Indigo version:", indigo.server.version))
         self.logger.info(u"{0:<30} {1}".format("Python version:", sys.version.replace('\n', '')))
-        self.logger.info(u"{0:<30} {1}".format("Python Directory:", sys.prefix.replace('\n', '')))
+        self.logger.info(u"{0:<30} {1}".format("Install Path :", self.pathtoPlugin.replace('\n', '')))
+        self.logger.info(u"{0:<30} {1}".format("Path to Gifsicle :", self.pathtoGifsicle.replace('\n', '')))
         self.logger.info(u"{0:=^130}".format(""))
 
         pfmt = logging.Formatter('%(asctime)s.%(msecs)03d\t[%(levelname)8s] %(name)20s.%(funcName)-25s%(msg)s',
@@ -70,6 +76,8 @@ class Plugin(indigo.PluginBase):
         self.indigo_log_handler.setLevel(self.logLevel)
         self.logger.debug(u"logLevel = " + str(self.logLevel))
         self.triggers = {}
+
+        self.pathtoPlugin = indigo.server.getInstallFolderPath()
 
         self.serverip = self.pluginPrefs.get('serverip', '')
         self.serverport = int(self.pluginPrefs.get('serverport', '80'))
@@ -1215,12 +1223,26 @@ class Plugin(indigo.PluginBase):
                     shutil.copyfileobj(r.raw, f)
             else:
                 self.logger.debug(u'Issue with BI connection. No image downloaded.')
-                return
+
+
+            ## Add Checks here for Anim gif wanted etc
+            ## But meanwhile
+            width = 800
+            time = 10
+
+            myThread = threading.Thread(target=self.animateGif, args=[cameraname, width, time])
+            myThread.start()
+            self.logger.info(u'Number of Active Threads:'+unicode(threading.activeCount()))
+
+            return
         except:
             self.logger.exception(u'Exception in download Camera Image')
             return
 
-##################  Trigger
+
+
+
+##################  Triggers
 
     def triggerStartProcessing(self, trigger):
         self.logger.debug("Adding Trigger %s (%d) - %s" % (trigger.name, trigger.id, trigger.pluginTypeId))
@@ -1285,3 +1307,93 @@ class Plugin(indigo.PluginBase):
     def pluginstoreUpdate(self):
         iurl = 'http://www.indigodomo.com/pluginstore/149/'
         self.browserOpen(iurl)
+################## Animated Gifs
+
+################## Run the create gifs in a seperate thread as will take a few seconds we can't afford
+
+    def animateGif(self, cameraname, width, time):
+        # file_names = sorted((fn for fn in os.listdir(folderLocation) ))
+
+        try:
+            self.logger.info(u'AnimateGif Called: In a New thread:')
+            MAChome = os.path.expanduser("~") + "/"
+            folderLocation = MAChome + "Documents/Indigo-BlueIris/"+str(cameraname)+'/'
+
+            if not os.path.exists(folderLocation):
+                os.makedirs(folderLocation)
+
+            # Download a few seconds of images at width specified above.
+            self.newThreadDownload( folderLocation, cameraname, width, time)
+            file_names = os.listdir(folderLocation+'tmp/')
+            #self.logger.info(unicode(file_names))
+
+            x = 0
+            for filename in file_names:
+                if '.jpg' in filename:
+                    newfilename = folderLocation +'tmp/'+ str(x) + '.gif'
+                    filename = folderLocation + 'tmp/'+ filename
+                    #self.logger.info(unicode(newfilename))
+                    #self.logger.info(unicode(filename))
+                    p = subprocess.Popen(['/usr/bin/sips', '-s', 'format', 'gif', filename, '--out', newfilename],
+                                         stdout=subprocess.PIPE).communicate()[0]
+                    # self.logger.info(unicode(p))
+                    x = x + 1
+            self.sleep(0.1)
+
+            newfilename = folderLocation + 'Animated.gif'
+            file_names = os.listdir(folderLocation + 'tmp/')
+            listfilenames = ''
+            for filename in file_names:
+                if '.gif' in filename:
+                    listfilenames = listfilenames + ' ' + folderLocation + 'tmp/' + filename
+
+            #self.logger.info(unicode(listfilenames))
+            #self.logger.info(unicode(newfilename))
+            try:
+                argstopass = self.pathtoGifsicle+' --delay 50 --colors 256 --loopcount ' + str(
+                    listfilenames) + ' > ' + str(newfilename)
+                p1 = subprocess.Popen([argstopass], shell=True)
+                #output, err = p1.communicate()
+
+                #self.logger.info(unicode(p1.returncode))
+                #self.logger.info(unicode(output))
+                #self.logger.info(unicode(err))
+            except Exception as e:
+                self.logger.exception(u'Exception within animGIF gifsicle - newThread')
+
+        except:
+            self.logger.exception(u'Error in Anim Gif Thread')
+
+
+    def newThreadDownload(self, folderLocation, cameraname, widthimage, time):
+
+        if self.debugextra:
+            self.logger.debug(u'newThreadDownload Some Images Called')
+        try:
+            if not os.path.exists(folderLocation+'tmp'):
+                os.makedirs(folderLocation+'tmp')
+
+            x = 0
+            for x in range(0,15):
+                path = folderLocation + 'tmp/' + str(x)+'.jpg'
+                if widthimage <= 0:
+                    self.url = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/image/' + cameraname
+                else:
+                    self.url = "http://" + str(self.serverip) + ':' + str(
+                        self.serverport) + '/image/' + cameraname + '?w=' + str(widthimage)
+                #if self.debugimage:
+                    #self.logger.debug(u'newThreadDownload:  Getting url:' + unicode(self.url) + ' with path:' + unicode(path))
+
+                r = requests.get(self.url, auth=(str(self.serverusername), str(self.serverpassword)), stream=True)
+                if r.status_code == 200:
+                    with open(path, 'wb') as f:
+                        r.raw.decode_content = True
+                        shutil.copyfileobj(r.raw, f)
+                else:
+                    self.logger.debug(u'Issue with BI connection. No image downloaded.')
+                Interval = time/15
+                self.sleep(Interval)
+            return
+        except:
+            self.logger.exception(u'Exception in new Thread Download Camera Images')
+            return

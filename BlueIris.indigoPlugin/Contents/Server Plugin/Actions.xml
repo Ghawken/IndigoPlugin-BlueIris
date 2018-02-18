@@ -50,11 +50,7 @@
             <Option value="ptzcycle:True">PTZ Cycle Enable</Option>
             <Option value="ptzcycle:False">PTZ Cycle Disable</Option>
         </List>
-
-
-
         </Field>
-
     </ConfigUI>
 
   </Action>
@@ -85,16 +81,47 @@
             <Option value="118">Preset 18</Option>
             <Option value="119">Preset 19</Option>
             <Option value="120">Preset 20</Option>
-
-
         </List>
-
         </Field>
-
     </ConfigUI>
 
   </Action>
 
+    <Action id="PluginTriggering">
+    <Name>Plugin Triggering Enable/Disable</Name>
+    <CallbackMethod>pluginTriggering</CallbackMethod>
+        <ConfigUI>
+            <Field id="deviceCamera" type="list" rows="14">
+                <Label>Select Camera(s)</Label>
+                <List class="indigo.devices" filter="self.BlueIrisCamera"/>
+            </Field>
+            <Field id="plugintriggersetting" type="menu">
+            <Label>Setting:</Label>
+            <List>
+            <Option value="True">Enable</Option>
+            <Option value="False">Disable</Option>
+            </List>
+        </Field>
+        </ConfigUI>
+    </Action>
+
+    <Action id="CaptureAnim">
+    <Name>Enable Anim Gifs Enable/Disable</Name>
+    <CallbackMethod>actionEnableAnim</CallbackMethod>
+        <ConfigUI>
+            <Field id="deviceCamera" type="list" rows="14">
+                <Label>Select Camera(s)</Label>
+                <List class="indigo.devices" filter="self.BlueIrisCamera"/>
+            </Field>
+            <Field id="setting" type="menu">
+            <Label>Setting:</Label>
+            <List>
+            <Option value="True">Enable</Option>
+            <Option value="False">Disable</Option>
+            </List>
+        </Field>
+        </ConfigUI>
+    </Action>
 
   <Action id="Home" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Home</Name>

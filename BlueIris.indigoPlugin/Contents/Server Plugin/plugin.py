@@ -267,13 +267,35 @@ class Plugin(indigo.PluginBase):
         self.debugLog(u"deviceStartComm() method called.")
         dev.stateListOrDisplayStateIdChanged()
         if dev.deviceTypeId == 'BlueIrisCamera':
+            try:
+            # Update extra settings so can check elsewhere
+                cameraprops = dev.pluginProps
+                #self.logger.info(unicode(cameraprops))
+                if 'animateGif' not in cameraprops:
+                    cameraprops.update({'animateGif': False })
+                if 'gifcompression' not in cameraprops:
+                    cameraprops.update({'gifcompression':150})
+                if 'giftime' not in cameraprops:
+                    cameraprops.update({'giftime':10 })
+                if 'saveimage' not in cameraprops:
+                    cameraprops.update({'saveimage':False})
+                if 'widthimage' not in cameraprops:
+                    cameraprops.update({'widthimage':1920})
+                if 'gifwidth' not in cameraprops:
+                    cameraprops.update({'gifwidth':800})
+                dev.replacePluginPropsOnServer(cameraprops)
+            except:
+                self.logger.debug(u'pluginProps exception being passed')
+                pass
+
             dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
             dev.updateStateOnServer('Motion', value=False, uiValue='False')
             self.createupdatevariable(dev.states['optionValue'], 'False')
             stateList = [
                 {'key': 'MotionDetection', 'value': None, 'uiValue': 'Unknown'},
                 {'key': 'PtzCycle', 'value': None, 'uiValue': 'Unknown'},
-                {'key': 'CameraPaused', 'value': 'unknown', 'uiValue': 'Unknown'}
+                {'key': 'CameraPaused', 'value': 'unknown', 'uiValue': 'Unknown'},
+                {'key': 'PluginTriggeringEnabled', 'value': True}
             ]
             dev.updateStatesOnServer(stateList)
 
@@ -361,7 +383,7 @@ class Plugin(indigo.PluginBase):
                              if camlist[i][0]['isOnline'] == True and camlist[i][0]['isEnabled']:
                                  dev.updateStateOnServer('deviceIsOnline', value=True, uiValue="Online")
                                  dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
-                                 dev.updateStateOnServer('Motion', value=False, uiValue='False' )
+                                 dev.updateStateOnServer('Motion', value=False , uiValue='False')
                              else:
                                  dev.updateStateOnServer('deviceIsOnline', value=False, uiValue="Offline")
                                  dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
@@ -1074,6 +1096,50 @@ class Plugin(indigo.PluginBase):
 
         return
 
+    def actionEnableAnim(self, valuesDict):
+        self.logger.debug(u'action Enable Anim called')
+        try:
+
+            action = valuesDict.pluginTypeId
+            actionevent = valuesDict.props['setting']
+            cameras = valuesDict.props['deviceCamera']
+            for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
+                if str(dev.id) in cameras:
+                    #self.logger.debug(u'Action is:' + unicode(action) + u' & Camera is:' + unicode(dev.name)+u' and action:'+unicode(actionevent))
+                    cameraprops = dev.pluginProps
+                    #self.logger.debug(u'Before:'+unicode(cameraprops))
+                    if actionevent == 'False':
+                        cameraprops.update({'animateGif': False })
+                        dev.replacePluginPropsOnServer(cameraprops)
+                    if actionevent == 'True':
+                        cameraprops.update({'animateGif': True})
+                        dev.replacePluginPropsOnServer(cameraprops)
+                    #self.logger.debug(unicode(u'After:')+unicode(cameraprops))
+            return
+        except:
+            self.logger.exception(u'Exception in Enable Anim Gifs')
+            return
+
+    def pluginTriggering(self, valuesDict):
+        self.logger.debug(u'pluginTriggering called')
+        #self.logger.info(unicode(valuesDict))
+        action = valuesDict.pluginTypeId
+        actionevent = valuesDict.props['plugintriggersetting']
+        cameras = valuesDict.props['deviceCamera']
+        #self.logger.info(unicode(cameras))
+
+        for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
+            if str(dev.id) in cameras:
+                self.logger.debug(u'Action is:' + unicode(action) + u' & Camera is:' + unicode(dev.name)+u' and action:'+unicode(actionevent))
+                if actionevent == 'False':
+                    dev.updateStateOnServer('PluginTriggeringEnabled', value=False)
+                    dev.updateStateOnServer('Motion', value=False ,uiValue='False')
+                if actionevent == 'True':
+                    dev.updateStateOnServer('PluginTriggeringEnabled', value=True)
+                    dev.updateStateOnServer('Motion', value=False, uiValue='False')
+        return
+
+
 
     def ptzmain(self, camera, ptzargs):
 
@@ -1311,6 +1377,12 @@ class Plugin(indigo.PluginBase):
                 if self.debugtriggers:
                     self.logger.debug(u'Trigger Cancelled as Device is Not Online')
                 return
+
+            if device.states['PluginTriggeringEnabled'] ==False:
+                if self.debugtriggers:
+                    self.logger.debug(u'Plugin Triggering is Disable for this Camera')
+                return
+
 
             for triggerId, trigger in sorted(self.triggers.iteritems()):
 

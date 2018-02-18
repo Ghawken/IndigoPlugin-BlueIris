@@ -221,6 +221,13 @@
                 <TriggerLabel>Camera Motion Detector Enabled True False</TriggerLabel>
                 <ControlPageLabel>Camera Motion Detector Enabled True False</ControlPageLabel>
             </State>
+
+            <State id="PluginTriggeringEnabled">
+                <ValueType>Boolean</ValueType>
+                <TriggerLabel>Plugin Triggering True False</TriggerLabel>
+                <ControlPageLabel>Plugin Triggering True False</ControlPageLabel>
+            </State>
+
           <State id="PtzCycle">
                 <ValueType>Boolean</ValueType>
                 <TriggerLabel>Ptz Cycle Enabled True False</TriggerLabel>

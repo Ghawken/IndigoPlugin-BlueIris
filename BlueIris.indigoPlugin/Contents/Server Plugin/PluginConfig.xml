@@ -108,7 +108,12 @@
         <Label/>
         <Description>Debug Triggers</Description>
     </Field>
-    <Field id="debugother" type="checkbox" tooltip="Enabling will result Debugging Geofence Log Creation.">
+        <Field id="debuggif" type="checkbox" tooltip="Enabling will result Debugging Aniamted Gif Threads.">
+        <Label/>
+        <Description>Debug Anim Gifs</Description>
+    </Field>
+
+    <Field id="debugother" type="checkbox" tooltip="Enabling will result Debugging Log Creation.">
         <Label/>
         <Description>Debug Other</Description>
     </Field>

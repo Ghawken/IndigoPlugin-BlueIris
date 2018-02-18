@@ -86,6 +86,7 @@ class Plugin(indigo.PluginBase):
 
         self.debugLevel = self.pluginPrefs.get('showDebugLevel', "20")
         self.debugextra = self.pluginPrefs.get('debugextra', False)
+        self.debuggif = self.pluginPrefs.get('debuggif', False)
         self.debugimage = self.pluginPrefs.get('debugimage', False)
         self.debugtriggers = self.pluginPrefs.get('debugtriggers', False)
         self.debugother = self.pluginPrefs.get('debugother', False)
@@ -153,6 +154,7 @@ class Plugin(indigo.PluginBase):
             self.prefsUpdated = True
             self.debugextra = valuesDict.get('debugextra', False)
             self.debugimage = valuesDict.get('debugimage', False)
+            self.debuggif = valuesDict.get('debuggif', False)
             self.debugtriggers = valuesDict.get('debugtriggers', False)
             self.debugother = valuesDict.get('debugother', False)
             self.openStore = valuesDict.get('openStore', False)
@@ -166,6 +168,35 @@ class Plugin(indigo.PluginBase):
                 self.logger.info(u'Cannot connect to Blue Iris Server.  Check Username/Password/Server Details')
                 return False
         return True
+
+    def validateDeviceConfigUi(self, valuesDict, typeID, devId):
+        self.logger.debug(u'validateDeviceConfigUi Called')
+        errorDict = indigo.Dict()
+
+        try:
+            if typeID=='BlueIrisCamera':
+                if valuesDict['animateGif']:
+                    giftime = int(valuesDict['giftime'])
+                    if giftime > int(60):
+                        errorDict['giftime'] ='Probably a little long.  Try less than 60 seconds'
+                        return (False, valuesDict, errorDict)
+                    giflossy = int(valuesDict['gifcompression'])
+                    if giflossy <=20 or giflossy >200:
+                        errorDict['gifcompression']='To high or low for compression try again'
+                        return (False, valuesDict, errorDict)
+                if valuesDict['animateGif'] and valuesDict['saveimage']== False:
+                    errorDict['animateGif']= 'Need to also enabled Save Images above for this to work'
+                    return (False, valuesDict, errorDict)
+
+            return (True, valuesDict, errorDict)
+
+        except ValueError:
+            self.logger.debug(u'Error in Validate')
+            return (False, valuesDict, errorDict)
+        except:
+            self.logger.exception(u'Error in Device Validate')
+            return (False, valuesDict, errorDict)
+
 
     def validatePrefsConfigUi(self, valuesDict):
         """ docstring placeholder """
@@ -1188,6 +1219,11 @@ class Plugin(indigo.PluginBase):
                     update_time = t.strftime('%c')
                     dev.updateStateOnServer('timeLastMotion', value=str(update_time))
                     #self.logger.info(unicode(dev.pluginProps))
+
+                    # if using animated gifs delay the trigger until image done.
+                    # does risk not sending trigger at all...
+                    # if dev.pluginProps.get('animateGif', false):
+
                     self.triggerCheck(dev, origVariable.name)
                     if dev.pluginProps.get('saveimage', False):
                         self.downloadImage(dev)
@@ -1223,16 +1259,24 @@ class Plugin(indigo.PluginBase):
                     shutil.copyfileobj(r.raw, f)
             else:
                 self.logger.debug(u'Issue with BI connection. No image downloaded.')
-
-
             ## Add Checks here for Anim gif wanted etc
-            ## But meanwhile
-            width = 800
-            time = 10
 
-            myThread = threading.Thread(target=self.animateGif, args=[cameraname, width, time])
-            myThread.start()
-            self.logger.info(u'Number of Active Threads:'+unicode(threading.activeCount()))
+            animateGif=dev.pluginProps.get('animateGif',False)
+            try:
+                if animateGif:
+                    gifwidth = dev.pluginProps.get('gifwidth',0)
+                    giftime = dev.pluginProps.get('giftime',10)
+                    gifcompression = dev.pluginProps.get('gifcompression',50)
+                    width = int(gifwidth)
+                    time = int(giftime)
+                    gifcompression = int(gifcompression)
+
+                    myThread = threading.Thread(target=self.animateGif, args=[cameraname, width, time, gifcompression])
+                    myThread.start()
+                    self.logger.info(u'New Thread Camera:'+unicode(cameraname)+u' & Number of Active Threads:'+unicode(threading.activeCount()))
+                    return
+            except:
+                self.logger.exception(u'Exception in Beta! Animated Gif Threads')
 
             return
         except:
@@ -1311,7 +1355,7 @@ class Plugin(indigo.PluginBase):
 
 ################## Run the create gifs in a seperate thread as will take a few seconds we can't afford
 
-    def animateGif(self, cameraname, width, time):
+    def animateGif(self, cameraname, width, time, gifcompression):
         # file_names = sorted((fn for fn in os.listdir(folderLocation) ))
 
         try:
@@ -1338,7 +1382,7 @@ class Plugin(indigo.PluginBase):
                                          stdout=subprocess.PIPE).communicate()[0]
                     # self.logger.info(unicode(p))
                     x = x + 1
-            self.sleep(0.1)
+            self.sleep(0.05)
 
             newfilename = folderLocation + 'Animated.gif'
             file_names = os.listdir(folderLocation + 'tmp/')
@@ -1347,17 +1391,21 @@ class Plugin(indigo.PluginBase):
                 if '.gif' in filename:
                     listfilenames = listfilenames + ' ' + folderLocation + 'tmp/' + filename
 
-            #self.logger.info(unicode(listfilenames))
-            #self.logger.info(unicode(newfilename))
+            pathtouse = os.path.normpath(self.pathtoGifsicle)
+            #self.logger.info(unicode(self.pathtoGifsicle))
+            #self.logger.info(unicode(pathtouse))
+            if self.debuggif:
+                self.logger.debug(u'listfilenames to make into anim:'+unicode(listfilenames))
+                self.logger.debug(u'new filename'+unicode(newfilename))
             try:
-                argstopass = self.pathtoGifsicle+' --delay 50 --colors 256 --loopcount ' + str(
+                argstopass = '"' + pathtouse + '"' +' --delay 50 --colors 256 --loopcount --lossy='+str(gifcompression)+' ' + str(
                     listfilenames) + ' > ' + str(newfilename)
                 p1 = subprocess.Popen([argstopass], shell=True)
-                #output, err = p1.communicate()
+                output, err = p1.communicate()
+                if self.debuggif:
+                    self.logger.debug(unicode(argstopass))
+                    self.logger.debug('giflossy/sicle return code:'+ unicode(p1.returncode)+' output:'+ unicode(output)+' error:'+unicode(err))
 
-                #self.logger.info(unicode(p1.returncode))
-                #self.logger.info(unicode(output))
-                #self.logger.info(unicode(err))
             except Exception as e:
                 self.logger.exception(u'Exception within animGIF gifsicle - newThread')
 
@@ -1367,7 +1415,7 @@ class Plugin(indigo.PluginBase):
 
     def newThreadDownload(self, folderLocation, cameraname, widthimage, time):
 
-        if self.debugextra:
+        if self.debuggif:
             self.logger.debug(u'newThreadDownload Some Images Called')
         try:
             if not os.path.exists(folderLocation+'tmp'):
@@ -1381,7 +1429,7 @@ class Plugin(indigo.PluginBase):
                 else:
                     self.url = "http://" + str(self.serverip) + ':' + str(
                         self.serverport) + '/image/' + cameraname + '?w=' + str(widthimage)
-                #if self.debugimage:
+                #if self.debuggif:
                     #self.logger.debug(u'newThreadDownload:  Getting url:' + unicode(self.url) + ' with path:' + unicode(path))
 
                 r = requests.get(self.url, auth=(str(self.serverusername), str(self.serverpassword)), stream=True)

@@ -1339,7 +1339,7 @@ class Plugin(indigo.PluginBase):
 
                     myThread = threading.Thread(target=self.animateGif, args=[cameraname, width, time, gifcompression])
                     myThread.start()
-                    self.logger.info(u'New Thread Camera:'+unicode(cameraname)+u' & Number of Active Threads:'+unicode(threading.activeCount()))
+                    self.logger.debug(u'New Thread Camera:'+unicode(cameraname)+u' & Number of Active Threads:'+unicode(threading.activeCount()))
                     return
             except:
                 self.logger.exception(u'Exception in Beta! Animated Gif Threads')
@@ -1431,7 +1431,7 @@ class Plugin(indigo.PluginBase):
         # file_names = sorted((fn for fn in os.listdir(folderLocation) ))
 
         try:
-            self.logger.info(u'AnimateGif Called: In a New thread:')
+            self.logger.debug(u'AnimateGif Called: In a New thread:')
             MAChome = os.path.expanduser("~") + "/"
             folderLocation = MAChome + "Documents/Indigo-BlueIris/"+str(cameraname)+'/'
 

@@ -1481,6 +1481,10 @@ class Plugin(indigo.PluginBase):
             except Exception as e:
                 self.logger.exception(u'Exception within animGIF gifsicle - newThread')
 
+        except self.StopThread:
+            self.logger.info(u'Restarting/or error. Stopping thread.')
+            pass
+
         except:
             self.logger.exception(u'Error in Anim Gif Thread')
 
@@ -1515,6 +1519,11 @@ class Plugin(indigo.PluginBase):
                 Interval = time/15
                 self.sleep(Interval)
             return
+
+        except self.StopThread:
+            self.logger.info(u'Restarting/or error. Stopping thread.')
+            pass
+
         except:
             self.logger.exception(u'Exception in new Thread Download Camera Images')
             return

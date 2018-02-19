@@ -6,6 +6,8 @@ BlueIris Indigo Plugin
 First draft
 
 """
+
+
 import logging
 import sys
 import requests
@@ -19,6 +21,13 @@ import shutil
 
 import subprocess
 import threading
+
+## Role together own httpserver
+import string,cgi
+from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+from SocketServer import ThreadingMixIn
+from urlparse import urlparse
+from cgi import parse_qs
 
 from ghpu import GitHubPluginUpdater
 
@@ -51,6 +60,7 @@ class Plugin(indigo.PluginBase):
         self.pluginIsShuttingDown = False
         self.prefsUpdated = False
         self.system_name = ''
+
         self.systemdata = None
         self.session =''
         self.logger.info(u"")
@@ -87,10 +97,11 @@ class Plugin(indigo.PluginBase):
         self.debugLevel = self.pluginPrefs.get('showDebugLevel', "20")
         self.debugextra = self.pluginPrefs.get('debugextra', False)
         self.debuggif = self.pluginPrefs.get('debuggif', False)
+        self.debugserver = self.pluginPrefs.get('debugserver', False)
         self.debugimage = self.pluginPrefs.get('debugimage', False)
         self.debugtriggers = self.pluginPrefs.get('debugtriggers', False)
         self.debugother = self.pluginPrefs.get('debugother', False)
-
+        self.listenPort = int(self.pluginPrefs.get('Httpserverport', 4556))
         self.prefServerTimeout = int(self.pluginPrefs.get('configMenuServerTimeout', "15"))
         self.configUpdaterInterval = self.pluginPrefs.get('configUpdaterInterval', 24)
 
@@ -153,11 +164,20 @@ class Plugin(indigo.PluginBase):
             self.serverpassword = valuesDict.get('serverpassword','')
             self.prefsUpdated = True
             self.debugextra = valuesDict.get('debugextra', False)
+            self.debugserver = valuesDict.get('debugserver', False)
             self.debugimage = valuesDict.get('debugimage', False)
             self.debuggif = valuesDict.get('debuggif', False)
             self.debugtriggers = valuesDict.get('debugtriggers', False)
             self.debugother = valuesDict.get('debugother', False)
             self.openStore = valuesDict.get('openStore', False)
+            oldlistport = self.listenPort
+            self.listenPort = int(valuesDict.get('Httpserverport', 4556))
+            if self.listenPort != oldlistport:
+                self.logger.error(u"{0:=^130}".format(""))
+                self.logger.error(u'After Changing Port need to Restart Plugin.  Restarting Now.....')
+                self.logger.error(u"{0:=^130}".format(""))
+                self.restartPlugin()
+                return False
 
             self.updateFrequency = float(valuesDict.get('updateFrequency', "24")) * 60.0 * 60.0
 
@@ -259,6 +279,12 @@ class Plugin(indigo.PluginBase):
             return True, valuesDict
 
         return True, valuesDict
+
+    def restartPlugin(self):
+        self.logger.debug(u"Restarting the  Plugin Called.")
+        plugin = indigo.server.getPlugin('com.GlennNZ.indigoplugin.BlueIris')
+        if plugin.isEnabled():
+            plugin.restart(waitUntilDone=False)
 
 
     # Start 'em up.
@@ -515,7 +541,7 @@ class Plugin(indigo.PluginBase):
             return
 
         if statusresults is None:
-            self.logger.error(u'Please enter correct Login Server Details in Plugin Config')
+            self.logger.info(u'No result from status enquiry. If repeated please check Login Server Details in Plugin Config')
             return
 
        #login self.logger.info(unicode(statusresults  ))
@@ -932,6 +958,11 @@ class Plugin(indigo.PluginBase):
         if not os.path.exists(folderLocation):
             os.makedirs(folderLocation)
         self.updater = GitHubPluginUpdater(self)
+
+## Start Http Server at Startup
+        self.myThread = threading.Thread(target=self.listenHTTP, args=())
+        self.myThread.daemon = True
+        self.myThread.start()
 
     def setStatestonil(self, dev):
 
@@ -1527,3 +1558,51 @@ class Plugin(indigo.PluginBase):
         except:
             self.logger.exception(u'Exception in new Thread Download Camera Images')
             return
+
+###########  Add own Http Server, avoid dependency on subscribeVariable.  Remove Variables
+#
+    def listenHTTP(self):
+        try:
+            self.debugLog(u"Starting HTTP listener thread")
+            indigo.server.log(u"Http Server Listening on TCP port " + str(self.listenPort))
+            self.server = ThreadedHTTPServer(('', self.listenPort), lambda *args: httpHandler(self, *args))
+            self.server.serve_forever()
+
+        except self.StopThread:
+            self.logger.debug(u'Self.Stop Thread called')
+            pass
+        except:
+            self.logger.exception(u'Exception in ListenHttp')
+
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    """Handle requests in a separate thread."""
+
+class httpHandler(BaseHTTPRequestHandler):
+    def __init__(self,plugin, *args):
+        self.plugin=plugin
+        #self.logger = logger
+        if self.plugin.debugserver:
+            self.plugin.logger.debug(u'New Http Handler thread:'+threading.currentThread().getName()+", total threads: "+str(threading.activeCount()))
+        BaseHTTPRequestHandler.__init__(self, *args)
+
+    def _set_headers(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+
+    def do_POST(self):
+        global rootnode
+        if self.plugin.debugserver:
+            self.plugin.logger.debug(u'Received Http POST')
+            self.plugin.logger.debug(u'Sending HTTP 200 Response')
+
+        # Doesn't do anything with posted data
+        content_length = int(self.headers['Content-Length'])  # <--- Gets the size of data
+        post_data = self.rfile.read(content_length)  # <--- Gets the data itself
+          # <-- Print post data
+        if self.plugin.debugserver:
+            self.plugin.logger.debug(self.path)
+            self.plugin.logger.debug(post_data)
+
+        self._set_headers()
+

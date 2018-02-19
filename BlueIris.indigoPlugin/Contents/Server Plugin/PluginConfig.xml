@@ -44,6 +44,15 @@
 				<Label>Enter your Password:</Label>
 			</Field>
 
+    <Field id="sep2aa33" type="separator"/>
+       <Field id="Httpserverport"
+				   type="textfield"
+				   tooltip="Enter Server Port"
+                    default = '4556'>
+				<Label>Local Port for Plugin Server: (default 4556)</Label>
+	</Field>
+
+      <Field id="sep2aa24" type="separator"/>
 
       <Field id="sep233" type="separator"/>
        <Field id="loginServer"
@@ -113,6 +122,10 @@
         <Description>Debug Anim Gifs</Description>
     </Field>
 
+    <Field id="debugserver" type="checkbox" tooltip="Enabling will result Debug Server Entries.">
+        <Label/>
+        <Description>Debug Http Server</Description>
+    </Field>
     <Field id="debugother" type="checkbox" tooltip="Enabling will result Debugging Log Creation.">
         <Label/>
         <Description>Debug Other</Description>

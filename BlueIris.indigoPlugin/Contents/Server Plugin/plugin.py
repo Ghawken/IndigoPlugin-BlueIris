@@ -60,7 +60,7 @@ class Plugin(indigo.PluginBase):
         self.pluginIsShuttingDown = False
         self.prefsUpdated = False
         self.system_name = ''
-
+        self.oldlistenPort = 4556
         self.systemdata = None
         self.session =''
         self.logger.info(u"")
@@ -89,6 +89,10 @@ class Plugin(indigo.PluginBase):
 
         self.pathtoPlugin = indigo.server.getInstallFolderPath()
 
+        self.listenPort = 4556 #default
+        # add callhere
+        self.validatePrefsConfigUi(pluginPrefs)
+
         self.serverip = self.pluginPrefs.get('serverip', '')
         self.serverport = int(self.pluginPrefs.get('serverport', '80'))
         self.serverusername = self.pluginPrefs.get('serverusername', '')
@@ -101,7 +105,18 @@ class Plugin(indigo.PluginBase):
         self.debugimage = self.pluginPrefs.get('debugimage', False)
         self.debugtriggers = self.pluginPrefs.get('debugtriggers', False)
         self.debugother = self.pluginPrefs.get('debugother', False)
-        self.listenPort = int(self.pluginPrefs.get('Httpserverport', 4556))
+
+
+        # self.logger.info(unicode(self.pluginPrefs.get('Httpserverport','4556')))
+
+        #self.listenPort = int(self.pluginPrefs.get('Httpserverport','4556'))
+        # if self.listenPort is None:
+        #     self.listenPort = 4556
+        # elif self.listenPort == '':
+        #     self.listenPort = 4556
+
+        # self.listenPort = int(self.listenPort)
+
         self.prefServerTimeout = int(self.pluginPrefs.get('configMenuServerTimeout', "15"))
         self.configUpdaterInterval = self.pluginPrefs.get('configUpdaterInterval', 24)
 
@@ -115,24 +130,10 @@ class Plugin(indigo.PluginBase):
 
         self.folderId = indigo.variables.folders['BlueIris'].id
 
-# Goodbyte Variable Subscription - Hello Own http server...
-       # indigo.variables.subscribeToChanges()
 
         self.pluginIsInitializing = False
 
-    # def createupdatevariable(self, variable, result):
-    #
-    #     #self.logger.debug(u'createupdate variable called.')
-    #     if 'BlueIris' not in indigo.variables.folders:
-    #         indigo.variables.folder.create('BlueIris')
-    #
-    #     if variable not in indigo.variables:
-    #         indigo.variable.create(variable, str(result), folder='BlueIris')
-    #         return
-    #     else:
-    #         indigo.variable.updateValue(str(variable), str(result))
-    #
-    #     return
+
 
     def __del__(self):
         if self.debugLevel >= 2:
@@ -159,10 +160,12 @@ class Plugin(indigo.PluginBase):
             self.logger.debug(u"logLevel = " + str(self.logLevel))
             self.logger.debug(u"User prefs saved.")
             self.logger.debug(u"Debugging on (Level: {0})".format(self.debugLevel))
+
             self.serverip = valuesDict.get('serverip', False)
             self.serverport = int(valuesDict.get('serverport', '80'))
             self.serverusername = valuesDict.get('serverusername', '')
             self.serverpassword = valuesDict.get('serverpassword','')
+
             self.prefsUpdated = True
             self.debugextra = valuesDict.get('debugextra', False)
             self.debugserver = valuesDict.get('debugserver', False)
@@ -171,14 +174,19 @@ class Plugin(indigo.PluginBase):
             self.debugtriggers = valuesDict.get('debugtriggers', False)
             self.debugother = valuesDict.get('debugother', False)
             self.openStore = valuesDict.get('openStore', False)
-            oldlistport = self.listenPort
-            self.listenPort = int(valuesDict.get('Httpserverport', 4556))
-            if self.listenPort != oldlistport:
+
+            #oldlistenport = self.listenPort
+
+            self.listenPort = int(valuesDict.get('Httpserverport', '4556'))
+
+            if self.listenPort != self.oldlistenPort:
                 self.logger.error(u"{0:=^130}".format(""))
                 self.logger.error(u'After Changing Port need to Restart Plugin.  Restarting Now.....')
                 self.logger.error(u"{0:=^130}".format(""))
                 self.restartPlugin()
                 return False
+
+            self.oldlistenPort = self.listenPort
 
             self.updateFrequency = float(valuesDict.get('updateFrequency', "24")) * 60.0 * 60.0
 
@@ -221,8 +229,7 @@ class Plugin(indigo.PluginBase):
 
     def validatePrefsConfigUi(self, valuesDict):
         """ docstring placeholder """
-        self.logger.debug(u"--- validatePrefsConfigUi() method called.")
-
+        self.logger.debug(u"------ validatePrefsConfigUi() method called.")
         errorDict = indigo.Dict()
 
         if 'serverip' in valuesDict:
@@ -238,6 +245,8 @@ class Plugin(indigo.PluginBase):
         else:
             return False, valuesDict
 
+
+
         if 'serverport' in valuesDict:
             iFail = False
             if len(valuesDict['serverport']) == 0:
@@ -248,6 +257,9 @@ class Plugin(indigo.PluginBase):
             if iFail:
                 self.logger.info("Server Port failed")
                 return (False, valuesDict, errorDict)
+        else:
+            return False, valuesDict
+
 
         if 'serverusername' in valuesDict:
             iFail = False
@@ -262,6 +274,8 @@ class Plugin(indigo.PluginBase):
         else:
             return False, valuesDict
 
+
+
         if 'serverpassword' in valuesDict:
             iFail = False
             if len(valuesDict['serverpassword']) == 0:
@@ -273,11 +287,34 @@ class Plugin(indigo.PluginBase):
             if iFail:
                 self.logger.info("Server Password failed")
                 return (False, valuesDict, errorDict)
+        else:
+            return False, valuesDict
 
-        if 'serverip' in valuesDict and 'serverport' in valuesDict and 'serverusername' in valuesDict  and 'serverpassword' in valuesDict:
 
+        if 'Httpserverport' in valuesDict:
+
+            try:
+                self.oldlistenPort = self.listenPort
+                #self.logger.debug(u'Old listenPort is :' + unicode(self.oldlistenPort))
+                self.listenPort = int(valuesDict['Httpserverport'])
+            except:
+                #self.logger.exception(u'Httpserverport Error')
+                self.listenPort = 4556
+                self.pluginPrefs['Httpserverport'] = 4556
+                errorDict['Httpserverport']='Please enter valid Port Number'
+                errorDict['showAlertText']='The field is invalid as it is not an integer'
+                return (False, valuesDict, errorDict)
+        else:
+            #self.logger.error(u'No httpServerport in valuesDict Why')
+            self.listenPort = 4556
+            self.pluginPrefs['Httpserverport'] = 4556
+
+        if 'serverip' in valuesDict and 'serverport' in valuesDict and 'serverusername' in valuesDict  and 'serverpassword' in valuesDict and 'Httpserverport' in valuesDict:
             # Validate login
             return True, valuesDict
+        else:
+            errorDict['showAlertText']='Missing some Plugin Configuration Settings Pleae review'
+            return (False, valuesDict, errorDict)
 
         return True, valuesDict
 

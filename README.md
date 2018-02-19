@@ -33,6 +33,13 @@ Password
 
 (for some actions your BI account needs to be admin enabled)
 
+0.6.0 Change:
+Changes to Plugin managing it's own Http Server:
+
+Need to put port number of server in PluginConfig:
+Default port 4556
+Can be changed to any allowed port if needed.
+
 
 Click Login/Generate Server Device, here:
 ![https://s17.postimg.org/9pqbs74r3/Plug_Config_Loginbutton.png](https://s17.postimg.org/9pqbs74r3/Plug_Config_Loginbutton.png)
@@ -65,34 +72,40 @@ Allows CPU,Mem Monitoring etc and triggering if CPU gets out of hand
 **## BlueIris Server Camera End Setup**
 
 **To trigger plugin - add**
-indigousername:indigopassword@indigoip:8176/variables/&CAM?_method=put&value=True
+
+eg. IndigoIP = 192.168.1.6,  Port selected in PluginConfig: 4556
+
+When Triggered
+http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/True
+POST text: Indigo
+
+Request again when trigger is reset
+http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/False
+POST text: Indigo
+
+
 to each camera in BlueIris;  Camera: Alerts, request from web service:  When triggered.
+&
+
 
 **BI ScreenShots:**
 
-![http://i68.tinypic.com/egwprd.png](http://i68.tinypic.com/egwprd.png)
-&
-![http://i63.tinypic.com/6i8rkm.png](http://i63.tinypic.com/6i8rkm.png)
+![http://i68.tinypic.com/30agg7c.png](http://i68.tinypic.com/30agg7c.png)
 
 -----------------------------------------------------------------------------------------------------------------------------
-**For Indigo with Basic Authenication (not Indigo's default):**
+This has changed from new version 0.6.0
+Same for everyone - no longer different for Basic/Digest Authenication
+Allows:Motion On/Off, and adds
 
-Remembering to put this in all alert boxes for every BI Camera:
+Add new Camera Device States:
+lastMotionTriggerType  possible results
+- TEST [from the Test button]
+- MOTION
+- AUDIO
+- EXTERNAL
+- WATCHDOG
 
-    indigousername:indigopassword@indigoIP:8176/variables/&CAM?_method=put&value=True
-
-**DOES NOT **Need to be changed - same lines with correct username/password/IP/Port for every camera - just copy and paste - took me 60 seconds for 15 cameras.
-
-**OR**
-
-**For Indigo with  Digest Authenication  (Default for Indigo):**
-
-1. Download and install curl for Windows [[url]https://curl.haxx.se/download.html[/url]].  Put the files in c:\curl or somewhere you can find them.
-2. In BI, instead of using a web service on the alert action, choose "Run a program or execute a script"
-3. In the File, navigate to the appropriate place and select your curl.exe file, e.g.  **c:\curl\curl.exe**
-4. In Parameters, put this:
-`-u username:password --digest http://192.168.x.x:8176/variables/&CAM?_method=put&value=True`
-Remember that CAM gets replaced by the BI short name, which is the variable created by the plugin
+timelastMotion = time of last Motion Detection
 -----------------------------------------------------------------------------------------------------------------------------
 
 This will trigger and update camera in Indigo everytime triggered or motion sensor changes - this happens immediately.
@@ -106,6 +119,19 @@ There are multiple support actions that can be performed on each/some/or the Ser
 
 ![https://camo.githubusercontent.com/6da5f1a4ee61eefae425c1064cfc4ff058fdc757/687474703a2f2f6936332e74696e797069632e636f6d2f33327a693235642e706e67](https://camo.githubusercontent.com/6da5f1a4ee61eefae425c1064cfc4ff058fdc757/687474703a2f2f6936332e74696e797069632e636f6d2f33327a693235642e706e67)
 
+**Recent Actions Added**
+
+Add Enable/Disable Generate Animated Gifs as Action Group per Camera/s
+[this enables you to change the camera settings with an action as required - e.g arrived home; stop making them]
+
+Add Status PluginTriggeringEnabled to each Camera.
+[this enabled you as an action to disable any Plugin Based triggering [this doesn't affect BI Server]
+eg. arrived home - Disable this setting and no Plugin Triggers for this camera will occur]
+
+PluginTriggeringEnabled for all Cameras reset at Plugin startup to Enabled.
+
+
+
 
 **Triggers**
 
@@ -114,7 +140,6 @@ The Plugin also creates a Trigger which is run when the selected Camera(s) detec
 You can select multiple cameras:
 
 ![https://s17.postimg.org/si26vsgkv/Select_Trigger_Cameras.png](https://s17.postimg.org/si26vsgkv/Select_Trigger_Cameras.png)
-
 
 The triggering of these alerts is dependant in the settings that are created within BlueIris as above - including the retrigger timeout - will not retrigger until this time has passed.
 
@@ -126,13 +151,42 @@ The Camera Devices have a few user configurable options:
 - Save Image if Camera Triggered
 - Width in Pixels of image (up to maximum of the camera)  Proportions are left unchanged
 
-![https://s17.postimg.org/4scr7c2un/Camera_Options.png](https://s17.postimg.org/4scr7c2un/Camera_Options.png)
+![http://i65.tinypic.com/ftzfw1.png](http://i65.tinypic.com/ftzfw1.png)
 
 If this option is select the plugin will download an image from this camera locally everytime it is triggered.
 It is stored in path
 `/User/Documents/Indigo-BlueIris/`
 
 This image can be used in Control Pages (showing last triggering) or used to send via iMsg/PushOver etc with these plugins.
+
+From version 0.6.0
+The Plugin can also generate an Animated Gif for each Camera.  This can be done automatically if triggered from within the Camera Device settings, or it can be performed as an Action on selected Cameras
+
+The animated Gif once triggered is then generated - eg. if length is 10 seconds 15 images/10 seconds are taken, and then packaged and sent, so if being used in a action group will need to add appropriate delay
+for it all to be created.
+
+The way I have done this is to use two external calls - one to build-in Sips app to convert jpg to Gif. The next is to package gifiscle within the plugin and this is called to create the Anims. Separate threads are created so there is no main-thread time impact for this.
+There are no additional libraries required (I hope....)
+
+Options:
+These can then be sent via imsg very easily with the following Applescript action group.
+Code: Select all
+
+'''
+delay 5
+tell application "Messages"
+   set myid to get id of first service
+   set theBuddy to buddy "toemailaddress" of service "E:fromemailaddress note the E:"
+   send POSIX file "/Users/Username/Documents/Indigo-BlueIris/CameraNameShort/Animated.gif" to theBuddy
+end tell
+'''
+
+Would suggest this is best in a external script given the time to run aspects. Delay above depends on how long images are captured for.
+
+
+
+
+
 
 
 

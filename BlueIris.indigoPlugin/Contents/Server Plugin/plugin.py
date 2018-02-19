@@ -115,23 +115,24 @@ class Plugin(indigo.PluginBase):
 
         self.folderId = indigo.variables.folders['BlueIris'].id
 
-        indigo.variables.subscribeToChanges()
+# Goodbyte Variable Subscription - Hello Own http server...
+       # indigo.variables.subscribeToChanges()
 
         self.pluginIsInitializing = False
 
-    def createupdatevariable(self, variable, result):
-
-        #self.logger.debug(u'createupdate variable called.')
-        if 'BlueIris' not in indigo.variables.folders:
-            indigo.variables.folder.create('BlueIris')
-
-        if variable not in indigo.variables:
-            indigo.variable.create(variable, str(result), folder='BlueIris')
-            return
-        else:
-            indigo.variable.updateValue(str(variable), str(result))
-
-        return
+    # def createupdatevariable(self, variable, result):
+    #
+    #     #self.logger.debug(u'createupdate variable called.')
+    #     if 'BlueIris' not in indigo.variables.folders:
+    #         indigo.variables.folder.create('BlueIris')
+    #
+    #     if variable not in indigo.variables:
+    #         indigo.variable.create(variable, str(result), folder='BlueIris')
+    #         return
+    #     else:
+    #         indigo.variable.updateValue(str(variable), str(result))
+    #
+    #     return
 
     def __del__(self):
         if self.debugLevel >= 2:
@@ -316,7 +317,7 @@ class Plugin(indigo.PluginBase):
 
             dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
             dev.updateStateOnServer('Motion', value=False, uiValue='False')
-            self.createupdatevariable(dev.states['optionValue'], 'False')
+            #self.createupdatevariable(dev.states['optionValue'], 'False')
             stateList = [
                 {'key': 'MotionDetection', 'value': None, 'uiValue': 'Unknown'},
                 {'key': 'PtzCycle', 'value': None, 'uiValue': 'Unknown'},
@@ -470,7 +471,7 @@ class Plugin(indigo.PluginBase):
                          device.updateStateOnServer('deviceLastUpdated', value=str(update_time))
 
                      #create motion variable in folder
-                     self.createupdatevariable(str(camlist[i][0]['optionValue']).replace(' ',''), camlist[i][0]['isTriggered'])
+                     #self.createupdatevariable(str(camlist[i][0]['optionValue']).replace(' ',''), camlist[i][0]['isTriggered'])
                 x=x+1
             #now fill with data
                 self.sleep(0.1)
@@ -785,7 +786,7 @@ class Plugin(indigo.PluginBase):
                          #device = indigo.device.create(address=deviceName, deviceTypeId='BlueIrisCamera',name=deviceName,protocol=indigo.kProtocol.Plugin, folder='BlueIris')
                          #self.sleep(2)
                      #create motion variable in folder
-                     self.createupdatevariable(str(camlist[i][0]['optionValue']).replace(' ',''), camlist[i][0]['isTriggered'])
+                     #self.createupdatevariable(str(camlist[i][0]['optionValue']).replace(' ',''), camlist[i][0]['isTriggered'])
                 x=x+1
             #now fill with data
                 self.sleep(1)
@@ -826,6 +827,7 @@ class Plugin(indigo.PluginBase):
             self.logger.debug(u'Status code'+unicode(r.status_code) )
             self.logger.debug(u'Text :'+unicode(r.text))  #r.text
             self.logger.debug(u'Error Running command')
+            return ''
         else:
             pass
             if self.debugextra:
@@ -1151,6 +1153,37 @@ class Plugin(indigo.PluginBase):
             self.logger.exception(u'Exception in Enable Anim Gifs')
             return
 
+    def actionCreateAnimGif(self, valuesDict):
+        self.logger.debug(u'action Create Gif for Cameras/s ')
+
+        try:
+
+            action = valuesDict.pluginTypeId
+            self.logger.info(unicode(valuesDict))
+            cameras = valuesDict.props.get('deviceCamera',[])
+            for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
+                if str(dev.id) in cameras and dev.enabled:
+                        cameraname = dev.states['optionValue']
+                        gifwidth = valuesDict.props.get('gifwidth', 800)
+                        giftime = valuesDict.props.get('giftime', 10)
+                        gifcompression = dev.pluginProps.get('gifcompression', 50)
+                        width = int(gifwidth)
+                        time = int(giftime)
+                        gifcompression = int(gifcompression)
+
+                        myThread = threading.Thread(target=self.animateGif,
+                                                    args=[cameraname, width, time, gifcompression])
+                        myThread.start()
+                        self.logger.debug(
+                            u'AnimGif: Action New Thread For Camera:' + unicode(cameraname) + u' & Number of Active Threads:' + unicode(
+                                threading.activeCount()))
+                        self.sleep(0.1)
+            return
+        except:
+            self.logger.exception(u'Exception in Create Anim Gifs')
+            return
+
+
     def pluginTriggering(self, valuesDict):
         self.logger.debug(u'pluginTriggering called')
         #self.logger.info(unicode(valuesDict))
@@ -1282,52 +1315,52 @@ class Plugin(indigo.PluginBase):
 
 ### subscribe variable changes
 
-    def variableUpdated(self, origVariable, newVariable):
-
-        if self.pluginIsInitializing:
-            self.logger.debug(u'variableUpdate called - Initializing returning')
-            return
-
-        #folderId = indigo.variables.folders['BlueIris'].id
-        #self.logger.info(u'Folder Id equals:'+unicode(folderId))
-        #self.logger.debug(u'Variable Updated called..')
-        if len(newVariable.value) < 3: return
-        if origVariable.folderId != self.folderId:
-            return
-        if newVariable.value =='False':
-            # Self triggered
-            #self.logger.debug(u'Variable = False. Ignore.')
-            return
-
-        #self.logger.debug(u'original :'+unicode(origVariable)+' , new :'+unicode(newVariable))
-        #self.logger.debug(u'Camera Triggered:'+unicode(origVariable.name))
-
-        for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
-            if dev.enabled:
-                if dev.states['optionValue'] == origVariable.name:
-
-                    #  Should add check for true
-                    # trigger trigger for this dev camera &
-                    #
-                    if self.debugextra:
-                        self.logger.debug(u'Trigger Motion for this Camera:'+unicode(origVariable.name))
-                    dev.updateStateOnServer('Motion', value=True, uiValue='True')
-                    dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensorTripped)
-                    update_time = t.strftime('%c')
-                    dev.updateStateOnServer('timeLastMotion', value=str(update_time))
-                    #self.logger.info(unicode(dev.pluginProps))
-
-                    # if using animated gifs delay the trigger until image done.
-                    # does risk not sending trigger at all...
-                    # if dev.pluginProps.get('animateGif', false):
-
-                    self.triggerCheck(dev, origVariable.name)
-                    if dev.pluginProps.get('saveimage', False):
-                        self.downloadImage(dev)
-                    #self.sleep(0.5)
-                    # Only triggered if change - so quickly change back to False
-                    indigo.variable.updateValue(origVariable.id, 'False')
-        return
+    # def variableUpdated(self, origVariable, newVariable):
+    #
+    #     if self.pluginIsInitializing:
+    #         self.logger.debug(u'variableUpdate called - Initializing returning')
+    #         return
+    #
+    #     #folderId = indigo.variables.folders['BlueIris'].id
+    #     #self.logger.info(u'Folder Id equals:'+unicode(folderId))
+    #     #self.logger.debug(u'Variable Updated called..')
+    #     if len(newVariable.value) < 3: return
+    #     if origVariable.folderId != self.folderId:
+    #         return
+    #     if newVariable.value =='False':
+    #         # Self triggered
+    #         #self.logger.debug(u'Variable = False. Ignore.')
+    #         return
+    #
+    #     #self.logger.debug(u'original :'+unicode(origVariable)+' , new :'+unicode(newVariable))
+    #     #self.logger.debug(u'Camera Triggered:'+unicode(origVariable.name))
+    #
+    #     for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
+    #         if dev.enabled:
+    #             if dev.states['optionValue'] == origVariable.name:
+    #
+    #                 #  Should add check for true
+    #                 # trigger trigger for this dev camera &
+    #                 #
+    #                 if self.debugextra:
+    #                     self.logger.debug(u'Trigger Motion for this Camera:'+unicode(origVariable.name))
+    #                 dev.updateStateOnServer('Motion', value=True, uiValue='True')
+    #                 dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensorTripped)
+    #                 update_time = t.strftime('%c')
+    #                 dev.updateStateOnServer('timeLastMotion', value=str(update_time))
+    #                 #self.logger.info(unicode(dev.pluginProps))
+    #
+    #                 # if using animated gifs delay the trigger until image done.
+    #                 # does risk not sending trigger at all...
+    #                 # if dev.pluginProps.get('animateGif', false):
+    #
+    #                 self.triggerCheck(dev, origVariable.name)
+    #                 if dev.pluginProps.get('saveimage', False):
+    #                     self.downloadImage(dev)
+    #                 #self.sleep(0.5)
+    #                 # Only triggered if change - so quickly change back to False
+    #                 indigo.variable.updateValue(origVariable.id, 'False')
+    #     return
 
     ### Download Image
 
@@ -1335,7 +1368,6 @@ class Plugin(indigo.PluginBase):
         if self.debugextra:
             self.logger.debug(u'downloadImage Called')
         try:
-
             cameraname = dev.states['optionValue']
             widthimage = dev.pluginProps.get('widthimage',0)
             MAChome = os.path.expanduser("~") + "/"
@@ -1379,8 +1411,6 @@ class Plugin(indigo.PluginBase):
         except:
             self.logger.exception(u'Exception in download Camera Image')
             return
-
-
 
 
 ##################  Triggers
@@ -1596,13 +1626,76 @@ class httpHandler(BaseHTTPRequestHandler):
             self.plugin.logger.debug(u'Received Http POST')
             self.plugin.logger.debug(u'Sending HTTP 200 Response')
 
-        # Doesn't do anything with posted data
-        content_length = int(self.headers['Content-Length'])  # <--- Gets the size of data
-        post_data = self.rfile.read(content_length)  # <--- Gets the data itself
-          # <-- Print post data
-        if self.plugin.debugserver:
-            self.plugin.logger.debug(self.path)
-            self.plugin.logger.debug(post_data)
+        try:
 
-        self._set_headers()
+            content_length = int(self.headers['Content-Length'])  # <--- Gets the size of data
+            post_data = self.rfile.read(content_length)  # <--- Gets the data itself
+              # <-- Print post data
+            if self.plugin.debugserver:
+                self.plugin.logger.debug(unicode(self.path))
+                #self.plugin.logger.debug(unicode(post_data))
 
+            #self._set_headers()
+
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+
+            # if self.plugin.debugserver:
+            #     self.plugin.logger.debug(unicode('After End_Headers'))
+
+
+            if 'indigo' not in str(post_data).lower():
+                if self.plugin.debugserver:
+                    self.plugin.logger.info(unicode('Received a reply with no Indigo in POST text.  Ignoring. '))
+                    self.plugin.logger.info(unicode('Have you put Indigo in the POST box?  Or is there something else sending to this port? '))
+                return
+
+            # if self.plugin.debugserver:
+            #     self.plugin.logger.debug(unicode('After Indigo Post Check'))
+
+            listresults = str(self.path).split('/')
+
+            if self.plugin.debugserver:
+                self.plugin.logger.debug(u'List of Results Equals:'+unicode(listresults) +u'  and length of listresults:'+unicode(len(listresults)))
+
+            if len(listresults)<=4:
+                if self.plugin.debugserver:
+                    self.plugin.logger.info(u'To few information received from BlueIris.  Have you used the correct format?' )
+                    self.plugin.logger.info(u'Should be: http://  IndigoIP:SelectedPort/&CAM/&TYPE/&PROFILE/True')
+                    self.plugin.logger.info(u'POST text:  Indigo')
+                    self.plugin.logger.info(u'& in reset when trigger is reset:')
+                    self.plugin.logger.info(u'Should be: http://  IndigoIP:SelectedPort/&CAM/&TYPE/&PROFILE/False')
+                    self.plugin.logger.info(u'POST text:  Indigo')
+                    return
+
+            cameraname = str(listresults[1])
+            typetrigger= listresults[2]
+            activeprofile = listresults[3]
+            motion = str(listresults[4]).lower()
+            ## Check and Update Device as BIServer info received
+
+            for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
+                if dev.enabled:
+                    if dev.states['optionValue'] == cameraname:
+
+                        if self.plugin.debugserver:
+                            self.plugin.logger.debug(u'Trigger Motion for this Camera:'+unicode(cameraname))
+                        if motion == 'true':
+                            dev.updateStateOnServer('Motion', value=True, uiValue='True')
+                            dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensorTripped)
+                            update_time = t.strftime('%c')
+                            dev.updateStateOnServer('timeLastMotion', value=str(update_time))
+                            dev.updateStateOnServer('lastMotionTriggerType', value=str(typetrigger))
+                            self.plugin.triggerCheck(dev, cameraname)
+
+                            if dev.pluginProps.get('saveimage', False):
+                                self.plugin.downloadImage(dev)
+                        elif motion =='false':
+                            dev.updateStateOnServer('Motion', value=False, uiValue='False')
+                            dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
+                            dev.updateStateOnServer('lastMotionTriggerType', value=str(typetrigger))
+            return
+        except:
+            self.plugin.logger.exception(u'Exception in do_POST single thread.')
+            return

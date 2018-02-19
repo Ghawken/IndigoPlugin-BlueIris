@@ -173,9 +173,6 @@
         <Label/>
         <Description>Generate Animated Gif when Motion</Description>
     </Field>
-
-
-
         <Field id="gifwidth" type="textfield" tooltip="Width of Image.">
             <Label>Width in Pixels of Image:</Label>
         <Description>Width of Image Saved</Description>
@@ -278,6 +275,13 @@
                 <TriggerLabel>color</TriggerLabel>
                 <ControlPageLabel>color</ControlPageLabel>
             </State>
+                        <State id="lastMotionTriggerType">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Type of Motion Trigger</TriggerLabel>
+                <ControlPageLabel>Type of Motion Trigger</ControlPageLabel>
+            </State>
+
+
             <State id="nClips">
                 <ValueType>Number</ValueType>
                 <TriggerLabel>Number Clips</TriggerLabel>

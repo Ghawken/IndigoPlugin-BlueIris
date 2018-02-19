@@ -1155,11 +1155,9 @@ class Plugin(indigo.PluginBase):
 
     def actionCreateAnimGif(self, valuesDict):
         self.logger.debug(u'action Create Gif for Cameras/s ')
-
         try:
-
             action = valuesDict.pluginTypeId
-            self.logger.info(unicode(valuesDict))
+            self.logger.debug(unicode(valuesDict))
             cameras = valuesDict.props.get('deviceCamera',[])
             for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
                 if str(dev.id) in cameras and dev.enabled:

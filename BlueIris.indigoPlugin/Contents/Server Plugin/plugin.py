@@ -1213,7 +1213,8 @@ class Plugin(indigo.PluginBase):
         self.logger.debug(u'action Create Gif for Cameras/s ')
         try:
             action = valuesDict.pluginTypeId
-            self.logger.debug(unicode(valuesDict))
+            if self.debuggif:
+                self.logger.debug(unicode(valuesDict))
             cameras = valuesDict.props.get('deviceCamera',[])
             for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
                 if str(dev.id) in cameras and dev.enabled:
@@ -1581,8 +1582,11 @@ class Plugin(indigo.PluginBase):
                         shutil.copyfileobj(r.raw, f)
                 else:
                     self.logger.debug(u'Issue with BI connection. No image downloaded. Status code:'+unicode(r.status_code)+' Error:'+unicode(r.text))
-                    x=x-1
-                    t.sleep(1)
+
+                    #not sure about below - might hang forever and lead to multiple threads versus missing image..
+                    #removing
+                    #x=x-1
+                    t.sleep(2)
 
                 Interval = float( float(time) / 15)
                 #change above
@@ -1800,3 +1804,7 @@ class httpHandler(BaseHTTPRequestHandler):
         except:
             self.plugin.logger.exception(u'Exception in do_POST single thread.')
             return
+
+#todo
+#add Motion Ended Trigger
+#Consider trigger animgif finished...

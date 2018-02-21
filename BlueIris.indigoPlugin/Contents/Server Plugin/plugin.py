@@ -1775,7 +1775,6 @@ class httpHandler(BaseHTTPRequestHandler):
                     self.plugin.logger.info(u'Should be: http://  IndigoIP:SelectedPort/&CAM/&TYPE/&PROFILE/False')
                     self.plugin.logger.info(u'POST text:  Indigo')
                     return
-
             cameraname = str(listresults[1])
             typetrigger= listresults[2]
             activeprofile = listresults[3]

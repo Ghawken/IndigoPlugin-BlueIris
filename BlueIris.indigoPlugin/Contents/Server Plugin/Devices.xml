@@ -166,7 +166,7 @@
 
         <Field id="label22" type="label"  fontColor="black">
     <Label>If below is checked Plugin when triggered will create an Animated Gif of the event.Save Image above must also be selected.
-        [Consider this functionality currently Beta.]
+
     </Label>
   </Field>
         <Field id="animateGif" type="checkbox" tooltip="Save Image if Motion.">

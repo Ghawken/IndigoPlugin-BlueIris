@@ -1158,7 +1158,8 @@ class Plugin(indigo.PluginBase):
             for dev in indigo.devices.itervalues('self.BlueIrisServer'):
                 if dev.enabled:
                     if bool(dev.states['admin']):
-                        self.logger.debug(u'Check Admin User: Admin User Found.')
+                        if self.debugextra:
+                            self.logger.debug(u'Check Admin User: Admin User Found.')
                         return True
             if admin == False:
                 self.logger.debug(u'BlueIris Server User is not Admin.')

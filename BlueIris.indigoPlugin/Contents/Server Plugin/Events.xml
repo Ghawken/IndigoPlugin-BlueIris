@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <Events>
   <SupportURL></SupportURL>
-    <Event id="motionTrigger">
-        <Name>Trigger on Camera Motion</Name>
+    <Event id="motionTriggerOn">
+        <Name>Trigger with Camera Motion</Name>
         <ConfigUI>
             <Field id="deviceCamera" type="list" rows="14">
                 <Label>Select Camera(s)</Label>
@@ -10,6 +10,14 @@
             </Field>
         </ConfigUI>
     </Event>
-
+    <Event id="motionTriggerOff">
+        <Name>Trigger when Camera Motion Ends</Name>
+        <ConfigUI>
+            <Field id="deviceCamera" type="list" rows="14">
+                <Label>Select Camera(s)</Label>
+                <List class="indigo.devices" filter="self.BlueIrisCamera"/>
+            </Field>
+        </ConfigUI>
+    </Event>
 </Events>
 

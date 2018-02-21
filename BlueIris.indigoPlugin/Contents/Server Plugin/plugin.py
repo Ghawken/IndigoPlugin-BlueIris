@@ -1480,10 +1480,10 @@ class Plugin(indigo.PluginBase):
         assert trigger.id in self.triggers
         del self.triggers[trigger.id]
 
-    def triggerCheck(self, device, camera):
+    def triggerCheck(self, device, camera, event):
 
         if self.debugtriggers:
-            self.logger.debug('triggerCheck run.  device.id:'+unicode(device.id)+' Camera:'+unicode(camera))
+            self.logger.debug('triggerCheck run.  device.id:'+unicode(device.id)+' Camera:'+unicode(camera)+' Event:'+unicode(event))
         try:
             if self.pluginIsInitializing:
                 self.logger.info(u'Trigger: Ignore as BlueIris Plugin Just started.')
@@ -1507,12 +1507,17 @@ class Plugin(indigo.PluginBase):
                     #self.logger.debug(unicode(trigger))
                 #self.logger.error(unicode(trigger))
                 # Change to List for all Cameras
+
                 if str(device.id) not in trigger.pluginProps['deviceCamera']:
                     if self.debugtriggers:
                         self.logger.debug("\t\tSkipping Trigger %s (%s), wrong Camera: %s" % (trigger.name, trigger.id, device.id))
-                elif trigger.pluginTypeId == "motionTrigger":
+                elif trigger.pluginTypeId == "motionTriggerOn" and event =='motiontrue':
                     if self.debugtriggers:
-                        self.logger.debug("===== Executing Trigger %s (%d)" % (trigger.name, trigger.id))
+                        self.logger.debug("===== Executing motionTriggerOn/motiontrue Trigger %s (%d)" % (trigger.name, trigger.id))
+                    indigo.trigger.execute(trigger)
+                elif trigger.pluginTypeId == "motionTriggerOff" and event =='motionfalse':
+                    if self.debugtriggers:
+                        self.logger.debug("===== Executing motionTriggerOff/motionfalse Trigger %s (%d)" % (trigger.name, trigger.id))
                     indigo.trigger.execute(trigger)
                 else:
                     if self.debugtriggers:
@@ -1792,7 +1797,7 @@ class httpHandler(BaseHTTPRequestHandler):
                             update_time = t.strftime('%c')
                             dev.updateStateOnServer('timeLastMotion', value=str(update_time))
                             dev.updateStateOnServer('lastMotionTriggerType', value=str(typetrigger))
-                            self.plugin.triggerCheck(dev, cameraname)
+                            self.plugin.triggerCheck(dev, cameraname, 'motiontrue')
 
                             if dev.pluginProps.get('saveimage', False):
                                 self.plugin.downloadImage(dev)
@@ -1800,6 +1805,7 @@ class httpHandler(BaseHTTPRequestHandler):
                             dev.updateStateOnServer('Motion', value=False, uiValue='False')
                             dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
                             dev.updateStateOnServer('lastMotionTriggerType', value=str(typetrigger))
+                            self.plugin.triggerCheck(dev, cameraname, 'motionfalse')
             return
         except:
             self.plugin.logger.exception(u'Exception in do_POST single thread.')

@@ -127,7 +127,6 @@ class Plugin(indigo.PluginBase):
 
         if 'BlueIris' not in indigo.variables.folders:
             indigo.variables.folder.create('BlueIris')
-
         self.folderId = indigo.variables.folders['BlueIris'].id
 
 
@@ -363,7 +362,23 @@ class Plugin(indigo.PluginBase):
             ]
             dev.updateStatesOnServer(stateList)
 
+    def createupdatevariable(self, variable, result):
+
+        if self.debugextra:
+            self.logger.debug(u'createupdate variable called.')
+
+        # if 'BlueIris' not in indigo.variables.folders:
+        #     indigo.variables.folder.create('BlueIris')
+
+        if variable not in indigo.variables:
+            indigo.variable.create(variable, str(result), folder='BlueIris')
+            return
+        else:
+            indigo.variable.updateValue(str(variable), str(result))
+        return
+
     # Shut 'em down.
+
     def deviceStopComm(self, dev):
 
         self.debugLog(u"deviceStopComm() method called.")
@@ -1630,17 +1645,12 @@ class Plugin(indigo.PluginBase):
                 argstopass = '"' + pathtouse + '"' +' --delay 50 --colors 256 --loopcount --lossy='+str(gifcompression)+' ' + str(
                     listfilenames) + ' > ' + str(newfilename)
                 p1 = subprocess.Popen([argstopass], shell=True)
-                output, err = p1.communicate()
-                # poll= p1.poll()
-                # self.logger.info(' GifFlossy Poll Result:'+unicode(poll))
-                #
-                # while poll is None:
-                #     self.logger.info(' GifFlossy Poll Result:'+unicode(poll))
 
                 if self.debuggif:
+                    output, err = p1.communicate()
                     self.logger.debug(unicode(argstopass))
                     self.logger.debug('giflossy/sicle return code:'+ unicode(p1.returncode)+' output:'+ unicode(output)+' error:'+unicode(err))
-
+                self.createupdatevariable('lastAnimGif',str(newfilename))
 
             except Exception as e:
                 self.logger.exception(u'Exception within animGIF gifsicle - newThread')

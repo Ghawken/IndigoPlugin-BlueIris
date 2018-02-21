@@ -1454,7 +1454,6 @@ class Plugin(indigo.PluginBase):
                     width = int(gifwidth)
                     time = int(giftime)
                     gifcompression = int(gifcompression)
-
                     myThread = threading.Thread(target=self.animateGif, args=[cameraname, width, time, gifcompression])
                     myThread.start()
                     self.logger.debug(u'New Thread Camera:'+unicode(cameraname)+u' & Number of Active Threads:'+unicode(threading.activeCount()))
@@ -1550,23 +1549,18 @@ class Plugin(indigo.PluginBase):
 
     def animateGif(self, cameraname, width, time, gifcompression):
         # file_names = sorted((fn for fn in os.listdir(folderLocation) ))
-
         try:
-
             if self.debuggif:
                 self.logger.debug(u'AnimateGif Called: In a New thread:')
                 self.logger.debug(u'animateGif: camera:'+unicode(cameraname)+u' width:'+unicode(width)+u' time:'+unicode(time)+u' gifcompression:'+unicode(gifcompression))
-
             MAChome = os.path.expanduser("~") + "/"
             folderLocation = MAChome + "Documents/Indigo-BlueIris/"+str(cameraname)+'/'
-
             if not os.path.exists(folderLocation):
                 os.makedirs(folderLocation)
             # Download a few seconds of images at width specified above.
             if not os.path.exists(folderLocation+'tmp'):
                 os.makedirs(folderLocation+'tmp')
 
-            x = 0
             if width <= 0:
                 theUrl = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/image/' + cameraname
             else:
@@ -1587,12 +1581,10 @@ class Plugin(indigo.PluginBase):
                         shutil.copyfileobj(r.raw, f)
                 else:
                     self.logger.debug(u'Issue with BI connection. No image downloaded. Status code:'+unicode(r.status_code)+' Error:'+unicode(r.text))
-
                     #not sure about below - might hang forever and lead to multiple threads versus missing image..
                     #removing
                     #x=x-1
                     t.sleep(2)
-
                 Interval = float( float(time) / 15)
                 #change above
                 if self.debuggif:
@@ -1624,8 +1616,6 @@ class Plugin(indigo.PluginBase):
             file_names = os.listdir(folderLocation + 'tmp/')
             listfilenames = ''
 
-            #and these aren't sorted proprely..
-
             for filename in sorted(file_names):
                 if '.gif' in filename:
                     listfilenames = listfilenames + ' ' + folderLocation + 'tmp/' + filename
@@ -1641,9 +1631,16 @@ class Plugin(indigo.PluginBase):
                     listfilenames) + ' > ' + str(newfilename)
                 p1 = subprocess.Popen([argstopass], shell=True)
                 output, err = p1.communicate()
+                # poll= p1.poll()
+                # self.logger.info(' GifFlossy Poll Result:'+unicode(poll))
+                #
+                # while poll is None:
+                #     self.logger.info(' GifFlossy Poll Result:'+unicode(poll))
+
                 if self.debuggif:
                     self.logger.debug(unicode(argstopass))
                     self.logger.debug('giflossy/sicle return code:'+ unicode(p1.returncode)+' output:'+ unicode(output)+' error:'+unicode(err))
+
 
             except Exception as e:
                 self.logger.exception(u'Exception within animGIF gifsicle - newThread')

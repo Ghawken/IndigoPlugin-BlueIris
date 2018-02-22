@@ -123,6 +123,26 @@
         </ConfigUI>
     </Action>
 
+
+    <Action id="actionDownloadImage">
+    <Name>Download Image for Camera(s)</Name>
+    <CallbackMethod>actionDownloadImage</CallbackMethod>
+        <ConfigUI>
+            <Field id="deviceCamera" type="list" rows="14">
+                <Label>Select Camera(s)</Label>
+                <List class="indigo.devices" filter="self.BlueIrisCamera"/>
+            </Field>
+             <Field id="imagewidth" type="textfield" tooltip="Width of Image.">
+            <Label>Width in Pixels of Image:</Label>
+        <Description>Width of Image Saved</Description>
+    </Field>
+                <Field id="label2222" type="label" fontSize="small" fontColor="black">
+    <Label>Width of Image Created
+    </Label>  </Field>
+            </ConfigUI>
+    </Action>
+
+
     <Action id="makeAnim">
     <Name>Create Animated Gif</Name>
     <CallbackMethod>actionCreateAnimGif</CallbackMethod>

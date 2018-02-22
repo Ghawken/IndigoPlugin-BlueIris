@@ -684,20 +684,26 @@ class Plugin(indigo.PluginBase):
         camlist = {}
         results = self.sendccommand('camlist')
 
-        if results is None:
-            self.logger.debug(u'No Cameras found.  Please create from within Plugin Config.')
-            return
-        if len(results)<=0:
-            self.logger.debug(u'No Cameras found.2.  Please create from within Plugin Config.')
-            return
-        x =0
-        for i in range(len(results)):
-            if 'ManRecLimit' in results[i]:
-                camlist[x] = []
-                camlist[x].append(results[i])
-                x=x+1
-        # send camera list to check devices
-        self.checkCamDevices(camlist)
+        try:
+            if results is None:
+                self.logger.debug(u'No Cameras found.  Please create from within Plugin Config.')
+                return
+            if len(results)<=0:
+                self.logger.debug(u'No Cameras found.2.  Please create from within Plugin Config.')
+                return
+            x =0
+            for i in range(len(results)):
+                if 'ManRecLimit' in results[i]:
+                    camlist[x] = []
+                    camlist[x].append(results[i])
+                    x=x+1
+            # send camera list to check devices
+            self.checkCamDevices(camlist)
+        except:
+            if self.debugextra:
+                self.logger.exception(u'getCameraList Exception:')
+                self.logger.exception(unicode(results))
+
 
     def updateSystemDevice(self):
         if self.debugextra:
@@ -1286,6 +1292,57 @@ class Plugin(indigo.PluginBase):
             self.logger.exception(u'Exception in Create Anim Gifs')
             return
 
+    def actionDownloadImage(self, valuesDict):
+        self.logger.debug(u'action Download Image  for Cameras/s ')
+        try:
+            action = valuesDict.pluginTypeId
+            if self.debugimage:
+                self.logger.debug(unicode(valuesDict))
+            cameras = valuesDict.props.get('deviceCamera',[])
+            MAChome = os.path.expanduser("~") + "/"
+            folderLocation = MAChome + "Documents/Indigo-BlueIris/"
+
+            for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
+                if str(dev.id) in cameras and dev.enabled:
+                        cameraname = dev.states['optionValue']
+                        width = int(valuesDict.props.get('imagewidth', 800))
+                        path = folderLocation + str(cameraname) + '.jpg'
+                        if width <= 0:
+                            yetanotherUrl = "http://" + str(self.serverip) + ':' + str(
+                                self.serverport) + '/image/' + cameraname
+                        else:
+                            yetanotherUrl = "http://" + str(self.serverip) + ':' + str(
+                                self.serverport) + '/image/' + cameraname + '?w=' + str(width)
+                        ImageThread = threading.Thread(target=self.threadDownloadImage,
+                                                           args=[cameraname, path, yetanotherUrl])
+                        ImageThread.start()
+            return
+        except:
+            self.logger.exception(u'Exception in action Download Image')
+            return
+
+    def threadDownloadImage(self, cameraname, path, url):
+        if self.debugimage:
+            self.logger.debug(u'threadDownloadImages called.  Action New Thread For Camera:' + unicode(
+                    cameraname) + u' & Number of Active Threads:' + unicode(
+                    threading.activeCount()))
+        try:
+             r = requests.get(url, auth=(str(self.serverusername), str(self.serverpassword)),
+                              stream=True)
+             if r.status_code == 200:
+                 # self.logger.debug(u'Yah Code 200....')
+                 with open(path, 'wb') as f:
+                     r.raw.decode_content = True
+                     shutil.copyfileobj(r.raw, f)
+                     if self.debugimage:
+                         self.logger.debug(u'Saved Image:'+unicode(path)+' for Camera:'+unicode(cameraname))
+             else:
+                 self.logger.debug(u'Issue Downloading Image. Failed.')
+        except:
+            self.logger.exception(u'Exception in threadDownloadImage')
+
+
+
 
     def pluginTriggering(self, valuesDict):
         self.logger.debug(u'pluginTriggering called')
@@ -1483,15 +1540,21 @@ class Plugin(indigo.PluginBase):
             if self.debugimage:
                 self.logger.debug(u'Image:  Getting url:'+unicode(yetanotherUrl)+' with path:'+unicode(path))
 
-            r = requests.get(yetanotherUrl, auth=(str(self.serverusername),str(self.serverpassword)), stream=True )
-            if r.status_code ==200:
-                #self.logger.debug(u'Yah Code 200....')
-                with open (path, 'wb') as f:
-                    r.raw.decode_content = True
-                    shutil.copyfileobj(r.raw, f)
-            else:
-                self.logger.debug(u'Issue with BI connection. No image downloaded.')
-            ## Add Checks here for Anim gif wanted etc
+
+            #thread this out - called a lot and could slow down
+            ImageThread = threading.Thread(target=self.threadDownloadImage,
+                                           args=[cameraname, path, yetanotherUrl])
+            ImageThread.start()
+
+            # r = requests.get(yetanotherUrl, auth=(str(self.serverusername),str(self.serverpassword)), stream=True )
+            # if r.status_code ==200:
+            #     #self.logger.debug(u'Yah Code 200....')
+            #     with open (path, 'wb') as f:
+            #         r.raw.decode_content = True
+            #         shutil.copyfileobj(r.raw, f)
+            # else:
+            #     self.logger.debug(u'Issue with BI connection. No image downloaded.')
+            # ## Add Checks here for Anim gif wanted etc
 
             animateGif=dev.pluginProps.get('animateGif',False)
             try:

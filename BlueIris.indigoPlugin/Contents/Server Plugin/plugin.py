@@ -611,6 +611,32 @@ class Plugin(indigo.PluginBase):
     def updateBIServerdevice(self, dev, statusresults):
         if self.debugextra:
             self.logger.debug(u' updateBIServerdevice called')
+        try:
+            disktotal = None
+            diskallocated = None
+            diskname = 'Unknown'
+            diskfree = None
+            diskused = None
+            disks = next(iter(statusresults['disks']), None)
+
+            if disks is not None:
+                if self.debugextra:
+                    self.logger.debug(u'Disks:'+unicode(disks))
+                if 'total' in disks:
+                    disktotal =  disks['total']
+                if 'allocated' in disks:
+                    diskallocated = disks['allocated']
+                if 'free' in disks:
+                    diskfree = disks['free']
+                if 'used' in disks:
+                    diskused = disks['used']
+                if 'disk' in disks:
+                    diskname = disks['disk']
+        except:
+            if self.debugextra:
+                self.logger.exception(u'updateBIServer Device:  Disk Error')
+            pass
+
 
         try:
             #dev = indigo.devices[devId]
@@ -628,7 +654,13 @@ class Plugin(indigo.PluginBase):
                                  {'key': 'memload', 'value': statusresults['memload']},
                                  {'key': 'memfree', 'value': statusresults['memfree']},
                                  {'key': 'warnings', 'value': statusresults['warnings']},
-                                 {'key': 'cpu', 'value': statusresults['cpu']}
+                                 {'key': 'cpu', 'value': statusresults['cpu']},
+                                 {'key': 'clipsInfo', 'value': str(statusresults['clips'])},
+                                 {'key': 'disktotal', 'value': disktotal},
+                                 {'key': 'diskallocated', 'value': diskallocated},
+                                 {'key': 'diskname', 'value': diskname},
+                                 {'key': 'diskfree', 'value': diskfree},
+                                 {'key': 'diskused', 'value': diskused}
             ]
             dev.updateStatesOnServer(stateList)
             update_time = t.strftime('%c')

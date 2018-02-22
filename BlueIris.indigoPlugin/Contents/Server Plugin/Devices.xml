@@ -57,8 +57,36 @@
                 <TriggerLabel>username returned</TriggerLabel>
                 <ControlPageLabel>username returned</ControlPageLabel>
             </State>
-
-
+         <State id="clipsInfo">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Clips Drive Info</TriggerLabel>
+                <ControlPageLabel>Clips Drive State Info</ControlPageLabel>
+            </State>
+         <State id="disktotal">
+                <ValueType>Number</ValueType>
+                <TriggerLabel>Disk Space Total</TriggerLabel>
+                <ControlPageLabel>Disk Space Total</ControlPageLabel>
+            </State>
+                  <State id="diskallocated">
+                <ValueType>Number</ValueType>
+                <TriggerLabel>Disk Space Allocated</TriggerLabel>
+                <ControlPageLabel>Disk Space Allocated</ControlPageLabel>
+            </State>
+           <State id="diskfree">
+                <ValueType>Number</ValueType>
+                <TriggerLabel>Disk Space Free</TriggerLabel>
+                <ControlPageLabel>Disk Space Free</ControlPageLabel>
+            </State>
+                  <State id="diskused">
+                <ValueType>Number</ValueType>
+                <TriggerLabel>Disk Space Used</TriggerLabel>
+                <ControlPageLabel>Disk Space Used</ControlPageLabel>
+            </State>
+                   <State id="diskname">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Disk Name Location</TriggerLabel>
+                <ControlPageLabel>Disk Name Location</ControlPageLabel>
+            </State>
           <State id="deviceIsOnline">
                 <ValueType>Boolean</ValueType>
                 <TriggerLabel>Device online?</TriggerLabel>

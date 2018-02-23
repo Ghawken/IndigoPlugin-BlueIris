@@ -93,6 +93,27 @@ class Plugin(indigo.PluginBase):
         # add callhere
         self.validatePrefsConfigUi(pluginPrefs)
 
+        # Choose Save Path
+
+        MAChome = os.path.expanduser("~") + "/"
+        folderLocation = MAChome + "Documents/Indigo-BlueIris/"
+        self.saveDirectory = self.pluginPrefs.get('directory', '')
+
+        self.logger.debug(u'Self.SaveDirectory equals:'+unicode(self.saveDirectory))
+
+        if self.saveDirectory == '':
+            self.saveDirectory = folderLocation
+            self.logger.debug(u'Self.SaveDirectory changed:'+self.saveDirectory)
+        try:
+            if not os.path.exists(self.saveDirectory):
+                os.makedirs(self.saveDirectory)
+        except:
+            self.logger.error(u'Error Accessing Save Directory.  Using Default:'+unicode(folderLocation))
+            self.saveDirectory = folderLocation
+            pass
+
+
+
         self.serverip = self.pluginPrefs.get('serverip', '')
         self.serverport = int(self.pluginPrefs.get('serverport', '80'))
         self.serverusername = self.pluginPrefs.get('serverusername', '')
@@ -173,6 +194,7 @@ class Plugin(indigo.PluginBase):
             self.debugtriggers = valuesDict.get('debugtriggers', False)
             self.debugother = valuesDict.get('debugother', False)
             self.openStore = valuesDict.get('openStore', False)
+            self.saveDirectory = valuesDict.get('directory', '')
 
             #oldlistenport = self.listenPort
 
@@ -230,6 +252,9 @@ class Plugin(indigo.PluginBase):
         """ docstring placeholder """
         self.logger.debug(u"------ validatePrefsConfigUi() method called.")
         errorDict = indigo.Dict()
+
+
+        #self.logger.info(unicode(valuesDict))
 
         if 'serverip' in valuesDict:
             iFail = False
@@ -291,7 +316,6 @@ class Plugin(indigo.PluginBase):
 
 
         if 'Httpserverport' in valuesDict:
-
             try:
                 self.oldlistenPort = self.listenPort
                 #self.logger.debug(u'Old listenPort is :' + unicode(self.oldlistenPort))
@@ -307,6 +331,24 @@ class Plugin(indigo.PluginBase):
             #self.logger.error(u'No httpServerport in valuesDict Why')
             self.listenPort = 4556
             self.pluginPrefs['Httpserverport'] = 4556
+
+        if valuesDict.get('directory', '') != '':
+            # check read/write access to directory
+            if os.access(valuesDict['directory'],os.W_OK) == False:
+                errorDict['directory']='No write Access to this location.'
+                errorDict['shwoAlertText']='Error.  Cannot write to this location'
+                self.logger.debug(u'DiskAccessError:  Cannot Read/Write to this location')
+                return (False, valuesDict, errorDict)
+            else:
+                self.logger.debug(u'DiskAcces:  All Good.  Can Read/Write to this location')
+        if valuesDict.get('directory','') == '':
+            MAChome = os.path.expanduser("~") + "/"
+            folderLocation = MAChome + "Documents/Indigo-BlueIris/"
+            valuesDict['directory'] = folderLocation
+            self.pluginPrefs['directory'] = folderLocation
+
+
+
 
         if 'serverip' in valuesDict and 'serverport' in valuesDict and 'serverusername' in valuesDict  and 'serverpassword' in valuesDict and 'Httpserverport' in valuesDict:
             # Validate login
@@ -1039,23 +1081,28 @@ class Plugin(indigo.PluginBase):
 
     def shutdown(self):
 
-        self.debugLog(u"shutdown() method called.")
+        self.logger.debug(u"shutdown() method called.")
         self.pluginIsShuttingDown = True
         self.prefsUpdated = True
 
     def startup(self):
 
-        self.debugLog(u"Starting Plugin. startup() method called.")
-        MAChome = os.path.expanduser("~") + "/"
-        folderLocation = MAChome + "Documents/Indigo-BlueIris/"
-        if not os.path.exists(folderLocation):
-            os.makedirs(folderLocation)
+        self.logger.debug(u"Starting Plugin. startup() method called.")
+
+
+        # MAChome = os.path.expanduser("~") + "/"
+        # folderLocation = MAChome + "Documents/Indigo-BlueIris/"
+        # if not os.path.exists(folderLocation):
+        #     os.makedirs(folderLocation)
+        # folderLocation = self.saveDirectory
+
         self.updater = GitHubPluginUpdater(self)
         try:
             self.logger.debug(u'Creating Directories and deleting files..')
             for dev in indigo.devices.iter('self.BlueIrisCamera'):
                 cameraname = dev.states['optionValue']
-                folderLocation = MAChome + "Documents/Indigo-BlueIris/" + str(cameraname) + '/'
+                folderLocation = self.saveDirectory + str(cameraname) + '/'
+
                 if not os.path.exists(folderLocation):
                     os.makedirs(folderLocation)
                 if os.path.exists(folderLocation+'tmp'):
@@ -1299,8 +1346,11 @@ class Plugin(indigo.PluginBase):
             if self.debugimage:
                 self.logger.debug(unicode(valuesDict))
             cameras = valuesDict.props.get('deviceCamera',[])
-            MAChome = os.path.expanduser("~") + "/"
-            folderLocation = MAChome + "Documents/Indigo-BlueIris/"
+
+            # MAChome = os.path.expanduser("~") + "/"
+            # folderLocation = MAChome + "Documents/Indigo-BlueIris/"
+
+            folderLocation = self.saveDirectory
 
             for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
                 if str(dev.id) in cameras and dev.enabled:
@@ -1530,8 +1580,13 @@ class Plugin(indigo.PluginBase):
         try:
             cameraname = dev.states['optionValue']
             widthimage = dev.pluginProps.get('widthimage',0)
-            MAChome = os.path.expanduser("~") + "/"
-            folderLocation = MAChome + "Documents/Indigo-BlueIris/"
+
+
+            # MAChome = os.path.expanduser("~") + "/"
+            # folderLocation = MAChome + "Documents/Indigo-BlueIris/"
+
+            folderLocation = self.saveDirectory
+
             path = folderLocation + str(cameraname) + '.jpg'
             if widthimage <=0:
                 yetanotherUrl = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/image/' +cameraname
@@ -1664,13 +1719,16 @@ class Plugin(indigo.PluginBase):
             if self.debuggif:
                 self.logger.debug(u'AnimateGif Called: In a New thread:')
                 self.logger.debug(u'animateGif: camera:'+unicode(cameraname)+u' width:'+unicode(width)+u' time:'+unicode(time)+u' gifcompression:'+unicode(gifcompression))
-            MAChome = os.path.expanduser("~") + "/"
-            folderLocation = MAChome + "Documents/Indigo-BlueIris/"+str(cameraname)+'/'
-            if not os.path.exists(folderLocation):
-                os.makedirs(folderLocation)
-            # Download a few seconds of images at width specified above.
-            if not os.path.exists(folderLocation+'tmp'):
-                os.makedirs(folderLocation+'tmp')
+            # MAChome = os.path.expanduser("~") + "/"
+            # folderLocation = MAChome + "Documents/Indigo-BlueIris/"+str(cameraname)+'/'
+
+            folderLocation = self.saveDirectory+str(cameraname)+'/'
+
+            # if not os.path.exists(folderLocation):
+            #     os.makedirs(folderLocation)
+            # # Download a few seconds of images at width specified above.
+            # if not os.path.exists(folderLocation+'tmp'):
+            #     os.makedirs(folderLocation+'tmp')
 
             if width <= 0:
                 theUrl = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/image/' + cameraname

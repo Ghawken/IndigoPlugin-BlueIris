@@ -74,7 +74,21 @@
 				<CallbackMethod>generateCameras</CallbackMethod>
 	</Field>
    <Field id="sep235" type="separator" visibleBindingId="loginOK" visibleBindingValue="true"  />
+    <Field id="directory"
+				   type="textfield"
+				   tooltip="Enter Save Directory:"
+                    default = '4556'>
+				<Label>Enter Save Directory:</Label>
+	</Field>
+  <Field id="spacea2" type="label" fontSize="small" fontColor="black">
+    <Label>The Directory for Saved Images/Gifs.  Folders for cameras will be created within
+    eg. /Users/Indigo/Documents/Indigo-BlueIris/  Plugin must have read and write access
+        Leave blank for Default
+    </Label>
+  </Field>
 
+
+    <Field id="sep23ab5" type="separator" visibleBindingId="loginOK" visibleBindingValue="true"  />
 
 
   <Field id="space1" type="label" fontColor="black">

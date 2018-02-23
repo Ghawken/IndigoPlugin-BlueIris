@@ -141,7 +141,24 @@
     </Label>  </Field>
             </ConfigUI>
     </Action>
+    <Action id="getclipList">
+    <Name>get ClipList for Camera(s)</Name>
+    <CallbackMethod>actiongetclipList</CallbackMethod>
+        <ConfigUI>
+            <Field id="deviceCamera" type="list" rows="14">
+                <Label>Select Camera(s)</Label>
+                <List class="indigo.devices" filter="self.BlueIrisCamera"/>
+            </Field>
+             <Field id="duration" type="textfield" tooltip="Time of Clip List.">
+            <Label>Time of Clips [Hours]:</Label>
+        <Description>Time of Clips</Description>
+    </Field>
+                <Field id="label2222" type="label" fontSize="small" fontColor="black">
+    <Label>Amount of time to go back in Hours
+    </Label>  </Field>
 
+            </ConfigUI>
+    </Action>
 
     <Action id="makeAnim">
     <Name>Create Animated Gif</Name>

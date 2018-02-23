@@ -14,6 +14,7 @@ import requests
 import json
 import hashlib
 import datetime
+
 import time as t
 import urllib
 import os
@@ -933,24 +934,20 @@ class Plugin(indigo.PluginBase):
         self.url = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/json'
         if self.debugextra:
             self.logger.debug(u'sendcommand called')
-
         if self.connectServer():  #this commands updates session key before command called
             if self.debugextra:
                 self.logger.debug(u'Connection to Server Complete')
         else:
             self.logger.debug(u'Failed connection to server.')
             return
-
         if len(self.session)==0:
             self.logger.debug(u'No self.session cannot run command')
             return
         if len(self.response)<=0:
             self.logger.debug(u'No self.response cannot run command')
             return
-
         args = {"session": self.session, "response": self.response, "cmd": cmd}
         args.update(params)
-
         if self.debugextra:
             self.logger.debug('Command to be sent:'+unicode(args))
 
@@ -1370,6 +1367,62 @@ class Plugin(indigo.PluginBase):
         except:
             self.logger.exception(u'Exception in action Download Image')
             return
+
+    def actiongetclipList(self, valuesDict):
+        self.logger.debug(u'action get Clip List Image  for Cameras/s ')
+        try:
+            action = valuesDict.pluginTypeId
+            if self.debugimage:
+                self.logger.debug(unicode(valuesDict))
+            cameras = valuesDict.props.get('deviceCamera',[])
+            duration = valuesDict.props.get('duration', 1)
+            folderLocation = self.saveDirectory
+
+            nowtime = t.time()
+            four_hours_ago = float(nowtime - (int(duration)*60*60))
+
+            for server in indigo.devices.itervalues('self.BlueIrisServer'):
+                diskpath = server.states['diskname']
+
+
+            for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
+                if str(dev.id) in cameras and dev.enabled:
+                        cameraname = dev.states['optionValue']
+                        path = folderLocation + str(cameraname) + '.jpg'
+                        clips = self.sendccommand('cliplist', {'camera':str(cameraname),'startdate':int(four_hours_ago), 'enddate':int(nowtime), 'tiles':False })
+                        self.logger.info(unicode(clips))
+
+                        htmlheader = """
+                        <html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"/><title>Blue Iris</title></head><body>
+                        <h1>Blue Iris Clip</h1><p>
+                        <pre>
+                        <hr>
+                        """
+                        page = ''
+
+                        for clip in clips:
+                            wrongpath = clip['path'][1:]  ## path is completely wrong ???
+                            endpath = str(wrongpath[-4:])
+                            newpath = datetime.datetime.fromtimestamp( float(clip['date'])).strftime('%Y%m%d_%H%M%S')
+                            newpath = cameraname+'.'+newpath
+
+                            clippath =  str(diskpath) + '/New/' + str(newpath) + str(endpath)
+
+                            self.logger.info(unicode(clippath))
+                            page = page + str( datetime.datetime.fromtimestamp( clip['date']) )+'     <a href="' + str(clippath)+' ">'+str(clip['camera'])+' '+str(clip['filesize'])+' </a>\n'
+
+                        html = htmlheader + page
+                        # Write to HTML to file.html
+                        with open(self.saveDirectory+str(cameraname)+"/cliplist.html", "w") as file:
+                            file.write(html)
+
+
+
+            return
+        except:
+            self.logger.exception(u'Exception in action Download Image')
+            return
+
 
     def threadDownloadImage(self, cameraname, path, url):
         if self.debugimage:

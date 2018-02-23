@@ -1382,8 +1382,13 @@ class Plugin(indigo.PluginBase):
             four_hours_ago = float(nowtime - (int(duration)*60*60))
 
             for server in indigo.devices.itervalues('self.BlueIrisServer'):
-                diskpath = server.states['diskname']
+                #diskpath = server.states['diskname']
+                clipaccess = server.states['clips']
 
+
+            if clipaccess == 'false':
+                self.logger.error(u'BlueIris Server user does not have clip access')
+                return
 
             for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
                 if str(dev.id) in cameras and dev.enabled:
@@ -1392,21 +1397,19 @@ class Plugin(indigo.PluginBase):
                         clips = self.sendccommand('cliplist', {'camera':str(cameraname),'startdate':int(four_hours_ago), 'enddate':int(nowtime), 'tiles':False })
                         self.logger.info(unicode(clips))
 
-                        htmlheader = """
-                        <html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"/><title>Blue Iris</title></head><body>
+                        htmlheader = """<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"/><title>Blue Iris</title></head><body>
                         <h1>Blue Iris Clip</h1><p>
-                        <pre>
-                        <hr>
-                        """
+                        <h1>Camera: """ +str(cameraname) + """</h1><p>
+                        <pre>"""
                         page = ''
 
                         for clip in clips:
-                            wrongpath = clip['path'][1:]  ## path is completely wrong ???
-                            endpath = str(wrongpath[-4:])
-                            newpath = datetime.datetime.fromtimestamp( float(clip['date'])).strftime('%Y%m%d_%H%M%S')
-                            newpath = cameraname+'.'+newpath
-
-                            clippath =  str(diskpath) + '/New/' + str(newpath) + str(endpath)
+                            #wrongpath = clip['path'][1:]  ## path is completely wrong ???
+                            #endpath = str(wrongpath[-4:])
+                            #newpath = datetime.datetime.fromtimestamp( float(clip['date'])).strftime('%Y%m%d_%H%M%S')
+                            #newpath = cameraname+'.'+newpath
+                            diskpath = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/clips/'
+                            clippath =  str(diskpath) + str(clip['path'])
 
                             self.logger.info(unicode(clippath))
                             page = page + str( datetime.datetime.fromtimestamp( clip['date']) )+'     <a href="' + str(clippath)+' ">'+str(clip['camera'])+' '+str(clip['filesize'])+' </a>\n'

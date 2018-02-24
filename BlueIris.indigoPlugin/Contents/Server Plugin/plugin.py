@@ -93,6 +93,19 @@ class Plugin(indigo.PluginBase):
         self.listenPort = 4556 #default
         # add callhere
         self.validatePrefsConfigUi(pluginPrefs)
+        num =0
+        try:
+            for server in indigo.devices.itervalues('self.BlueIrisServer'):
+                self.logger.debug(u'Found This Server Device:'+server.name)
+                num=num+1
+        except:
+            self.logger.exception(u'Error in Counting Server Devices...')
+            pass
+
+        if num >1:
+            self.logger.error(u"{0:=^130}".format(""))
+            self.logger.info(u"{0:=^130}".format(" You have more than one BlueIris Server Device.  Please Delete one and restart."))
+            self.logger.error(u"{0:=^130}".format(""))
 
         # Choose Save Path
 
@@ -348,9 +361,6 @@ class Plugin(indigo.PluginBase):
             valuesDict['directory'] = folderLocation
             self.pluginPrefs['directory'] = folderLocation
 
-
-
-
         if 'serverip' in valuesDict and 'serverport' in valuesDict and 'serverusername' in valuesDict  and 'serverpassword' in valuesDict and 'Httpserverport' in valuesDict:
             # Validate login
             return True, valuesDict
@@ -370,7 +380,7 @@ class Plugin(indigo.PluginBase):
     # Start 'em up.
     def deviceStartComm(self, dev):
 
-        self.debugLog(u"deviceStartComm() method called.")
+        self.logger.debug(u"deviceStartComm() method called.")
         dev.stateListOrDisplayStateIdChanged()
         if dev.deviceTypeId == 'BlueIrisCamera':
             try:
@@ -393,9 +403,9 @@ class Plugin(indigo.PluginBase):
             except:
                 self.logger.debug(u'pluginProps exception being passed')
                 pass
-
             dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
             dev.updateStateOnServer('Motion', value=False, uiValue='False')
+            dev.updateStateOnServer('deviceIsOnline', value=True )
             #self.createupdatevariable(dev.states['optionValue'], 'False')
             stateList = [
                 {'key': 'MotionDetection', 'value': None, 'uiValue': 'Unknown'},
@@ -404,6 +414,7 @@ class Plugin(indigo.PluginBase):
                 {'key': 'PluginTriggeringEnabled', 'value': True}
             ]
             dev.updateStatesOnServer(stateList)
+
 
     def createupdatevariable(self, variable, result):
 
@@ -424,8 +435,8 @@ class Plugin(indigo.PluginBase):
 
     def deviceStopComm(self, dev):
 
-        self.debugLog(u"deviceStopComm() method called.")
-        indigo.server.log(u"Stopping device: " + dev.name)
+        self.logger.debug(u"deviceStopComm() method called.")
+        #indigo.server.log(u"Stopping device: " + dev.name)
         dev.updateStateOnServer('deviceIsOnline', value=False, uiValue="Offline")
 
         dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
@@ -622,39 +633,41 @@ class Plugin(indigo.PluginBase):
         return valuesDict
 
     def updateStatus(self):
-        if self.debugextra:
-            self.logger.debug(u'Update Status called')
 
-        statusresults = self.sendccommand('status', '')
-        FoundDevice = False
-        for dev in indigo.devices.itervalues('self.BlueIrisServer'):
-            FoundDevice = True
+        try:
             if self.debugextra:
-                self.logger.debug(u'Found Device:'+unicode(dev.name))
+                self.logger.debug(u'Update Status called')
 
-        if FoundDevice==False:
-            self.logger.error(u'Please use Plugin Config Settings to Login/Create Main BI server Device')
-            return
-
-        if statusresults is None:
-            self.logger.info(u'No result from status enquiry. If repeated please check Login Server Details in Plugin Config')
-            return
-
-       #login self.logger.info(unicode(statusresults  ))
-
-        if self.updateBIServerdevice(dev, statusresults):
-            if self.debugextra:
-                self.logger.debug(u'Updated BI Server')
-        else:
-            self.logger.error(u'Failed to update BI Server Device')
-
+            statusresults = self.sendccommand('status', '')
+            FoundDevice = False
+            for dev in indigo.devices.itervalues('self.BlueIrisServer'):
+                FoundDevice = True
+                if self.debugextra:
+                    self.logger.debug(u'Found Device:'+unicode(dev.name))
+            if FoundDevice==False:
+                self.logger.error(u'Please use Plugin Config Settings to Login/Create Main BI server Device')
+                return
+            if statusresults is None:
+                self.logger.info(u'No result from status enquiry. If repeated please check Login Server Details in Plugin Config')
+                return
+           #login self.logger.info(unicode(statusresults  ))
+            if self.updateBIServerdevice(dev, statusresults):
+                if self.debugextra:
+                    self.logger.debug(u'Updated BI Server')
+            else:
+                self.logger.error(u'Failed to update BI Server Device')
+        except:
+            self.logger.debug(u'Exceptuion in update Status/Update BI Server caught')
         return
 
 
     def updateBIServerdevice(self, dev, statusresults):
-        if self.debugextra:
-            self.logger.debug(u' updateBIServerdevice called')
+
+
         try:
+            if self.debugextra:
+                self.logger.debug(u' updateBIServerdevice called')
+
             disktotal = None
             diskallocated = None
             diskname = 'Unknown'
@@ -679,7 +692,6 @@ class Plugin(indigo.PluginBase):
             if self.debugextra:
                 self.logger.exception(u'updateBIServer Device:  Disk Error')
             pass
-
 
         try:
             #dev = indigo.devices[devId]
@@ -714,6 +726,7 @@ class Plugin(indigo.PluginBase):
             dev.updateStateOnServer('deviceIsOnline', value=True, uiValue="Online")
             dev.updateStateOnServer('deviceState', value=str(deviceState))
             return True
+
         except:
             self.logger.exception(u'Exception in updateBIServer Device')
             dev.updateStateImageOnServer(indigo.kStateImageSel.SensorTripped)
@@ -724,10 +737,11 @@ class Plugin(indigo.PluginBase):
     def getCameraList(self):
         if self.debugextra:
             self.logger.debug(u'get CameraList called')
-        camlist = {}
-        results = self.sendccommand('camlist')
 
         try:
+            camlist = {}
+            results = self.sendccommand('camlist')
+
             if results is None:
                 self.logger.debug(u'No Cameras found.  Please create from within Plugin Config.')
                 return
@@ -931,44 +945,47 @@ class Plugin(indigo.PluginBase):
 
     def sendccommand(self, cmd, params=dict()):
 
-        self.url = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/json'
-        if self.debugextra:
-            self.logger.debug(u'sendcommand called')
-        if self.connectServer():  #this commands updates session key before command called
-            if self.debugextra:
-                self.logger.debug(u'Connection to Server Complete')
-        else:
-            self.logger.debug(u'Failed connection to server.')
-            return
-        if len(self.session)==0:
-            self.logger.debug(u'No self.session cannot run command')
-            return
-        if len(self.response)<=0:
-            self.logger.debug(u'No self.response cannot run command')
-            return
-        args = {"session": self.session, "response": self.response, "cmd": cmd}
-        args.update(params)
-        if self.debugextra:
-            self.logger.debug('Command to be sent:'+unicode(args))
-
-        r = requests.post(self.url, data=json.dumps(args))
-
-        if r.status_code != 200:
-            self.logger.debug(u'Status code'+unicode(r.status_code) )
-            self.logger.debug(u'Text :'+unicode(r.text))  #r.text
-            self.logger.debug(u'Error Running command')
-            return ''
-        else:
-            pass
-            if self.debugextra:
-                self.logger.debug(u'SUCCESS Text :' + unicode(r.text))
-        if self.debugextra:
-            self.logger.debug( unicode(r.json()))
-
         try:
-            return r.json()["data"]
+            self.url = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/json'
+            if self.debugextra:
+                self.logger.debug(u'sendcommand called')
+            if self.connectServer():  #this commands updates session key before command called
+                if self.debugextra:
+                    self.logger.debug(u'Connection to Server Complete')
+            else:
+                self.logger.debug(u'Failed connection to server.')
+                return
+            if len(self.session)==0:
+                self.logger.debug(u'No self.session cannot run command')
+                return
+            if len(self.response)<=0:
+                self.logger.debug(u'No self.response cannot run command')
+                return
+            args = {"session": self.session, "response": self.response, "cmd": cmd}
+            args.update(params)
+            if self.debugextra:
+                self.logger.debug('Command to be sent:'+unicode(args))
+
+            r = requests.post(self.url, data=json.dumps(args))
+
+            if r.status_code != 200:
+                self.logger.debug(u'Status code'+unicode(r.status_code) )
+                self.logger.debug(u'Text :'+unicode(r.text))  #r.text
+                self.logger.debug(u'Error Running command')
+                return ''
+            else:
+                pass
+                if self.debugextra:
+                    self.logger.debug(u'SUCCESS Text :' + unicode(r.text))
+            if self.debugextra:
+                self.logger.debug( unicode(r.json()))
+
+            try:
+                return r.json()["data"]
+            except:
+                return r.json()
         except:
-            return r.json()
+            self.logger.exception(u'Error within Send Command'+unicode(r.json()))
 
 
     def connectServer(self):
@@ -1119,90 +1136,6 @@ class Plugin(indigo.PluginBase):
         self.myThread.daemon = True
         self.myThread.start()
 
-    def setStatestonil(self, dev):
-
-        self.debugLog(u'setStates to nil run')
-
-
-    def refreshDataAction(self, valuesDict):
-        """
-        The refreshDataAction() method refreshes data for all devices based on
-        a plugin menu call.
-        """
-
-        self.debugLog(u"refreshDataAction() method called.")
-        self.refreshData()
-        return True
-
-    def refreshData(self):
-        """
-        The refreshData() method controls the updating of all plugin
-        devices.
-        """
-        if self.debugLevel >= 2:
-            self.debugLog(u"refreshData() method called.")
-
-        try:
-            # Check to see if there have been any devices created.
-            if indigo.devices.itervalues(filter="self"):
-                if self.debugLevel >= 2:
-                    self.debugLog(u"Updating data...")
-
-                for dev in indigo.devices.itervalues(filter="self"):
-                    self.refreshDataForDev(dev)
-
-            else:
-                indigo.server.log(u"No Client devices have been created.")
-
-            return True
-
-        except Exception as error:
-            self.errorLog(u"Error refreshing devices. Please check settings.")
-            self.errorLog(unicode(error.message))
-            return False
-
-    def refreshDataForDev(self, dev):
-
-        if dev.configured:
-            if self.debugLevel >= 2:
-                self.debugLog(u"Found configured device: {0}".format(dev.name))
-
-            if dev.enabled:
-                if self.debugLevel >= 2:
-                    self.debugLog(u"   {0} is enabled.".format(dev.name))
-                timeDifference = int(t.time() - t.mktime(dev.lastChanged.timetuple()))
-
-            else:
-                if self.debugLevel >= 2:
-                    self.debugLog(u"    Disabled: {0}".format(dev.name))
-
-
-    def refreshDataForDevAction(self, valuesDict):
-        """
-        The refreshDataForDevAction() method refreshes data for a selected device based on
-        a plugin menu call.
-        """
-        if self.debugLevel >= 2:
-            self.debugLog(u"refreshDataForDevAction() method called.")
-
-        dev = indigo.devices[valuesDict.deviceId]
-
-        self.refreshDataForDev(dev)
-        return True
-
-    def stopSleep(self, start_sleep):
-        """
-        The stopSleep() method accounts for changes to the user upload interval
-        preference. The plugin checks every 2 seconds to see if the sleep
-        interval should be updated.
-        """
-        try:
-            total_sleep = float(self.pluginPrefs.get('configMenuUploadInterval', 300))
-        except:
-            total_sleep = iTimer  # TODO: Note variable iTimer is an unresolved reference.
-        if t.time() - start_sleep > total_sleep:
-            return True
-        return False
 
     def toggleDebugEnabled(self):
         """ Toggle debug on/off. """
@@ -1252,35 +1185,37 @@ class Plugin(indigo.PluginBase):
 ###### Actions
 
     def camconfig(self,valuesDict):
-        self.logger.debug(u'CamConfig Called: args'+unicode(valuesDict))
 
-        if self.checkadminuser() == False:
-            self.logger.info(u'BlueIris Server User is not admin these commands will not work.')
-            return
+        try:
+            self.logger.debug(u'CamConfig Called: args'+unicode(valuesDict))
 
-        device = indigo.devices[valuesDict.deviceId]
-        cameraname = device.states['optionValue']
-        #self.logger.info(unicode(valuesDict))
-        action = str(valuesDict.props['Configargs'])
-        #split to get two arguments to send
-        conditions = action.split(':')
+            if self.checkadminuser() == False:
+                self.logger.info(u'BlueIris Server User is not admin these commands will not work.')
+                return
 
-        if conditions[1]=='False':
-            argtouse = False
-        elif conditions[1] =='True':
-            argtouse =True
-        else:
-            argtouse = conditions[1]
+            device = indigo.devices[valuesDict.deviceId]
+            cameraname = device.states['optionValue']
+            #self.logger.info(unicode(valuesDict))
+            action = str(valuesDict.props['Configargs'])
+            #split to get two arguments to send
+            conditions = action.split(':')
 
+            if conditions[1]=='False':
+                argtouse = False
+            elif conditions[1] =='True':
+                argtouse =True
+            else:
+                argtouse = conditions[1]
 
-        self.logger.debug(u'Action ArgtoUse:'+unicode(argtouse))
-        self.logger.debug(u'Action Called =' + unicode(action) + u' action event:' + unicode(conditions))
+            self.logger.debug(u'Action ArgtoUse:'+unicode(argtouse))
+            self.logger.debug(u'Action Called =' + unicode(action) + u' action event:' + unicode(conditions))
 
-        configdata = self.sendccommand('camconfig', {'camera': str(cameraname), conditions[0]:argtouse })
-        # if command set update camera now with data received
-        self.camconfigUpdateData(configdata, device)
-        #self.sendccommand('camconfig', {'camera': str(cameraname), 'motion': False})
-
+            configdata = self.sendccommand('camconfig', {'camera': str(cameraname), conditions[0]:argtouse })
+            # if command set update camera now with data received
+            self.camconfigUpdateData(configdata, device)
+            #self.sendccommand('camconfig', {'camera': str(cameraname), 'motion': False})
+        except:
+            self.logger.exception(u'Exception within Cam Config')
         return
 
     def actionEnableAnim(self, valuesDict):
@@ -1369,6 +1304,9 @@ class Plugin(indigo.PluginBase):
             return
 
     def actiongetclipList(self, valuesDict):
+ ## test html link
+ ## https://www.w3schools.com/code/tryit.asp?filename=FORIXU5KV1BH
+
         self.logger.debug(u'action get Clip List Image  for Cameras/s ')
         try:
             folderpath = indigo.server.getInstallFolderPath() + '/IndigoWebServer/static/'
@@ -1548,22 +1486,25 @@ color: #ff3300;
 
     def pluginTriggering(self, valuesDict):
         self.logger.debug(u'pluginTriggering called')
-        #self.logger.info(unicode(valuesDict))
-        action = valuesDict.pluginTypeId
-        actionevent = valuesDict.props['plugintriggersetting']
-        cameras = valuesDict.props['deviceCamera']
-        #self.logger.info(unicode(cameras))
+        try:
+            #self.logger.info(unicode(valuesDict))
+            action = valuesDict.pluginTypeId
+            actionevent = valuesDict.props['plugintriggersetting']
+            cameras = valuesDict.props['deviceCamera']
+            #self.logger.info(unicode(cameras))
 
-        for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
-            if str(dev.id) in cameras:
-                self.logger.debug(u'Action is:' + unicode(action) + u' & Camera is:' + unicode(dev.name)+u' and action:'+unicode(actionevent))
-                if actionevent == 'False':
-                    dev.updateStateOnServer('PluginTriggeringEnabled', value=False)
-                    dev.updateStateOnServer('Motion', value=False ,uiValue='False')
-                if actionevent == 'True':
-                    dev.updateStateOnServer('PluginTriggeringEnabled', value=True)
-                    dev.updateStateOnServer('Motion', value=False, uiValue='False')
-        return
+            for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
+                if str(dev.id) in cameras:
+                    self.logger.debug(u'Action is:' + unicode(action) + u' & Camera is:' + unicode(dev.name)+u' and action:'+unicode(actionevent))
+                    if actionevent == 'False':
+                        dev.updateStateOnServer('PluginTriggeringEnabled', value=False)
+                        dev.updateStateOnServer('Motion', value=False ,uiValue='False')
+                    if actionevent == 'True':
+                        dev.updateStateOnServer('PluginTriggeringEnabled', value=True)
+                        dev.updateStateOnServer('Motion', value=False, uiValue='False')
+            return
+        except:
+            self.logger.exception(u'Exception within pluginTriggerin')
 
 
 
@@ -1575,61 +1516,64 @@ color: #ff3300;
         return
 
     def ptzAction(self, valuesDict):
-        self.logger.debug(u'ptzAction Called')
-        #self.logger.debug(unicode(valuesDict))
 
-        action = valuesDict.pluginTypeId
-        actionevent = -1
-        device = indigo.devices[valuesDict.deviceId]
-        cameraname = device.states['optionValue']
-        self.logger.debug(u'Action is:'+unicode(action))
-        self.logger.debug(u'Camera is:'+unicode(cameraname))
+        try:
+            self.logger.debug(u'ptzAction Called')
+            #self.logger.debug(unicode(valuesDict))
 
-        conditions = {
-            'Left':0,
-            'Right':1,
-            'Up':2,
-            'Down':3,
-            'Home':4,
-            'ZoomIn':5,
-            'ZoomOut':6,
-            'Hz50':8,
-            'Hz60':9,
-            'Outdoor':10,
-            'B0':11,
-            'B1':12,
-            'B2': 13,
-            'B3': 14,
-            'B4': 15,
-            'B5': 16,
-            'B6': 17,
-            'B7': 18,
-            'B8': 19,
-            'B9': 20,
-            'B10': 21,
-            'B11': 22,
-            'B12': 23,
-            'B13': 24,
-            'B14': 25,
-            'B15': 26,
-            'C0': 27,
-            'C1': 28,
-            'C2': 29,
-            'C3': 30,
-            'C4': 31,
-            'C5': 32,
-            'C6': 33,
-            'IRon': 34,
-            'IRoff': 35
-        }
+            action = valuesDict.pluginTypeId
+            actionevent = -1
+            device = indigo.devices[valuesDict.deviceId]
+            cameraname = device.states['optionValue']
+            self.logger.debug(u'Action is:'+unicode(action))
+            self.logger.debug(u'Camera is:'+unicode(cameraname))
 
-        if action in conditions.keys():
-            actionevent = conditions[action]
-            self.logger.debug(u'Action Called =' + unicode(action) + u' action event:' + unicode(actionevent))
-            self.ptzmain(cameraname, actionevent)
-        else:
-            self.logger.error(u'No such action event found: '+unicode(action))
+            conditions = {
+                'Left':0,
+                'Right':1,
+                'Up':2,
+                'Down':3,
+                'Home':4,
+                'ZoomIn':5,
+                'ZoomOut':6,
+                'Hz50':8,
+                'Hz60':9,
+                'Outdoor':10,
+                'B0':11,
+                'B1':12,
+                'B2': 13,
+                'B3': 14,
+                'B4': 15,
+                'B5': 16,
+                'B6': 17,
+                'B7': 18,
+                'B8': 19,
+                'B9': 20,
+                'B10': 21,
+                'B11': 22,
+                'B12': 23,
+                'B13': 24,
+                'B14': 25,
+                'B15': 26,
+                'C0': 27,
+                'C1': 28,
+                'C2': 29,
+                'C3': 30,
+                'C4': 31,
+                'C5': 32,
+                'C6': 33,
+                'IRon': 34,
+                'IRoff': 35
+            }
 
+            if action in conditions.keys():
+                actionevent = conditions[action]
+                self.logger.debug(u'Action Called =' + unicode(action) + u' action event:' + unicode(actionevent))
+                self.ptzmain(cameraname, actionevent)
+            else:
+                self.logger.error(u'No such action event found: '+unicode(action))
+        except:
+            self.logger.exception(u'Exception within Ptz Main')
         return
 
     def ptzPreset(self, valuesDict):
@@ -1643,7 +1587,6 @@ color: #ff3300;
         device = indigo.devices[valuesDict.deviceId]
         cameraname = device.states['optionValue']
         self.logger.debug(u'Action is:' + unicode(action)+u' & Camera is:' + unicode(cameraname))
-
         self.ptzmain(cameraname, actionevent)
         return
 
@@ -1675,54 +1618,7 @@ color: #ff3300;
         self.sendccommand("status", {"profile": profile_id})
         return
 
-### subscribe variable changes
 
-    # def variableUpdated(self, origVariable, newVariable):
-    #
-    #     if self.pluginIsInitializing:
-    #         self.logger.debug(u'variableUpdate called - Initializing returning')
-    #         return
-    #
-    #     #folderId = indigo.variables.folders['BlueIris'].id
-    #     #self.logger.info(u'Folder Id equals:'+unicode(folderId))
-    #     #self.logger.debug(u'Variable Updated called..')
-    #     if len(newVariable.value) < 3: return
-    #     if origVariable.folderId != self.folderId:
-    #         return
-    #     if newVariable.value =='False':
-    #         # Self triggered
-    #         #self.logger.debug(u'Variable = False. Ignore.')
-    #         return
-    #
-    #     #self.logger.debug(u'original :'+unicode(origVariable)+' , new :'+unicode(newVariable))
-    #     #self.logger.debug(u'Camera Triggered:'+unicode(origVariable.name))
-    #
-    #     for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
-    #         if dev.enabled:
-    #             if dev.states['optionValue'] == origVariable.name:
-    #
-    #                 #  Should add check for true
-    #                 # trigger trigger for this dev camera &
-    #                 #
-    #                 if self.debugextra:
-    #                     self.logger.debug(u'Trigger Motion for this Camera:'+unicode(origVariable.name))
-    #                 dev.updateStateOnServer('Motion', value=True, uiValue='True')
-    #                 dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensorTripped)
-    #                 update_time = t.strftime('%c')
-    #                 dev.updateStateOnServer('timeLastMotion', value=str(update_time))
-    #                 #self.logger.info(unicode(dev.pluginProps))
-    #
-    #                 # if using animated gifs delay the trigger until image done.
-    #                 # does risk not sending trigger at all...
-    #                 # if dev.pluginProps.get('animateGif', false):
-    #
-    #                 self.triggerCheck(dev, origVariable.name)
-    #                 if dev.pluginProps.get('saveimage', False):
-    #                     self.downloadImage(dev)
-    #                 #self.sleep(0.5)
-    #                 # Only triggered if change - so quickly change back to False
-    #                 indigo.variable.updateValue(origVariable.id, 'False')
-    #     return
 
     ### Download Image
 

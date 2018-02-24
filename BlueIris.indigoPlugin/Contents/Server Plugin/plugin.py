@@ -1371,6 +1371,10 @@ class Plugin(indigo.PluginBase):
     def actiongetclipList(self, valuesDict):
         self.logger.debug(u'action get Clip List Image  for Cameras/s ')
         try:
+            folderpath = indigo.server.getInstallFolderPath() + '/IndigoWebServer/static/'
+            if not os.path.exists(folderpath):
+                os.makedirs(folderpath)
+
             action = valuesDict.pluginTypeId
             if self.debugimage:
                 self.logger.debug(unicode(valuesDict))
@@ -1387,7 +1391,7 @@ class Plugin(indigo.PluginBase):
 
 
             if clipaccess == 'false':
-                self.logger.error(u'BlueIris Server user does not have clip access')
+                self.logger.error(u'BlueIris Server user does not have clip access.  Cannot access.')
                 return
 
             for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
@@ -1405,35 +1409,45 @@ class Plugin(indigo.PluginBase):
 .container {
      position: relative;
      display:table;
+     width:100%;
    }
+   
+    .container img {background:#e1e1e1; padding 0px; border 1px; margin 2px; width:100%; min-height:200px} 
+    
    .align {
      vertical-align: top;
      display: table-cell;
      position: relative;
    }
 
+    .align img {background:#e1e1e1; padding 0px; border 1px; margin 2px; min-height:200px; min-width:200px}
+
 .bottom-left {
     position: absolute;
     bottom: 8px;
     left: 16px;
+    font-size:16pt
 }
 
 .top-left {
     position: absolute;
     top: 8px;
     left: 16px;
+    font-size: 16pt
 }
 
 .top-right {
     position: absolute;
     top: 8px;
     right: 16px;
+    font-size: 16pt
 }
 
 .bottom-right {
     position: absolute;
     bottom: 8px;
     right: 16px;
+    font-size: 16pt
 }
 
 .centered {
@@ -1442,10 +1456,20 @@ class Plugin(indigo.PluginBase):
     left: 50%;
     transform: translate(-50%, -50%);
  } 
+a:link {
+color: #ffffff;
+}
+a:visited {
+color: #999999;
+}
+a:hover {
+color: #ff3300;
+}
+ 
  </style>
                         
                         </head><body>
-                        <h1>Blue Iris Clip</h1><p>
+                        <h1>Blue Iris Clips</h1><p>
                         <h1>Camera: """ +str(cameraname) + """</h1><p></p>
                         """
                         page = ''
@@ -1461,32 +1485,36 @@ class Plugin(indigo.PluginBase):
                                 #self.logger.debug(u'ClipPath:'+clip['path'])
                                 clippath =  str(diskpath) + '/clips/' +  str(clip['path'])
                                 thumbpath = str(diskpath) + '/thumbs/' + str(clip['path'])
-                                thumbhtml = """<img src="""
 
+
+                                imgsrc = """<img src=""" +'"' + str(thumbpath) + '" alt="No Image available ?CORS error/Try Safari" >\n'
+                                divbottomleft =  '<div class="top-left">' +str(clip['camera'])+' '+str(clip['filesize'])+'</div>\n'
+                                href = '<a href="' + str(clippath)+'"/a>\n'
                                 #self.logger.info(unicode(clippath))
-                                container = """
-                                <div class="container">
-                                """
-                                textdate = '<div class="bottom-right">' + str( datetime.datetime.fromtimestamp( clip['date']) )
+                                container = """<div class="container">\n"""
+                                timeofclip =  datetime.datetime.fromtimestamp( clip['date'])
+                                DateTaken = timeofclip.strftime('%c')
+                                divbottomright = '<div class="top-right">' + str(DateTaken) +'</div>\n'
+
                                 if x != 0:
-                                    container = container+'<div class="image align">'
+                                    container = container+'\n<div class="image align">\n'
                                     end = ''
                                     x= 0
                                 else:
-                                    container = '<div class="image align">'
+                                    container = '</div><div class="image align">\n'
                                     x = 1
-                                    end ='</div>'
-                                page = page + container +str(thumbhtml) +'"' + str(thumbpath) + '" style="width:100%;"> <div class="bottom-left">' +str(clip['camera'])+' '+str(clip['filesize'])+'</div>'+ textdate +'</div><a href="' + str(clippath)+'"/a></div>' +str(end)
+                                    end ='</div>\n</div>\n'
+
+                                page = page + container +imgsrc  + href + divbottomright + divbottomleft +end
 
 
 
+
+                        self.logger.debug(u'Saving Html ClipLists to :'+unicode(folderpath)+str(cameraname)+u"-cliplist.html")
                         html = htmlheader + page + '</body></html>'
                         # Write to HTML to file.html
-                        with open(self.saveDirectory+str(cameraname)+"/cliplist.html", "w") as file:
+                        with open(folderpath+'/'+str(cameraname)+"-cliplist.html", "w") as file:
                             file.write(html)
-
-
-
             return
         except:
             self.logger.exception(u'Exception in action clipList Image')

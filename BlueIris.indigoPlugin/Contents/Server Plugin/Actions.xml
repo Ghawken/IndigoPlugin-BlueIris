@@ -142,7 +142,7 @@
             </ConfigUI>
     </Action>
     <Action id="getclipList">
-    <Name>get ClipList for Camera(s)</Name>
+    <Name>Create ClipList Html for Camera(s)</Name>
     <CallbackMethod>actiongetclipList</CallbackMethod>
         <ConfigUI>
             <Field id="deviceCamera" type="list" rows="14">

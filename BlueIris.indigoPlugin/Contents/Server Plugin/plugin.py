@@ -1395,26 +1395,92 @@ class Plugin(indigo.PluginBase):
                         cameraname = dev.states['optionValue']
                         path = folderLocation + str(cameraname) + '.jpg'
                         clips = self.sendccommand('cliplist', {'camera':str(cameraname),'startdate':int(four_hours_ago), 'enddate':int(nowtime), 'tiles':False })
-                        self.logger.info(unicode(clips))
+                        #self.logger.info(unicode(clips))
 
-                        htmlheader = """<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"/><title>Blue Iris</title></head><body>
+                        htmlheader = """<?php header(Access-Control-Allow-Origin: "h"""+ str('ttp://')+str(self.serverip)+ ':'+ str(self.serverport) + """"); ?>
+                        <html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+                        
+                        <title>Blue Iris</title>
+                        <style>
+.container {
+     position: relative;
+     display:table;
+   }
+   .align {
+     vertical-align: top;
+     display: table-cell;
+     position: relative;
+   }
+
+.bottom-left {
+    position: absolute;
+    bottom: 8px;
+    left: 16px;
+}
+
+.top-left {
+    position: absolute;
+    top: 8px;
+    left: 16px;
+}
+
+.top-right {
+    position: absolute;
+    top: 8px;
+    right: 16px;
+}
+
+.bottom-right {
+    position: absolute;
+    bottom: 8px;
+    right: 16px;
+}
+
+.centered {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+ } 
+ </style>
+                        
+                        </head><body>
                         <h1>Blue Iris Clip</h1><p>
-                        <h1>Camera: """ +str(cameraname) + """</h1><p>
-                        <pre>"""
+                        <h1>Camera: """ +str(cameraname) + """</h1><p></p>
+                        """
                         page = ''
-
+                        x=1
                         for clip in clips:
-                            #wrongpath = clip['path'][1:]  ## path is completely wrong ???
-                            #endpath = str(wrongpath[-4:])
-                            #newpath = datetime.datetime.fromtimestamp( float(clip['date'])).strftime('%Y%m%d_%H%M%S')
-                            #newpath = cameraname+'.'+newpath
-                            diskpath = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/clips/'
-                            clippath =  str(diskpath) + str(clip['path'])
 
-                            self.logger.info(unicode(clippath))
-                            page = page + str( datetime.datetime.fromtimestamp( clip['date']) )+'     <a href="' + str(clippath)+' ">'+str(clip['camera'])+' '+str(clip['filesize'])+' </a>\n'
+                            if 'path' in clip:
+                                #wrongpath = clip['path'][1:]  ## path is completely wrong ???
+                                #endpath = str(wrongpath[-4:])
+                                #newpath = datetime.datetime.fromtimestamp( float(clip['date'])).strftime('%Y%m%d_%H%M%S')
+                                #newpath = cameraname+'.'+newpath
+                                diskpath = "http://" +str(self.serverusername)+':'+str(self.serverpassword) +'@' + str(self.serverip) + ':' + str(self.serverport)
+                                #self.logger.debug(u'ClipPath:'+clip['path'])
+                                clippath =  str(diskpath) + '/clips/' +  str(clip['path'])
+                                thumbpath = str(diskpath) + '/thumbs/' + str(clip['path'])
+                                thumbhtml = """<img src="""
 
-                        html = htmlheader + page
+                                #self.logger.info(unicode(clippath))
+                                container = """
+                                <div class="container">
+                                """
+                                textdate = '<div class="bottom-right">' + str( datetime.datetime.fromtimestamp( clip['date']) )
+                                if x != 0:
+                                    container = container+'<div class="image align">'
+                                    end = ''
+                                    x= 0
+                                else:
+                                    container = '<div class="image align">'
+                                    x = 1
+                                    end ='</div>'
+                                page = page + container +str(thumbhtml) +'"' + str(thumbpath) + '" style="width:100%;"> <div class="bottom-left">' +str(clip['camera'])+' '+str(clip['filesize'])+'</div>'+ textdate +'</div><a href="' + str(clippath)+'"/a></div>' +str(end)
+
+
+
+                        html = htmlheader + page + '</body></html>'
                         # Write to HTML to file.html
                         with open(self.saveDirectory+str(cameraname)+"/cliplist.html", "w") as file:
                             file.write(html)
@@ -1423,7 +1489,7 @@ class Plugin(indigo.PluginBase):
 
             return
         except:
-            self.logger.exception(u'Exception in action Download Image')
+            self.logger.exception(u'Exception in action clipList Image')
             return
 
 

@@ -1426,28 +1426,30 @@ class Plugin(indigo.PluginBase):
     position: absolute;
     bottom: 8px;
     left: 16px;
-    font-size:16pt
+    font-size:16pt;
 }
 
 .top-left {
     position: absolute;
     top: 8px;
     left: 16px;
-    font-size: 16pt
+    font-size: 16pt;
+    font-size: 2vw;
 }
 
 .top-right {
     position: absolute;
     top: 8px;
     right: 16px;
-    font-size: 16pt
+    font-size: 16pt;
+    font-size: 2vw;
 }
 
 .bottom-right {
     position: absolute;
     bottom: 8px;
     right: 16px;
-    font-size: 16pt
+    font-size: 16pt;
 }
 
 .centered {

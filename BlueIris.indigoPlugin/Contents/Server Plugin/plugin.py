@@ -639,6 +639,7 @@ class Plugin(indigo.PluginBase):
                 self.logger.debug(u'Update Status called')
 
             statusresults = self.sendccommand('status', '')
+
             FoundDevice = False
             for dev in indigo.devices.itervalues('self.BlueIrisServer'):
                 FoundDevice = True
@@ -650,6 +651,13 @@ class Plugin(indigo.PluginBase):
             if statusresults is None:
                 self.logger.info(u'No result from status enquiry. If repeated please check Login Server Details in Plugin Config')
                 return
+
+            # add check for fail
+            if 'result' in statusresults:
+                if statusresults['result']=='fail':
+                    self.logger.debug(u'Failed info from Update Status.  Ending.')
+                    return
+
            #login self.logger.info(unicode(statusresults  ))
             if self.updateBIServerdevice(dev, statusresults):
                 if self.debugextra:
@@ -657,7 +665,7 @@ class Plugin(indigo.PluginBase):
             else:
                 self.logger.error(u'Failed to update BI Server Device')
         except:
-            self.logger.debug(u'Exceptuion in update Status/Update BI Server caught')
+            self.logger.debug(u'Exception in update Status/Update BI Server caught')
         return
 
 
@@ -673,6 +681,7 @@ class Plugin(indigo.PluginBase):
             diskname = 'Unknown'
             diskfree = None
             diskused = None
+
             disks = next(iter(statusresults['disks']), None)
 
             if disks is not None:
@@ -743,8 +752,15 @@ class Plugin(indigo.PluginBase):
             results = self.sendccommand('camlist')
 
             if results is None:
-                self.logger.debug(u'No Cameras found.  Please create from within Plugin Config.')
+                self.logger.debug(u'No Cameras found, or a connection issue.  Please create from within Plugin Config.')
                 return
+
+            #add check here
+            if 'result' in results:
+                if results['result']=='fail':
+                    self.logger.debug(u'Failed to get Camera List.  No data provided by BI.')
+                    return
+
             if len(results)<=0:
                 self.logger.debug(u'No Cameras found.2.  Please create from within Plugin Config.')
                 return
@@ -955,6 +971,7 @@ class Plugin(indigo.PluginBase):
             else:
                 self.logger.debug(u'Failed connection to server.')
                 return
+
             if len(self.session)==0:
                 self.logger.debug(u'No self.session cannot run command')
                 return
@@ -974,11 +991,11 @@ class Plugin(indigo.PluginBase):
                 self.logger.debug(u'Error Running command')
                 return ''
             else:
-                pass
                 if self.debugextra:
                     self.logger.debug(u'SUCCESS Text :' + unicode(r.text))
+
             if self.debugextra:
-                self.logger.debug( unicode(r.json()))
+                self.logger.debug(u'sendcommand r.json result:'+ unicode(r.json()))
 
             try:
                 return r.json()["data"]
@@ -997,17 +1014,17 @@ class Plugin(indigo.PluginBase):
             if self.debugextra:
                 self.logger.debug(u'Attempting Connection to:'+unicode(self.url) )
             r = requests.post(self.url, data=json.dumps({"cmd": "login"}))
-            if r.status_code != 200:
+            if int(r.status_code) != 200:
                 if self.debugextra:
-                    self.logger.debug( r.status_code)
-                    self.logger.debug( r.text)
+                    self.logger.debug(u'!200 return:  R.status Code equals:'+ unicode(r.status_code))
+                    self.logger.debug(u' and r.text:'+unicode(r.text))
                 return False
 
             if r.json() is None:
                 if self.debugextra:
                     self.logger.debug(u'Nothing returned from BI')
                     self.logger.debug(unicode(r.text))
-                    self.logger.error(u'Connected.  But nothing returned from BI')
+                    self.logger.debug(u'Connected.  But nothing returned from BI')
                     return False
 
             if self.debugextra:
@@ -1026,11 +1043,12 @@ class Plugin(indigo.PluginBase):
                 self.logger.debug( "session: %s response: %s" % (self.session, self.response))
 
             r = requests.post(self.url,data=json.dumps({"cmd": "login", "session": self.session, "response": self.response}))
-            if r.status_code != 200 or r.json()["result"] != "success":
+            if int(r.status_code) != 200 or r.json()["result"] != "success":
                 if self.debugextra:
-                    self.logger.debug( r.status_code)
-                    self.logger.debug( r.text)
+                    self.logger.debug(u'!200 return:  R.status Code equals:' + unicode(r.status_code))
+                    self.logger.debug(u' and r.text:' + unicode(r.text))
                 return False
+
             if self.debugextra:
                 self.logger.debug(u'Session: Status code returned:' + unicode(r.status_code) + ' Text result:' + unicode(r.text))
             self.systemdata = r.json()['data']
@@ -1306,9 +1324,21 @@ class Plugin(indigo.PluginBase):
     def actiongetclipList(self, valuesDict):
  ## test html link
  ## https://www.w3schools.com/code/tryit.asp?filename=FOSD5YV6MT58
-
-        self.logger.debug(u'action get Clip List Image  for Cameras/s ')
         try:
+            self.logger.debug(u'action get Clip List Image for Cameras/s Called: Starting Thread.')
+            clipThread = threading.Thread(target=self.actiongetclipListThread,  args=[valuesDict])
+            clipThread.start()
+        except:
+            self.logger.exception(u'Exception in actiongetclipList')
+            return
+
+
+    def actiongetclipListThread(self, valuesDict):
+        try:
+            self.logger.debug(u'thread actiongetclipList called  & Total # of Active Threads:' + unicode(
+                threading.activeCount()))
+
+
             folderpath = indigo.server.getInstallFolderPath() + '/IndigoWebServer/static/'
             if not os.path.exists(folderpath):
                 os.makedirs(folderpath)
@@ -1623,16 +1653,11 @@ color: #ff3300;
     ### Download Image
 
     def downloadImage(self, dev):
-        if self.debugextra:
+        if self.debugimage:
             self.logger.debug(u'downloadImage Called')
         try:
             cameraname = dev.states['optionValue']
             widthimage = dev.pluginProps.get('widthimage',0)
-
-
-            # MAChome = os.path.expanduser("~") + "/"
-            # folderLocation = MAChome + "Documents/Indigo-BlueIris/"
-
             folderLocation = self.saveDirectory
 
             path = folderLocation + str(cameraname) + '.jpg'
@@ -1642,22 +1667,10 @@ color: #ff3300;
                 yetanotherUrl = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/image/' + cameraname +'?w='+str(widthimage)
             if self.debugimage:
                 self.logger.debug(u'Image:  Getting url:'+unicode(yetanotherUrl)+' with path:'+unicode(path))
-
-
             #thread this out - called a lot and could slow down
             ImageThread = threading.Thread(target=self.threadDownloadImage,
                                            args=[cameraname, path, yetanotherUrl])
             ImageThread.start()
-
-            # r = requests.get(yetanotherUrl, auth=(str(self.serverusername),str(self.serverpassword)), stream=True )
-            # if r.status_code ==200:
-            #     #self.logger.debug(u'Yah Code 200....')
-            #     with open (path, 'wb') as f:
-            #         r.raw.decode_content = True
-            #         shutil.copyfileobj(r.raw, f)
-            # else:
-            #     self.logger.debug(u'Issue with BI connection. No image downloaded.')
-            # ## Add Checks here for Anim gif wanted etc
 
             animateGif=dev.pluginProps.get('animateGif',False)
             try:

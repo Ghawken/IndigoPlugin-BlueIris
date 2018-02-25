@@ -568,7 +568,7 @@ class Plugin(indigo.PluginBase):
                          if camlist[i][0]['isOnline']==True and camlist[i][0]['isEnabled']:
                             device.updateStateOnServer('deviceIsOnline', value=True, uiValue="Online")
                             device.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
-                            device.updateStateOnServer('Motion', value=False)
+                            device.updateStateOnServer('Motion', value=False, uiValue='')
                          else:
                              device.updateStateOnServer('deviceIsOnline', value=False, uiValue="Offline")
                              device.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
@@ -1305,7 +1305,7 @@ class Plugin(indigo.PluginBase):
 
     def actiongetclipList(self, valuesDict):
  ## test html link
- ## https://www.w3schools.com/code/tryit.asp?filename=FORIXU5KV1BH
+ ## https://www.w3schools.com/code/tryit.asp?filename=FOSD5YV6MT58
 
         self.logger.debug(u'action get Clip List Image  for Cameras/s ')
         try:
@@ -1445,7 +1445,7 @@ color: #ff3300;
                                     x = 1
                                     end ='</div>\n</div>\n'
 
-                                page = page + container +imgsrc  + href + divbottomright + divbottomleft +end
+                                page = page + container +href  + imgsrc + divbottomright + divbottomleft +end
 
 
 

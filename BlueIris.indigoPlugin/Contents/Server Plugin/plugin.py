@@ -102,7 +102,7 @@ class Plugin(indigo.PluginBase):
                 self.logger.debug(u'Found This Server Device:'+server.name)
                 num=num+1
         except:
-            self.logger.exception(u'Error in Counting Server Devices...')
+            self.logger.exception(u'Caught Error in Counting Server Devices...')
             pass
 
         if num >1:
@@ -261,7 +261,7 @@ class Plugin(indigo.PluginBase):
             self.logger.debug(u'Error in Validate')
             return (False, valuesDict, errorDict)
         except:
-            self.logger.exception(u'Error in Device Validate')
+            self.logger.exception(u'Caught Error in Device Validate')
             return (False, valuesDict, errorDict)
 
 
@@ -590,7 +590,7 @@ class Plugin(indigo.PluginBase):
 
 
         except:
-            self.logger.exception('Exception in generate Cameras')
+            self.logger.exception(u'Caught Exception in generate Cameras')
 
 
         return valuesDict
@@ -623,7 +623,7 @@ class Plugin(indigo.PluginBase):
                                               protocol=indigo.kProtocol.Plugin, folder='BlueIris')
                 FoundDevice = True
         except:
-            self.logger.exception(u'Exception creating Server Device')
+            self.logger.exception(u'Caught Exception creating Server Device')
             valuesDict['loginOK'] = False
             return
 
@@ -702,7 +702,7 @@ class Plugin(indigo.PluginBase):
                     diskname = disks['disk']
         except:
             if self.debugextra:
-                self.logger.exception(u'updateBIServer Device:  Disk Error')
+                self.logger.exception(u'Caught Exception in updateBIServer Device:  Disk Error')
             pass
 
         try:
@@ -740,7 +740,7 @@ class Plugin(indigo.PluginBase):
             return True
 
         except:
-            self.logger.exception(u'Exception in updateBIServer Device')
+            self.logger.exception(u'Caught Exception in updateBIServer Device')
             dev.updateStateImageOnServer(indigo.kStateImageSel.SensorTripped)
             dev.updateStateOnServer('deviceIsOnline', value=True, uiValue="Offline")
             return False
@@ -777,7 +777,7 @@ class Plugin(indigo.PluginBase):
             self.checkCamDevices(camlist)
         except:
             if self.debugextra:
-                self.logger.exception(u'getCameraList Exception:')
+                self.logger.exception(u'Caught Exception in getCameraList:')
                 self.logger.exception(unicode(results))
 
 
@@ -804,7 +804,7 @@ class Plugin(indigo.PluginBase):
                             self.logger.debug(u'updateSystemDevice Updated/Done.')
 
         except:
-            self.logger.exception(u'Exception within UpdateSystemDevice')
+            self.logger.exception(u'Caught Exception within UpdateSystemDevice')
         return
 
     def camconfigUpdateData(self, configdata, camera):
@@ -831,7 +831,7 @@ class Plugin(indigo.PluginBase):
                     self.logger.debug(u'CamConfig Update Data Failed. Most likely no longer admin user.')
                     return
         except:
-            self.logger.exception(u'Update CamConfig Update Data Exception')
+            self.logger.exception(u'Caught Exception in Update CamConfig Update Data Exception')
             return
 
     def updatecamConfig(self):
@@ -882,7 +882,7 @@ class Plugin(indigo.PluginBase):
         except:
             self.logger.debug(u'Exception within updateCamConfig:')
             if self.debugextra:
-                self.logger.exception(u'Exception:')
+                self.logger.exception(u'Caught Exception:')
             self.logger.debug(u'Most likely to many calls to quickly.')
             return
 
@@ -961,7 +961,7 @@ class Plugin(indigo.PluginBase):
             #now fill with data
                 self.sleep(1)
         except:
-            self.logger.exception('Exception in checkcamDevices')
+            self.logger.exception(u'Caught Exception in checkcamDevices')
 
 
     def sendccommand(self, cmd, params=dict()):
@@ -1008,10 +1008,11 @@ class Plugin(indigo.PluginBase):
                 return r.json()
         except requests.exceptions.Timeout:
             self.logger.debug(u'sendCommand has timed out and cannot connect to BI Server.')
+            self.sleep(5)
             pass
 
         except:
-            self.logger.exception(u'Error within Send Command'+unicode(r.json()))
+            self.logger.exception(u'Caught Exception within Send Command'+unicode(r.json()))
 
 
     def connectServer(self):
@@ -1070,8 +1071,13 @@ class Plugin(indigo.PluginBase):
             self.logger.debug(u'connectServer has timed out and cannot connect to BI Server.')
             pass
 
+        except requests.exceptions.ConnectionError:
+            self.logger.debug(u'connectServer has a Connection Error and cannot connect to BI Server.')
+            self.sleep(10)
+            pass
+
         except:
-            self.logger.exception(u'Exception with connectServer:')
+            self.logger.exception(u'Caught Exception with connectServer:')
             return False
 
     def myProfiles(self, filter=0, valuesDict=None, typeId="", targetId=0):
@@ -1158,7 +1164,7 @@ class Plugin(indigo.PluginBase):
                     os.makedirs(folderLocation + 'tmp')
 
         except:
-            self.logger.exception(u'Startup Exception:')
+            self.logger.exception(u'Caught Exception at Startup :')
             pass
 
 
@@ -1211,7 +1217,7 @@ class Plugin(indigo.PluginBase):
                 self.logger.debug(u'BlueIris Server User is not Admin.')
                 return False
         except:
-            self.logger.exception(u'Exception in Checkadmin User')
+            self.logger.exception(u'Caught Exception in Checkadmin User')
             return False
 ###### Actions
 
@@ -1246,7 +1252,7 @@ class Plugin(indigo.PluginBase):
             self.camconfigUpdateData(configdata, device)
             #self.sendccommand('camconfig', {'camera': str(cameraname), 'motion': False})
         except:
-            self.logger.exception(u'Exception within Cam Config')
+            self.logger.exception(u'Caught Exception within Cam Config')
         return
 
     def actionEnableAnim(self, valuesDict):
@@ -1270,7 +1276,7 @@ class Plugin(indigo.PluginBase):
                     #self.logger.debug(unicode(u'After:')+unicode(cameraprops))
             return
         except:
-            self.logger.exception(u'Exception in Enable Anim Gifs')
+            self.logger.exception(u'Caught Exception in Enable Anim Gifs')
             return
 
     def actionCreateAnimGif(self, valuesDict):
@@ -1299,7 +1305,7 @@ class Plugin(indigo.PluginBase):
                         self.sleep(0.1)
             return
         except:
-            self.logger.exception(u'Exception in Create Anim Gifs')
+            self.logger.exception(u'Caught Exception in Create Anim Gifs')
             return
 
     def actionDownloadImage(self, valuesDict):
@@ -1331,7 +1337,7 @@ class Plugin(indigo.PluginBase):
                         ImageThread.start()
             return
         except:
-            self.logger.exception(u'Exception in action Download Image')
+            self.logger.exception(u'Caught Exception in action Download Image')
             return
 
     def actiongetclipList(self, valuesDict):
@@ -1342,7 +1348,7 @@ class Plugin(indigo.PluginBase):
             clipThread = threading.Thread(target=self.actiongetclipListThread,  args=[valuesDict])
             clipThread.start()
         except:
-            self.logger.exception(u'Exception in actiongetclipList')
+            self.logger.exception(u'Caught Exception in actiongetclipList')
             return
 
 
@@ -1500,7 +1506,7 @@ color: #ff3300;
                             file.write(html)
             return
         except:
-            self.logger.exception(u'Exception in action clipList Image')
+            self.logger.exception(u'Caught Exception in action clipList Image')
             return
 
 
@@ -1536,6 +1542,11 @@ color: #ff3300;
             self.logger.debug(u'threadDownloadImage has timed out and cannot connect to BI Server.')
             pass
 
+        except requests.exceptions.ConnectionError:
+            self.logger.debug(u'connectServer has a Connection Error and cannot connect to BI Server.')
+            self.sleep(5)
+            pass
+
         except:
             self.logger.exception(u'Caught Exception in threadDownloadImage')
 
@@ -1562,7 +1573,7 @@ color: #ff3300;
                         dev.updateStateOnServer('Motion', value=False, uiValue='False')
             return
         except:
-            self.logger.exception(u'Exception within pluginTriggerin')
+            self.logger.exception(u'Caught Exception within pluginTriggerin')
 
 
 
@@ -1631,7 +1642,7 @@ color: #ff3300;
             else:
                 self.logger.error(u'No such action event found: '+unicode(action))
         except:
-            self.logger.exception(u'Exception within Ptz Main')
+            self.logger.exception(u'Caught Exception within Ptz Main')
         return
 
     def ptzPreset(self, valuesDict):
@@ -1714,11 +1725,11 @@ color: #ff3300;
                     self.logger.debug(u'New Thread Camera:'+unicode(cameraname)+u' & Number of Active Threads:'+unicode(threading.activeCount()))
                     return
             except:
-                self.logger.exception(u'Exception in Beta! Animated Gif Threads')
+                self.logger.exception(u'Caught Exception in Animated Gif Threads')
 
             return
         except:
-            self.logger.exception(u'Exception in download Camera Image')
+            self.logger.exception(u'Caught Exception in download Camera Image')
             return
 
 
@@ -1778,7 +1789,7 @@ color: #ff3300;
                         self.logger.debug("Not Run Trigger Type %s (%d), %s" % (trigger.name, trigger.id, trigger.pluginTypeId))
 
         except:
-            self.logger.exception(u'Exception within Trigger Check')
+            self.logger.exception(u'Caught Exception within Trigger Check')
             return
 ## Update routines
 
@@ -1908,7 +1919,7 @@ color: #ff3300;
                 self.createupdatevariable('lastAnimGif',str(newfilename))
 
             except Exception as e:
-                self.logger.exception(u'Exception within animGIF gifsicle - newThread')
+                self.logger.exception(u'Caught Exception within animGIF gifsicle - newThread')
 
         except requests.exceptions.Timeout:
             self.logger.debug(u'animGif requests has timed out and cannot connect to BI Server.')
@@ -1919,7 +1930,7 @@ color: #ff3300;
             pass
 
         except:
-            self.logger.exception(u'Error in Anim Gif Thread')
+            self.logger.exception(u'Caught Error in Anim Gif Thread')
 
 
     # def newThreadDownload(self, folderLocation, cameraname, widthimage, time):
@@ -1978,7 +1989,7 @@ color: #ff3300;
             self.logger.debug(u'Self.Stop Thread called')
             pass
         except:
-            self.logger.exception(u'Exception in ListenHttp')
+            self.logger.exception(u'Caught Exception in ListenHttp')
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     """Handle requests in a separate thread."""

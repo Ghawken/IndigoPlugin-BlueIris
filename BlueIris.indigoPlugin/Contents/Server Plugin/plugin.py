@@ -64,6 +64,9 @@ class Plugin(indigo.PluginBase):
         self.oldlistenPort = 4556
         self.systemdata = None
         self.session =''
+
+        self.requestTimeout = 5
+
         self.logger.info(u"")
         self.logger.info(u"{0:=^130}".format(" Initializing New Plugin Session "))
         self.logger.info(u"{0:<30} {1}".format("Plugin name:", pluginDisplayName))
@@ -797,7 +800,8 @@ class Plugin(indigo.PluginBase):
                                 {'key': 'version', 'value': self.systemdata['version']},
                             ]
                         dev.updateStatesOnServer(stateList)
-
+                        if self.debugextra:
+                            self.logger.debug(u'updateSystemDevice Updated/Done.')
 
         except:
             self.logger.exception(u'Exception within UpdateSystemDevice')
@@ -844,7 +848,7 @@ class Plugin(indigo.PluginBase):
                         cameraname = camera.states['optionValue']
                         if self.debugother:
                             self.logger.debug(u'Checking CamConfig for Camera:' + cameraname)
-                        self.sleep(0.1)
+
                         cameraconfigdata = self.sendccommand('camconfig', {'camera': str(cameraname) })
                         #self.logger.info(unicode(cameraconfigdata))
                         if cameraconfigdata is not None and 'result' not in cameraconfigdata:
@@ -857,6 +861,7 @@ class Plugin(indigo.PluginBase):
                             if self.debugother:
                                 self.logger.debug(u'Updated Camera with new States:'+unicode(stateList))
                             camera.updateStatesOnServer(stateList)
+                        self.sleep(1)
             else:
                 if self.debugextra:
                     self.logger.debug(u'Need to be Admin BI User to access these addtional states')
@@ -983,7 +988,7 @@ class Plugin(indigo.PluginBase):
             if self.debugextra:
                 self.logger.debug('Command to be sent:'+unicode(args))
 
-            r = requests.post(self.url, data=json.dumps(args))
+            r = requests.post(self.url, data=json.dumps(args), timeout=self.requestTimeout)
 
             if r.status_code != 200:
                 self.logger.debug(u'Status code'+unicode(r.status_code) )
@@ -1001,6 +1006,10 @@ class Plugin(indigo.PluginBase):
                 return r.json()["data"]
             except:
                 return r.json()
+        except requests.exceptions.Timeout:
+            self.logger.debug(u'sendCommand has timed out and cannot connect to BI Server.')
+            pass
+
         except:
             self.logger.exception(u'Error within Send Command'+unicode(r.json()))
 
@@ -1013,7 +1022,7 @@ class Plugin(indigo.PluginBase):
             self.url = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/json'
             if self.debugextra:
                 self.logger.debug(u'Attempting Connection to:'+unicode(self.url) )
-            r = requests.post(self.url, data=json.dumps({"cmd": "login"}))
+            r = requests.post(self.url, data=json.dumps({"cmd": "login"}), timeout=self.requestTimeout)
             if int(r.status_code) != 200:
                 if self.debugextra:
                     self.logger.debug(u'!200 return:  R.status Code equals:'+ unicode(r.status_code))
@@ -1042,7 +1051,7 @@ class Plugin(indigo.PluginBase):
             if self.debugextra:
                 self.logger.debug( "session: %s response: %s" % (self.session, self.response))
 
-            r = requests.post(self.url,data=json.dumps({"cmd": "login", "session": self.session, "response": self.response}))
+            r = requests.post(self.url,data=json.dumps({"cmd": "login", "session": self.session, "response": self.response}), timeout=self.requestTimeout)
             if int(r.status_code) != 200 or r.json()["result"] != "success":
                 if self.debugextra:
                     self.logger.debug(u'!200 return:  R.status Code equals:' + unicode(r.status_code))
@@ -1057,6 +1066,10 @@ class Plugin(indigo.PluginBase):
             if self.debugextra:
                 self.logger.debug(u"Connected to '%s'" % self.system_name )
             return True
+        except requests.exceptions.Timeout:
+            self.logger.debug(u'connectServer has timed out and cannot connect to BI Server.')
+            pass
+
         except:
             self.logger.exception(u'Exception with connectServer:')
             return False
@@ -1497,19 +1510,34 @@ color: #ff3300;
                     cameraname) + u' & Number of Active Threads:' + unicode(
                     threading.activeCount()))
         try:
+             # add timer and move to chunk download...
+             start = t.time()
+
              r = requests.get(url, auth=(str(self.serverusername), str(self.serverpassword)),
-                              stream=True)
+                              stream=True, timeout=self.requestTimeout)
              if r.status_code == 200:
                  # self.logger.debug(u'Yah Code 200....')
                  with open(path, 'wb') as f:
-                     r.raw.decode_content = True
-                     shutil.copyfileobj(r.raw, f)
-                     if self.debugimage:
-                         self.logger.debug(u'Saved Image:'+unicode(path)+' for Camera:'+unicode(cameraname))
+                    for chunk in r.iter_content(1024):
+                        f.write(chunk)
+                        if t.time()>(start +self.requestTimeout):
+                            self.logger.error(u'Download Image Taking too long.  Aborted.  ?Network issue')
+                            break
+
+                 # with open(path, 'wb') as f:
+                 #     r.raw.decode_content = True
+                 #     shutil.copyfileobj(r.raw, f)
+                    if self.debugimage:
+                        self.logger.debug(u'Saved Image attempt for:'+unicode(path)+' for Camera:'+unicode(cameraname)+' in [seconds]:'+unicode(t.time()-start))
              else:
                  self.logger.debug(u'Issue Downloading Image. Failed.')
+
+        except requests.exceptions.Timeout:
+            self.logger.debug(u'threadDownloadImage has timed out and cannot connect to BI Server.')
+            pass
+
         except:
-            self.logger.exception(u'Exception in threadDownloadImage')
+            self.logger.exception(u'Caught Exception in threadDownloadImage')
 
 
 
@@ -1799,22 +1827,34 @@ color: #ff3300;
             x=100
             while x <115:
             #for x in range(100,115):
+                start = t.time()
                 path = folderLocation + 'tmp/' + str(x)+'.jpg'
-                r = requests.get(theUrl, auth=(str(self.serverusername), str(self.serverpassword)), stream=True)
+                r = requests.get(theUrl, auth=(str(self.serverusername), str(self.serverpassword)), stream=True, timeout=self.requestTimeout)
 
                 if self.debuggif:
                     self.logger.debug(u'URL Called:'+unicode(theUrl))
                     self.logger.debug(u'Time '+unicode(t.time())+u' Path/Name in Order:'+unicode(path))
                 if r.status_code == 200:
                     with open(path, 'wb') as f:
-                        r.raw.decode_content = True
-                        shutil.copyfileobj(r.raw, f)
+                        for chunk in r.iter_content(1024):
+                            f.write(chunk)
+                            if t.time() > (start + self.requestTimeout):
+                                self.logger.error(u'AnimGif - Download Image Taking to long.  Aborted.')
+                                break
+                    if self.debuggif:
+                        self.logger.debug(u'Animgif: Image Download Attempt for: ' + unicode(path) + u' in [seconds]:' + unicode(t.time() - start))
+                    #
+                    # with open(path, 'wb') as f:
+                    #     r.raw.decode_content = True
+                    #     shutil.copyfileobj(r.raw, f)
                 else:
                     self.logger.debug(u'Issue with BI connection. No image downloaded. Status code:'+unicode(r.status_code)+' Error:'+unicode(r.text))
                     #not sure about below - might hang forever and lead to multiple threads versus missing image..
                     #removing
                     #x=x-1
                     t.sleep(2)
+
+
                 Interval = float( float(time) / 15)
                 #change above
                 if self.debuggif:
@@ -1833,8 +1873,8 @@ color: #ff3300;
                     # avoid sort just rename,remove last 4 and add gif
                     newfilename = filename[:-4]+'.gif'
                     #newfilename = folderLocation + 'tmp/' + str(x) + '.gif'
-                    if self.debuggif:
-                        self.logger.debug(u'newfilename:'+unicode(newfilename)+' :::::: old filename:'+unicode(filename))
+                    # if self.debuggif:
+                    #     self.logger.debug(u'newfilename:'+unicode(newfilename)+' :::::: old filename:'+unicode(filename))
                     #self.logger.info(unicode(filename))
                     p = subprocess.Popen(['/usr/bin/sips', '-s', 'format', 'gif', filename, '--out', newfilename],
                                          stdout=subprocess.PIPE).communicate()[0]
@@ -1869,6 +1909,10 @@ color: #ff3300;
 
             except Exception as e:
                 self.logger.exception(u'Exception within animGIF gifsicle - newThread')
+
+        except requests.exceptions.Timeout:
+            self.logger.debug(u'animGif requests has timed out and cannot connect to BI Server.')
+            pass
 
         except self.StopThread:
             self.logger.info(u'Restarting/or error. Stopping thread.')

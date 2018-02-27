@@ -49,7 +49,7 @@ kDefaultPluginPrefs = {
     u'updaterEmail': "",  # Email to notify of plugin updates.
     u'updaterEmailsEnabled': False,  # Notification of plugin updates wanted.
     u'ServerTimeout': 5,
-    u'ImageTimeout': 5
+    u'ImageTimeout': 10
 }
 
 
@@ -67,7 +67,7 @@ class Plugin(indigo.PluginBase):
         self.systemdata = None
         self.session =''
 
-        self.ImageTimeout =5
+        self.ImageTimeout =10
         self.ServerTimeout = 5
         self.requestTimeout = self.ServerTimeout
 
@@ -360,25 +360,25 @@ class Plugin(indigo.PluginBase):
             self.logger.debug(u'Setting ServerTimeout to Default 5 as Blank')
 
         if valuesDict.get('ImageTimeout', "") == "":
-            valuesDict['ImageTimeout'] = 5
-            self.pluginPrefs['ImageTimeout'] = 5
-            self.logger.debug(u'Setting ImageTimeout to Default 5 as blank')
+            valuesDict['ImageTimeout'] = 10
+            self.pluginPrefs['ImageTimeout'] = 10
+            self.logger.debug(u'Setting ImageTimeout to Default 10 as blank')
 
         if 'ImageTimeout' in valuesDict:
             self.logger.debug(u'ImageTimeout:'+unicode(valuesDict['ImageTimeout']))
             try:
                 self.ImageTimeout = int(valuesDict['ImageTimeout'])
                 if self.ImageTimeout <=0:
-                    self.ImageTimeout = 5
-                    valuesDict[u'ImageTimeout'] = 5
-                    self.pluginPrefs[u'ImageTimeout'] = 5
+                    self.ImageTimeout = 10
+                    valuesDict[u'ImageTimeout'] = 10
+                    self.pluginPrefs[u'ImageTimeout'] = 10
                 self.logger.debug(u'Setting ImageTimeout to '+unicode(valuesDict['ImageTimeout']))
             except:
                 self.logger.exception(u'Exception ImageTimeout')
-                valuesDict[u'ImageTimeout'] = 5
-                self.pluginPrefs[u'ImageTimeout'] = 5
+                valuesDict[u'ImageTimeout'] = 10
+                self.pluginPrefs[u'ImageTimeout'] = 10
                 self.logger.debug(u'Setting to Default ImageTimout of 5 seconds')
-                self.ImageTimeout = 5
+                self.ImageTimeout = 10
 
         if 'ServerTimeout' in valuesDict:
             self.logger.debug(u'ServerTimeOut:'+unicode(valuesDict['ServerTimeout']))

@@ -47,7 +47,9 @@ kDefaultPluginPrefs = {
     u'configUpdaterInterval': 24,
     u'showDebugLevel': "1",  # Low, Medium or High debug output.
     u'updaterEmail': "",  # Email to notify of plugin updates.
-    u'updaterEmailsEnabled': False  # Notification of plugin updates wanted.
+    u'updaterEmailsEnabled': False,  # Notification of plugin updates wanted.
+    u'ServerTimeout': 5,
+    u'ImageTimeout': 5
 }
 
 
@@ -65,7 +67,9 @@ class Plugin(indigo.PluginBase):
         self.systemdata = None
         self.session =''
 
-        self.requestTimeout = 5
+        self.ImageTimeout =5
+        self.ServerTimeout = 5
+        self.requestTimeout = self.ServerTimeout
 
         self.logger.info(u"")
         self.logger.info(u"{0:=^130}".format(" Initializing New Plugin Session "))
@@ -188,6 +192,8 @@ class Plugin(indigo.PluginBase):
             self.debugLevel = valuesDict.get('showDebugLevel', "10")
             self.debugLog(u"User prefs saved.")
 
+            #self.logger.error(unicode(valuesDict))
+
             try:
                 self.logLevel = int(valuesDict[u"showDebugLevel"])
             except:
@@ -212,6 +218,9 @@ class Plugin(indigo.PluginBase):
             self.debugother = valuesDict.get('debugother', False)
             self.openStore = valuesDict.get('openStore', False)
             self.saveDirectory = valuesDict.get('directory', '')
+
+            # self.ImageTimeout = int(valuesDict.get('ImageTimout',5))
+            # self.ServerTimeout = int(valuesDict.get('ServerTimeout'),5)
 
             #oldlistenport = self.listenPort
 
@@ -270,7 +279,6 @@ class Plugin(indigo.PluginBase):
         self.logger.debug(u"------ validatePrefsConfigUi() method called.")
         errorDict = indigo.Dict()
 
-
         #self.logger.info(unicode(valuesDict))
 
         if 'serverip' in valuesDict:
@@ -285,8 +293,6 @@ class Plugin(indigo.PluginBase):
                 return (False, valuesDict, errorDict)
         else:
             return False, valuesDict
-
-
 
         if 'serverport' in valuesDict:
             iFail = False
@@ -314,8 +320,6 @@ class Plugin(indigo.PluginBase):
                 return (False, valuesDict, errorDict)
         else:
             return False, valuesDict
-
-
 
         if 'serverpassword' in valuesDict:
             iFail = False
@@ -349,6 +353,50 @@ class Plugin(indigo.PluginBase):
             self.listenPort = 4556
             self.pluginPrefs['Httpserverport'] = 4556
 
+        self.logger.debug(u'Checking Timeouts...')
+        if valuesDict.get('ServerTimeout',"") == "":
+            valuesDict['ServerTimeout'] = 5
+            self.pluginPrefs['ServerTimeout'] = 5
+            self.logger.debug(u'Setting ServerTimeout to Default 5 as Blank')
+
+        if valuesDict.get('ImageTimeout', "") == "":
+            valuesDict['ImageTimeout'] = 5
+            self.pluginPrefs['ImageTimeout'] = 5
+            self.logger.debug(u'Setting ImageTimeout to Default 5 as blank')
+
+        if 'ImageTimeout' in valuesDict:
+            self.logger.debug(u'ImageTimeout:'+unicode(valuesDict['ImageTimeout']))
+            try:
+                self.ImageTimeout = int(valuesDict['ImageTimeout'])
+                if self.ImageTimeout <=0:
+                    self.ImageTimeout = 5
+                    valuesDict[u'ImageTimeout'] = 5
+                    self.pluginPrefs[u'ImageTimeout'] = 5
+                self.logger.debug(u'Setting ImageTimeout to '+unicode(valuesDict['ImageTimeout']))
+            except:
+                self.logger.exception(u'Exception ImageTimeout')
+                valuesDict[u'ImageTimeout'] = 5
+                self.pluginPrefs[u'ImageTimeout'] = 5
+                self.logger.debug(u'Setting to Default ImageTimout of 5 seconds')
+                self.ImageTimeout = 5
+
+        if 'ServerTimeout' in valuesDict:
+            self.logger.debug(u'ServerTimeOut:'+unicode(valuesDict['ServerTimeout']))
+            try:
+                self.ServerTimeout = valuesDict['ServerTimeout']
+                if self.ServerTimeout <=0:
+                    self.ServerTimeout = 5
+                    valuesDict[u'ServerTimeout'] = 5
+                    self.pluginPrefs[u'ServerTimeout'] = 5
+                self.logger.debug(u'Setting ServerTimeout to ' + unicode(valuesDict['ServerTimeout']))
+                self.logger.debug(u'Self ServerTimeout  :'+unicode(self.ServerTimeout))
+            except:
+                self.logger.exception(u'Server Timeout exception:')
+                valuesDict[u'ServerTimeout'] = 5
+                self.pluginPrefs[u'ServerTimeout'] = 5
+                self.logger.debug(u'Setting to Default ServerTimeout of 5 seconds')
+                self.ServerTimeout = 5
+
         if valuesDict.get('directory', '') != '':
             # check read/write access to directory
             if os.access(valuesDict['directory'],os.W_OK) == False:
@@ -364,12 +412,16 @@ class Plugin(indigo.PluginBase):
             valuesDict['directory'] = folderLocation
             self.pluginPrefs['directory'] = folderLocation
 
+
+
         if 'serverip' in valuesDict and 'serverport' in valuesDict and 'serverusername' in valuesDict  and 'serverpassword' in valuesDict and 'Httpserverport' in valuesDict:
             # Validate login
             return True, valuesDict
         else:
             errorDict['showAlertText']='Missing some Plugin Configuration Settings Pleae review'
             return (False, valuesDict, errorDict)
+
+
 
         return True, valuesDict
 
@@ -988,7 +1040,7 @@ class Plugin(indigo.PluginBase):
             if self.debugextra:
                 self.logger.debug('Command to be sent:'+unicode(args))
 
-            r = requests.post(self.url, data=json.dumps(args), timeout=self.requestTimeout)
+            r = requests.post(self.url, data=json.dumps(args), timeout=self.ServerTimeout)
 
             if r.status_code != 200:
                 self.logger.debug(u'Status code'+unicode(r.status_code) )
@@ -1006,10 +1058,16 @@ class Plugin(indigo.PluginBase):
                 return r.json()["data"]
             except:
                 return r.json()
+
         except requests.exceptions.Timeout:
             self.logger.debug(u'sendCommand has timed out and cannot connect to BI Server.')
             self.sleep(5)
             pass
+        except requests.exceptions.ConnectionError:
+            self.logger.debug(u'sendCommand has ConnectionError and cannot connect to BI Server.')
+            self.sleep(5)
+            pass
+
 
         except:
             self.logger.exception(u'Caught Exception within Send Command'+unicode(r.json()))
@@ -1023,7 +1081,7 @@ class Plugin(indigo.PluginBase):
             self.url = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/json'
             if self.debugextra:
                 self.logger.debug(u'Attempting Connection to:'+unicode(self.url) )
-            r = requests.post(self.url, data=json.dumps({"cmd": "login"}), timeout=self.requestTimeout)
+            r = requests.post(self.url, data=json.dumps({"cmd": "login"}), timeout=self.ServerTimeout)
             if int(r.status_code) != 200:
                 if self.debugextra:
                     self.logger.debug(u'!200 return:  R.status Code equals:'+ unicode(r.status_code))
@@ -1052,7 +1110,7 @@ class Plugin(indigo.PluginBase):
             if self.debugextra:
                 self.logger.debug( "session: %s response: %s" % (self.session, self.response))
 
-            r = requests.post(self.url,data=json.dumps({"cmd": "login", "session": self.session, "response": self.response}), timeout=self.requestTimeout)
+            r = requests.post(self.url,data=json.dumps({"cmd": "login", "session": self.session, "response": self.response}), timeout=self.ServerTimeout)
             if int(r.status_code) != 200 or r.json()["result"] != "success":
                 if self.debugextra:
                     self.logger.debug(u'!200 return:  R.status Code equals:' + unicode(r.status_code))
@@ -1520,13 +1578,13 @@ color: #ff3300;
              start = t.time()
 
              r = requests.get(url, auth=(str(self.serverusername), str(self.serverpassword)),
-                              stream=True, timeout=self.requestTimeout)
+                              stream=True, timeout=self.ServerTimeout)
              if r.status_code == 200:
                  # self.logger.debug(u'Yah Code 200....')
                  with open(path, 'wb') as f:
                     for chunk in r.iter_content(1024):
                         f.write(chunk)
-                        if t.time()>(start +self.requestTimeout):
+                        if t.time()>(start +self.ImageTimeout):
                             self.logger.error(u'Download Image Taking too long.  Aborted.  ?Network issue')
                             break
 
@@ -1840,7 +1898,7 @@ color: #ff3300;
             #for x in range(100,115):
                 start = t.time()
                 path = folderLocation + 'tmp/' + str(x)+'.jpg'
-                r = requests.get(theUrl, auth=(str(self.serverusername), str(self.serverpassword)), stream=True, timeout=self.requestTimeout)
+                r = requests.get(theUrl, auth=(str(self.serverusername), str(self.serverpassword)), stream=True, timeout=self.ServerTimeout)
 
                 if self.debuggif:
                     self.logger.debug(u'URL Called:'+unicode(theUrl))
@@ -1849,7 +1907,7 @@ color: #ff3300;
                     with open(path, 'wb') as f:
                         for chunk in r.iter_content(1024):
                             f.write(chunk)
-                            if t.time() > (start + self.requestTimeout):
+                            if t.time() > (start + self.ImageTimeout):
                                 self.logger.error(u'AnimGif - Download Image Taking to long.  Aborted.')
                                 break
                     if self.debuggif:
@@ -1924,6 +1982,11 @@ color: #ff3300;
         except requests.exceptions.Timeout:
             self.logger.debug(u'animGif requests has timed out and cannot connect to BI Server.')
             pass
+
+        except requests.exceptions.ConnectionError:
+            self.logger.debug(u'animGif requests has timed out/Connection Error and cannot connect to BI Server.')
+            pass
+
 
         except self.StopThread:
             self.logger.info(u'Restarting/or error. Stopping thread.')

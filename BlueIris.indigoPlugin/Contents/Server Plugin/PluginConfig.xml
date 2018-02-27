@@ -155,7 +155,21 @@
             <Option value="40">Error Messages</Option>
             <Option value="50">Critical Errors Only</Option>
         </List>
-
+    </Field>
+        <Field id="advanced" type="checkbox" tooltip="Enabling will show advanced options.">
+        <Label/>
+        <Description>Advanced Options</Description>
+    </Field>
+        <Field id="ServerTimeout"
+				   type="textfield"
+				   tooltip="Enter Server Timeout:" visibleBindingId="advanced" visibleBindingValue="true"
+                    >
+				<Label>Enter Server Timeout (seconds):</Label>
   </Field>
-
+        <Field id="ImageTimeout"
+				   type="textfield"
+				   tooltip="Enter Image Timeout:" visibleBindingId="advanced" visibleBindingValue="true"
+                   >
+				<Label>Enter Image Timeout (seconds):</Label>
+  </Field>
 </PluginConfig>

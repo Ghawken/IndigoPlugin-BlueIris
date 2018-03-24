@@ -841,6 +841,7 @@ class Plugin(indigo.PluginBase):
             if self.systemdata is not None:
                 for dev in indigo.devices.itervalues('self.BlueIrisServer'):
                     if dev.enabled:
+                        streamslist = '|'.join(self.systemdata['streams'])
                         stateList = [
                                 {'key': 'systemName', 'value': self.systemdata['system name'] },
                                 {'key': 'admin', 'value': self.systemdata['admin']},
@@ -850,6 +851,7 @@ class Plugin(indigo.PluginBase):
                                 {'key': 'latitude', 'value': self.systemdata['latitude']},
                                 {'key': 'longitude', 'value': self.systemdata['longitude']},
                                 {'key': 'version', 'value': self.systemdata['version']},
+                                {'key': 'streams', 'value': streamslist }
                             ]
                         dev.updateStatesOnServer(stateList)
                         if self.debugextra:

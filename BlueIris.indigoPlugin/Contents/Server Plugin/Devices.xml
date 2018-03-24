@@ -52,6 +52,13 @@
                 <TriggerLabel>BI Server Version</TriggerLabel>
                 <ControlPageLabel>BI Server Version</ControlPageLabel>
             </State>
+
+               <State id="streams">
+                <ValueType>String</ValueType>
+                <TriggerLabel>BI WebServer Streams Details</TriggerLabel>
+                <ControlPageLabel>BI WebServer Streams Details</ControlPageLabel>
+            </State>
+
          <State id="user">
                 <ValueType>String</ValueType>
                 <TriggerLabel>username returned</TriggerLabel>

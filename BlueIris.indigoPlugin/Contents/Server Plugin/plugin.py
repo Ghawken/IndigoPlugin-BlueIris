@@ -163,7 +163,7 @@ class Plugin(indigo.PluginBase):
         self.configUpdaterInterval = self.pluginPrefs.get('configUpdaterInterval', 24)
 
         #self.configUpdaterForceUpdate = self.pluginPrefs.get('configUpdaterForceUpdate', False)
-        self.openStore = self.pluginPrefs.get('openStore', False)
+
         self.updateFrequency = float(self.pluginPrefs.get('updateFrequency', "24")) * 60.0 * 60.0
         self.next_update_check = t.time() + 20
 

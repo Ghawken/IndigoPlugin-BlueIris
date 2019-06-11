@@ -418,7 +418,7 @@ class Plugin(indigo.PluginBase):
             # Validate login
             return True, valuesDict
         else:
-            errorDict['showAlertText']='Missing some Plugin Configuration Settings Pleae review'
+            errorDict['showAlertText']='Missing some Plugin Configuration Settings Please review'
             return (False, valuesDict, errorDict)
 
 
@@ -771,7 +771,7 @@ class Plugin(indigo.PluginBase):
                                  {'key': 'tzone', 'value': statusresults['tzone']},
                                  {'key': 'clips', 'value': statusresults['clips']},
                                  {'key': 'memload', 'value': statusresults['memload']},
-                                 {'key': 'memfree', 'value': statusresults['memfree']},
+                                 {'key': 'memfree', 'value': statusresults['mem']},
                                  {'key': 'warnings', 'value': statusresults['warnings']},
                                  {'key': 'cpu', 'value': statusresults['cpu']},
                                  {'key': 'clipsInfo', 'value': str(statusresults['clips'])},
@@ -783,7 +783,7 @@ class Plugin(indigo.PluginBase):
             ]
             dev.updateStatesOnServer(stateList)
             update_time = t.strftime('%c')
-            deviceState = str('Cpu :')+str(statusresults['cpu'])+'% MemFree :'+str(statusresults['memfree'])
+            deviceState = str('Cpu :')+str(statusresults['cpu'])+'% MemFree :'+str(statusresults['mem'])
             dev.updateStateOnServer('deviceLastUpdated', value=str(update_time))
             dev.updateStateOnServer('deviceTimestamp', value=str(t.time()))
             dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOn)
@@ -1038,6 +1038,10 @@ class Plugin(indigo.PluginBase):
                 self.logger.debug(u'No self.response cannot run command')
                 return
             args = {"session": self.session, "response": self.response, "cmd": cmd}
+
+            if cmd=='status':
+                args = {"session": self.session, "cmd": cmd}
+
             args.update(params)
             if self.debugextra:
                 self.logger.debug('Command to be sent:'+unicode(args))
@@ -1054,7 +1058,7 @@ class Plugin(indigo.PluginBase):
                     self.logger.debug(u'SUCCESS Text :' + unicode(r.text))
 
             if self.debugextra:
-                self.logger.debug(u'sendcommand r.json result:'+ unicode(r.json()))
+                self.logger.debug(u'sendcommand r.json result:')# + unicode(r.json()  )   )
 
             try:
                 return r.json()["data"]

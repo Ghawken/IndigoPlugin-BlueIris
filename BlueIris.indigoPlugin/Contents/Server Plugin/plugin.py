@@ -759,12 +759,20 @@ class Plugin(indigo.PluginBase):
 
         try:
             #dev = indigo.devices[devId]
+
+            # add checks from memfree versus mem - which is a v4 and v5 difference
+            memFree = '_';
+            if 'mem' in statusresults:
+                memFree = statusresults['mem']
+            elif 'memfree' in statusresults:
+                memFree = statusresults['memFree']
+
             stateList = [
                                  {'key': 'cxns', 'value': statusresults['cxns']},
                                  {'key': 'profile', 'value': statusresults['profile']},
                                  {'key': 'uptime', 'value': statusresults['uptime']},
                                  {'key': 'schedule', 'value': statusresults['schedule']},
-                                 {'key': 'mem', 'value': statusresults['mem']},
+                                 {'key': 'mem', 'value': memFree},
                                  {'key': 'lock', 'value': statusresults['lock']},
                                  {'key': 'signal', 'value': statusresults['signal']},
                                  {'key': 'alerts', 'value': statusresults['alerts']},
@@ -783,7 +791,10 @@ class Plugin(indigo.PluginBase):
             ]
             dev.updateStatesOnServer(stateList)
             update_time = t.strftime('%c')
-            deviceState = str('Cpu :')+str(statusresults['cpu'])+'% MemFree :'+str(statusresults['mem'])
+
+
+            deviceState = str('Cpu :')+str(statusresults['cpu'])+'% MemFree :'+str(memFree)
+
             dev.updateStateOnServer('deviceLastUpdated', value=str(update_time))
             dev.updateStateOnServer('deviceTimestamp', value=str(t.time()))
             dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOn)

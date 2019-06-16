@@ -1767,8 +1767,8 @@ color: #ff3300;
 
         try:
             self.logger.debug(unicode(valuesDict))
-            macronumber = str(valuesDict.props['macroNumber'])
-            macrotext = str(valuesDict.props['macroText'])
+            macronumber = str(self.substitute(valuesDict.props['macroNumber']))
+            macrotext = str(self.substitute(valuesDict.props['macroText']))
 
             data = {
                 "macro": {

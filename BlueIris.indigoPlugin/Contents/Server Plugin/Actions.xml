@@ -17,6 +17,20 @@
     </ConfigUI>
   </Action>
 
+    <Action id="changeMacro">
+    <Name>Change Macro Contents</Name>
+        <CallbackMethod>actionChangeMacro</CallbackMethod>
+        <ConfigUI>
+			<Field id="macroNumber" type="textfield">
+				<Label>Macro Number:</Label>
+			</Field>
+            <Field id="macroText" type="textfield">
+				<Label>Macro Number:</Label>
+			</Field>
+
+    </ConfigUI>
+  </Action>
+
     <Action id="Left" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Pan Left</Name>
     <CallbackMethod>ptzAction</CallbackMethod>

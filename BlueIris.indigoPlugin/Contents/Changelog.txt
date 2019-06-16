@@ -1,0 +1,14 @@
+ChangeLog
+
+v1.0.5
+
+BlueIris version 5 only
+
+- Add action to change Macro
+e.g. update Temp/Location/Information Macros as needed from within Indigo
+These then overlay on the video
+
+TODO
+
+Alert logging for connection, messages, IVS Subscriptions from cameras, Errors, Server Restarts
+

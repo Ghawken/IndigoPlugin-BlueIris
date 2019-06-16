@@ -1035,6 +1035,7 @@ class Plugin(indigo.PluginBase):
             self.url = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/json'
             if self.debugextra:
                 self.logger.debug(u'sendcommand called')
+                self.logger.debug(u'cmd ='+unicode(cmd)+' params='+unicode(params))
             if self.connectServer():  #this commands updates session key before command called
                 if self.debugextra:
                     self.logger.debug(u'Connection to Server Complete')
@@ -1050,7 +1051,7 @@ class Plugin(indigo.PluginBase):
                 return
             args = {"session": self.session, "response": self.response, "cmd": cmd}
 
-            if cmd=='status':
+            if cmd=='status' and 'macro' not in params:
                 args = {"session": self.session, "cmd": cmd}
 
             args.update(params)
@@ -1087,7 +1088,7 @@ class Plugin(indigo.PluginBase):
 
 
         except:
-            self.logger.exception(u'Caught Exception within Send Command'+unicode(r.json()))
+            self.logger.exception(u'Caught Exception within Send Command')
 
 
     def connectServer(self):
@@ -1762,6 +1763,27 @@ color: #ff3300;
         self.sendccommand("status", {"profile": profile_id})
         return
 
+    def actionChangeMacro(self, valuesDict):
+
+        try:
+            self.logger.debug(unicode(valuesDict))
+            macronumber = str(valuesDict.props['macroNumber'])
+            macrotext = str(valuesDict.props['macroText'])
+
+            data = {
+                "macro": {
+
+                        "number": int(macronumber),
+                        "value": str(macrotext)
+
+            }}
+        except:
+        self.logger.error(u'Error within Change Macro - check details entered...')
+
+
+        self.sendccommand("status", data )
+
+        return
 
 
     ### Download Image

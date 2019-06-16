@@ -1777,11 +1777,12 @@ color: #ff3300;
                         "value": str(macrotext)
 
             }}
+
+            self.sendccommand("status", data )
+            return
+
         except:
-        self.logger.error(u'Error within Change Macro - check details entered...')
-
-
-        self.sendccommand("status", data )
+            self.logger.error(u'Error within Change Macro - check details entered...')
 
         return
 

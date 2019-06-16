@@ -1767,8 +1767,8 @@ color: #ff3300;
 
         try:
             self.logger.debug(unicode(valuesDict))
-            macronumber = str(self.substitute(valuesDict.props['macroNumber']))
-            macrotext = str(self.substitute(valuesDict.props['macroText']))
+            macronumber = self.substitute(valuesDict.props['macroNumber'])
+            macrotext = self.substitute(valuesDict.props['macroText'])
 
             data = {
                 "macro": {
@@ -1781,7 +1781,7 @@ color: #ff3300;
             self.sendccommand("status", data )
             return
 
-        except:
+        except Exception ex:
             self.logger.error(u'Error within Change Macro - check details entered...')
 
         return

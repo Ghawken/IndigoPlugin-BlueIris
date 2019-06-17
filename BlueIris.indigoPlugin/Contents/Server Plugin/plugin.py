@@ -1217,14 +1217,15 @@ class Plugin(indigo.PluginBase):
 
          # add to own def to run occ#
         # Backwards please
-        n= len(self.logMsgs)
-        for i in range(n-1,0,-1):
-            if i>1:
-                if self.logMsgs[i]['date'] < t.time()-30:  # 30 seconds old
-                    self.logMsgs.remove(self.logMsgs[i])
-        if self.debugmsg:
-            self.logger.debug(unicode(self.logMsgs))
-            self.logger.debug(u'Current Time:'+unicode(t.time() ) )
+        if len(self.logMsgs)>0:
+            n= len(self.logMsgs)
+            for i in range(n-1,0,-1):
+                if i>1:
+                    if int(self.logMsgs[i]['date']) < t.time()-30:  # 30 seconds old
+                        self.logMsgs.remove(self.logMsgs[i])
+            if self.debugmsg:
+                self.logger.debug(unicode(self.logMsgs))
+                self.logger.debug(u'Current Time:'+unicode(t.time() ) )
 
         return self.logMsgs
 

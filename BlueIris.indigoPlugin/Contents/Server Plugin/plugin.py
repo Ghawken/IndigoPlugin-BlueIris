@@ -1191,7 +1191,8 @@ class Plugin(indigo.PluginBase):
                     dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
                     dev.updateStateOnServer('lastMotionTriggerType', value=str('TimeReset'))
                     self.triggerCheck(dev, dev.states['optionValue'], 'motionfalse')
-                    self.logger.error(u' -- Resetting Motion as more than 10 seconds-- ' +dev.name)
+                    if self.debugmsg:
+                        self.logger.debug(u' -- Resetting Motion as more than 10 seconds-- ' +dev.name)
         return
 
 

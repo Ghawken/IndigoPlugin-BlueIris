@@ -97,6 +97,8 @@ class Plugin(indigo.PluginBase):
 
         self.pathtoPlugin = indigo.server.getInstallFolderPath()
 
+        self.blueirisserverVersion = '4.0.0.0'
+
         self.listenPort = 4556 #default
         # add callhere
         self.validatePrefsConfigUi(pluginPrefs)
@@ -133,7 +135,7 @@ class Plugin(indigo.PluginBase):
             self.saveDirectory = folderLocation
             pass
 
-
+        self.logMsgs = []
 
         self.serverip = self.pluginPrefs.get('serverip', '')
         self.serverport = int(self.pluginPrefs.get('serverport', '80'))
@@ -144,6 +146,7 @@ class Plugin(indigo.PluginBase):
         self.debugextra = self.pluginPrefs.get('debugextra', False)
         self.debuggif = self.pluginPrefs.get('debuggif', False)
         self.debugserver = self.pluginPrefs.get('debugserver', False)
+        self.debugmsg = self.pluginPrefs.get('debugmsg', False)
         self.debugimage = self.pluginPrefs.get('debugimage', False)
         self.debugtriggers = self.pluginPrefs.get('debugtriggers', False)
         self.debugother = self.pluginPrefs.get('debugother', False)
@@ -212,6 +215,8 @@ class Plugin(indigo.PluginBase):
             self.prefsUpdated = True
             self.debugextra = valuesDict.get('debugextra', False)
             self.debugserver = valuesDict.get('debugserver', False)
+
+            self.debugmsg = valuesDict.get('debugmsg', False)
             self.debugimage = valuesDict.get('debugimage', False)
             self.debuggif = valuesDict.get('debuggif', False)
             self.debugtriggers = valuesDict.get('debugtriggers', False)
@@ -865,6 +870,8 @@ class Plugin(indigo.PluginBase):
                                 {'key': 'streams', 'value': streamslist }
                             ]
                         dev.updateStatesOnServer(stateList)
+                        self.blueirisserverVersion = int(self.systemdata['version'][0] )
+                        self.logger.debug(u'Setting BlueIrisVersion to  '+unicode(self.blueirisserverVersion))
                         if self.debugextra:
                             self.logger.debug(u'updateSystemDevice Updated/Done.')
 
@@ -1166,6 +1173,95 @@ class Plugin(indigo.PluginBase):
         else:
             return 'Error Connecting','Error Connecting'
 
+    def resetLogMotion(self):
+        if self.debugmsg:
+            self.logger.debug(u'resetLogMotion called')
+
+        for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
+            if dev.enabled:
+                #self.logger.error(unicode(type(dev.states['Motion']))+u'and set to'+unicode(dev.states['Motion']))
+                #self.logger.error(unicode(type(dev.states['triggeredbyLog']))+unicode('and set to:'+unicode(dev.states['triggeredbyLog'])))
+
+                if dev.states['Motion']==True and dev.states['triggeredbyLog']==True and t.time()>int(dev.states['motionUTC'])+30:
+
+                    if self.debugmsg:
+                        self.logger.debug(u'Msg basedTrigger Motion for this Camera:'+unicode(dev.name))
+
+                    dev.updateStateOnServer('Motion', value=False, uiValue='False')
+                    dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
+                    dev.updateStateOnServer('lastMotionTriggerType', value=str('TimeReset'))
+                    self.triggerCheck(dev, dev.states['optionValue'], 'motionfalse')
+                    self.logger.error(u' -- Resetting Motion as more than 10 seconds-- ' +dev.name)
+        return
+
+
+    def downloadMsgs(self):
+        self.logger.debug(u'downloadMsgs Called')
+        timetoget = int(t.time()) - 20
+        logmsgs = self.sendccommand('log', {'aftertime': timetoget})
+        #self.logger.debug(unicode(logmsgs))
+        #self.logger.error(type(logmsgs))
+
+        # while coding debugging
+        # add for self.logMsgs to be inhouse version of recent within 100 seconds only of messages
+        # as message received check whether new by comparing if new parse
+
+        for item in logmsgs:
+            #self.logger.debug(unicode(item))
+            if item not in self.logMsgs:
+                self.logMsgs.append(item)
+                self.parsemsgreceived(item)
+        if self.debugmsg:
+            self.logger.debug(unicode(self.logMsgs))
+
+         # add to own def to run occ#
+        # Backwards please
+        n= len(self.logMsgs)
+        for i in range(n-1,0,-1):
+            if i>1:
+                if self.logMsgs[i]['date'] < t.time()-30:  # 30 seconds old
+                    self.logMsgs.remove(self.logMsgs[i])
+        if self.debugmsg:
+            self.logger.debug(unicode(self.logMsgs))
+            self.logger.debug(u'Current Time:'+unicode(t.time() ) )
+
+        return self.logMsgs
+
+    def parsemsgreceived(self, item):
+        if self.debugmsg:
+            self.logger.debug(u'Parse Message Item Received: for item:'+unicode(item))
+
+        try:
+            if item['msg']=='MOTION' or item['msg']=='AUDIO' or item['msg']=='EXTERNAL': # Motion detected
+                self.parseMotion(item)
+
+        except:
+            self.logger.exception(u'Error in parseMsgReceived')
+
+    def parseMotion(self,item):
+        if self.debugmsg:
+            self.logger.debug(u'Parse Motion Item Received: for item:'+unicode(item))
+
+        cameraname=item['obj']
+
+        for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
+            if dev.enabled:
+                if dev.states['optionValue'] == item['obj'] and dev.states['Motion']==False:
+
+                    if self.debugmsg:
+                        self.logger.debug(u'Msg basedTrigger Motion for this Camera:'+unicode(cameraname))
+
+                    dev.updateStateOnServer('Motion', value=True, uiValue='True')
+                    dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensorTripped)
+                    update_time = t.strftime('%c')
+                    dev.updateStateOnServer('timeLastMotion', value=str(update_time))
+                    dev.updateStateOnServer('motionUTC', value=t.time())
+                    dev.updateStateOnServer('lastMotionTriggerType', value=str(item['msg']))
+                    dev.updateStateOnServer('triggeredbyLog', value=True)
+                    self.triggerCheck(dev, cameraname, 'motiontrue')
+
+                    if dev.pluginProps.get('saveimage', False):
+                        self.downloadImage(dev)
 
 
     def runConcurrentThread(self):
@@ -1176,18 +1272,14 @@ class Plugin(indigo.PluginBase):
                 self.sleep(0.5)
                 updateCams = t.time() + 5
                 updateServer = t.time() +2
+                updateMsgs = t.time() +10
                 while self.prefsUpdated == False:
                 #self.debugLog(u" ")
-                    if self.updateFrequency > 0:
-                        if t.time() > self.next_update_check:
-                            try:
-                                self.checkForUpdates()
-                                self.next_update_check = t.time() + self.updateFrequency
-                            except:
-                                self.logger.debug(
-                                u'Error checking for update - ? No Internet connection.  Checking again in 24 hours')
-                                self.next_update_check = t.time() + 86400;
 
+                    if t.time()>updateMsgs:
+                        self.downloadMsgs()
+                        updateMsgs = t.time() +10
+                        self.resetLogMotion()
 
                     if t.time()>updateCams:
                         # update and create current blueIris Camera List
@@ -1766,23 +1858,26 @@ color: #ff3300;
     def actionChangeMacro(self, valuesDict):
 
         try:
-            self.logger.debug(unicode(valuesDict))
-            macronumber = self.substitute(valuesDict.props['macroNumber'])
-            macrotext = self.substitute(valuesDict.props['macroText'])
+            if self.blueirisserverVersion >=5:
+                self.logger.debug(unicode(valuesDict))
+                macronumber = self.substitute(valuesDict.props['macroNumber'])
+                macrotext = self.substitute(valuesDict.props['macroText'])
 
-            data = {
-                "macro": {
+                data = {
+                    "macro": {
 
-                        "number": int(macronumber),
-                        "value": str(macrotext)
+                            "number": int(macronumber),
+                            "value": str(macrotext)
 
-            }}
+                }}
 
-            self.sendccommand("status", data )
-            return
+                self.sendccommand("status", data )
+                return
+            else:
+                self.logger.info('Only available to BlueIris v5 Users.  Suggest upgrading BlueIris software for full features.')
 
-        except Exception ex:
-            self.logger.error(u'Error within Change Macro - check details entered...')
+        except:
+            self.logger.exception(u'Error within Change Macro - check details entered...')
 
         return
 
@@ -2102,7 +2197,7 @@ class httpHandler(BaseHTTPRequestHandler):
         self.plugin=plugin
         #self.logger = logger
         if self.plugin.debugserver:
-            self.plugin.logger.debug(u'New Http Handler thread:'+threading.currentThread().getName()+", total threads: "+str(threading.activeCount()))
+            self.plugin.debugLog(u'New Http Handler thread:'+threading.currentThread().getName()+", total threads: "+str(threading.activeCount()))
         BaseHTTPRequestHandler.__init__(self, *args)
 
     def _set_headers(self):
@@ -2123,7 +2218,7 @@ class httpHandler(BaseHTTPRequestHandler):
               # <-- Print post data
             if self.plugin.debugserver:
                 self.plugin.logger.debug(unicode(self.path))
-                #self.plugin.logger.debug(unicode(post_data))
+                self.plugin.logger.debug(unicode(post_data))
 
             #self._set_headers()
 
@@ -2178,6 +2273,7 @@ class httpHandler(BaseHTTPRequestHandler):
                             dev.updateStateOnServer('lastMotionTriggerType', value=str(typetrigger))
                             self.plugin.triggerCheck(dev, cameraname, 'motiontrue')
 
+                            dev.updateStateOnServer('triggeredbyLog', value=False)
                             if dev.pluginProps.get('saveimage', False):
                                 self.plugin.downloadImage(dev)
                         elif motion =='false':

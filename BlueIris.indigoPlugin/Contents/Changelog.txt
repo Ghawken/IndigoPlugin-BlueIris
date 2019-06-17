@@ -11,7 +11,25 @@ Support Device and Variable Substition
 eg.
 %%d:241092027:clipsInfo%%
 
+1.0.8
+
+- Add Motion Camera sensing by Log messaging (Resets within 20 seconds or so
+Current alert from within BI for each camera still prefered, faster and also sends motion off.
+But if haven't set up this will work almost as well.
+
+
+
 TODO
 
 Alert logging for connection, messages, IVS Subscriptions from cameras, Errors, Server Restarts
 
+More detail:
+Add a new BI User Device
+- Time of login
+- Trigger if login/logout
+- Details of users as given
+
+Add Camera Event Subscription with item number - eg. 000002efd
+Triggered when enabled, never disabled
+Allow action when Camera IVS aspects triggered
+(Soon to try new AI Dahua IVS cameras to see if anything special

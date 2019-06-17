@@ -300,6 +300,12 @@
                 <TriggerLabel>ManRectLimit</TriggerLabel>
                 <ControlPageLabel>ManRec Limit</ControlPageLabel>
             </State>
+            <State id="triggeredbyLog">
+                <ValueType>Boolean</ValueType>
+                <TriggerLabel>Trigger by Log Entry</TriggerLabel>
+                <ControlPageLabel>Triggered by Log Entry</ControlPageLabel>
+            </State>
+
             <State id="FPS">
                 <ValueType>Number</ValueType>
                 <TriggerLabel>FPS</TriggerLabel>
@@ -469,7 +475,11 @@
                 <TriggerLabel>No Signal Number</TriggerLabel>
                 <ControlPageLabel>No Signal Number</ControlPageLabel>
             </State>
-
+            <State id="motionUTC">
+                <ValueType>Number</ValueType>
+                <TriggerLabel>Motion UTC Time</TriggerLabel>
+                <ControlPageLabel>Motion UTC Time</ControlPageLabel>
+            </State>
         </States>
 
         <UiDisplayStateId>Motion</UiDisplayStateId>

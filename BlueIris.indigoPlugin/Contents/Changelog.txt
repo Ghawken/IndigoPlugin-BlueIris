@@ -17,17 +17,17 @@ eg.
 Current alert from within BI for each camera still prefered, faster and also sends motion off.
 But if haven't set up this will work almost as well.
 
+1.1.0
+
+- Add optional new device Blueiris user - updated with user information, including login details
+- Add Trigger User Login: Unrelated to above device, can trigger when any BI Users login to the service
+(add optional push trigger notification later
 
 
 TODO
 
 Alert logging for connection, messages, IVS Subscriptions from cameras, Errors, Server Restarts
 
-More detail:
-Add a new BI User Device
-- Time of login
-- Trigger if login/logout
-- Details of users as given
 
 Add Camera Event Subscription with item number - eg. 000002efd
 Triggered when enabled, never disabled

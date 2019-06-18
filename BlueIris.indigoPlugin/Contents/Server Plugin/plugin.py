@@ -442,6 +442,10 @@ class Plugin(indigo.PluginBase):
 
         self.logger.debug(u"deviceStartComm() method called.")
         dev.stateListOrDisplayStateIdChanged()
+
+        if dev.deviceTypeId == 'BlueIrisUser':
+            dev.updateStateOnServer('deviceIsOnline', value=True)
+
         if dev.deviceTypeId == 'BlueIrisCamera':
             try:
             # Update extra settings so can check elsewhere
@@ -1173,6 +1177,52 @@ class Plugin(indigo.PluginBase):
         else:
             return 'Error Connecting','Error Connecting'
 
+    def updateUsers(self):
+        self.logger.debug(u'update Users called')
+        try:
+            listusers = self.sendccommand('users','')
+            for dev in indigo.devices.itervalues('self.BlueIrisUser'):
+                for users in listusers:
+                    if dev.enabled:
+                        if dev.pluginProps.get('username', 0) == users['obj']:
+                            # Matching username found for device created and enabled
+                            stateList = [
+                                {'key': 'isOnline', 'value': users['isOnline']},
+                                {'key': 'object', 'value': users['object']},
+                                {'key': 'date', 'value': users['date']},
+                                {'key': 'username', 'value': users['obj']},
+                                {'key': 'msg', 'value': users['msg']},
+                                {'key': 'level', 'value': users['level']},
+                           ]
+                            dev.updateStatesOnServer(stateList)
+                            update_time = t.strftime('%c', t.localtime(int(users['date'])))
+                            dev.updateStateOnServer('timeLastLogin', value=update_time)
+                            if users['isOnline']:
+                                dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOn)
+                            else:
+                                dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOff)
+        except:
+            self.logger.exception(u'Caught exception within Update Users:')
+
+
+    def GetuserNames(self, filter=0, valuesDict=None, typeId="", targetId=0):
+        self.logger.debug(u'GetUserNames called')
+        # update profile list by calling server
+
+        try:
+            listusers = self.sendccommand('users','')
+            usernames = []
+            #self.logger.debug(unicode(listusers))
+            for users in listusers:
+                usernames.append(users['obj'])
+            #self.logger.error(unicode(usernames))
+            self.sleep(0.3)
+            return usernames
+
+        except:
+            self.logger.exception(u'Error in Get Usernames')
+
+
     def resetLogMotion(self):
         if self.debugmsg:
             self.logger.debug(u'resetLogMotion called')
@@ -1234,11 +1284,32 @@ class Plugin(indigo.PluginBase):
             self.logger.debug(u'Parse Message Item Received: for item:'+unicode(item))
 
         try:
-            if item['msg']=='MOTION' or item['msg']=='AUDIO' or item['msg']=='EXTERNAL': # Motion detected
+            if (item['msg']=='MOTION' or item['msg']=='AUDIO' or item['msg']=='EXTERNAL'): # Motion in last ten detected
                 self.parseMotion(item)
+            if ('Login' in item['msg']):
+                self.parseLogin(item)
+
 
         except:
             self.logger.exception(u'Error in parseMsgReceived')
+
+    def parseLogin(self, item):
+        if self.debugmsg:
+            self.logger.debug(u'Parse Login Item recevied: Item:'+unicode(item))
+
+        username = item['obj']
+        for dev in indigo.devices.itervalues('self.BlueIrisUser'):
+            if dev.enabled:
+                if dev.states['username'] == item['obj']:
+                    update_time = t.strftime('%c', t.localtime(int(item['date'])))
+                    dev.updateStateOnServer('timeLastLogin', value=update_time)
+                    dev.updateStateOnServer('isOnline', value=True)
+                    dev.updateStateOnServer('date', value=item['date']  )
+                    dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOn)
+                    self.logger.debug(u'Login Detected:'+unicode(username))
+
+        #move trigger away from device - can trigger without devices exisiting
+        self.triggerCheck('', item['obj'],  'userLogin')
 
     def parseMotion(self,item):
         if self.debugmsg:
@@ -1275,6 +1346,7 @@ class Plugin(indigo.PluginBase):
                 updateCams = t.time() + 5
                 updateServer = t.time() +2
                 updateMsgs = t.time() +10
+                updateUsers = t.time() + 60
                 while self.prefsUpdated == False:
                 #self.debugLog(u" ")
 
@@ -1282,7 +1354,9 @@ class Plugin(indigo.PluginBase):
                         self.downloadMsgs()
                         updateMsgs = t.time() +10
                         self.resetLogMotion()
-
+                    if t.time()>updateUsers:
+                        self.updateUsers()
+                        updateUsers = t.time()+60
                     if t.time()>updateCams:
                         # update and create current blueIris Camera List
                         self.getCameraList()     # modifed to update Cameras
@@ -1943,44 +2017,50 @@ color: #ff3300;
     def triggerCheck(self, device, camera, event):
 
         if self.debugtriggers:
-            self.logger.debug('triggerCheck run.  device.id:'+unicode(device.id)+' Camera:'+unicode(camera)+' Event:'+unicode(event))
+            self.logger.debug('triggerCheck run. Camera:'+unicode(camera)+' Event:'+unicode(event))
         try:
             if self.pluginIsInitializing:
                 self.logger.info(u'Trigger: Ignore as BlueIris Plugin Just started.')
                 return
 
-            if device.states['deviceIsOnline'] == False:
-                if self.debugtriggers:
-                    self.logger.debug(u'Trigger Cancelled as Device is Not Online')
-                return
-
-            if device.states['PluginTriggeringEnabled'] ==False:
-                if self.debugtriggers:
-                    self.logger.debug(u'Plugin Triggering is Disable for this Camera')
-                return
+            if event != 'userLogin':  #userLogin trigger unrelated to device
+                if device.states['deviceIsOnline'] == False:
+                    if self.debugtriggers:
+                        self.logger.debug(u'Trigger Cancelled as Device is Not Online')
+                    return
+                if device.states['PluginTriggeringEnabled'] ==False:
+                    if self.debugtriggers:
+                        self.logger.debug(u'Plugin Triggering is Disabled for this Camera')
+                    return
 
 
             for triggerId, trigger in sorted(self.triggers.iteritems()):
 
                 if self.debugtriggers:
-                    self.logger.debug("Checking Trigger %s (%s), Type: %s, Camera: %s" % (trigger.name, trigger.id, trigger.pluginTypeId, camera))
+                    self.logger.debug("Checking Trigger %s (%s), Type: %s, Camera/User: %s" % (trigger.name, trigger.id, trigger.pluginTypeId, camera))
                     #self.logger.debug(unicode(trigger))
                 #self.logger.error(unicode(trigger))
                 # Change to List for all Cameras
+                if trigger.pluginTypeId == 'motionTriggerOn' or trigger.pluginTypeId=='motionTriggerOff':
+                    if str(device.id) not in trigger.pluginProps['deviceCamera'] :
+                        if self.debugtriggers:
+                            self.logger.debug("\t\tSkipping Trigger %s (%s), wrong User/Camera: %s" % (trigger.name, trigger.id, device.id))
+                    elif trigger.pluginTypeId == "motionTriggerOn" and event =='motiontrue':
+                        if self.debugtriggers:
+                            self.logger.debug("===== Executing motionTriggerOn/motiontrue Trigger %s (%d)" % (trigger.name, trigger.id))
+                        indigo.trigger.execute(trigger)
+                    elif trigger.pluginTypeId == "motionTriggerOff" and event =='motionfalse':
+                        if self.debugtriggers:
+                            self.logger.debug("===== Executing motionTriggerOff/motionfalse Trigger %s (%d)" % (trigger.name, trigger.id))
+                        indigo.trigger.execute(trigger)
+                elif trigger.pluginTypeId == 'loginUserTrigger':
+                    if event =='userLogin':
+                        if trigger.pluginProps['username'] == camera:
+                            if self.debugtriggers:
+                                self.logger.debug("===== Executing User Login Trigger %s (%d)" % (trigger.name, trigger.id))
+                            indigo.trigger.execute(trigger)
 
-                if str(device.id) not in trigger.pluginProps['deviceCamera']:
-                    if self.debugtriggers:
-                        self.logger.debug("\t\tSkipping Trigger %s (%s), wrong Camera: %s" % (trigger.name, trigger.id, device.id))
-                elif trigger.pluginTypeId == "motionTriggerOn" and event =='motiontrue':
-                    if self.debugtriggers:
-                        self.logger.debug("===== Executing motionTriggerOn/motiontrue Trigger %s (%d)" % (trigger.name, trigger.id))
-                    indigo.trigger.execute(trigger)
-                elif trigger.pluginTypeId == "motionTriggerOff" and event =='motionfalse':
-                    if self.debugtriggers:
-                        self.logger.debug("===== Executing motionTriggerOff/motionfalse Trigger %s (%d)" % (trigger.name, trigger.id))
-                    indigo.trigger.execute(trigger)
-                else:
-                    if self.debugtriggers:
+                elif self.debugtriggers:
                         self.logger.debug("Not Run Trigger Type %s (%d), %s" % (trigger.name, trigger.id, trigger.pluginTypeId))
 
         except:

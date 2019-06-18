@@ -19,5 +19,14 @@
             </Field>
         </ConfigUI>
     </Event>
+    <Event id="loginUserTrigger">
+        <Name>Trigger when user Logins</Name>
+        <ConfigUI>
+        <Field id="username" type="menu">
+            <Label>Username :</Label>
+            <List class='self' filter="" method = "GetuserNames"  />
+        </Field>
+        </ConfigUI>
+    </Event>
 </Events>
 

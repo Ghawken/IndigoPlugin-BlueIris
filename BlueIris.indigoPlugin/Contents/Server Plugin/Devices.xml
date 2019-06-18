@@ -182,6 +182,63 @@
     <UiDisplayStateId>deviceState</UiDisplayStateId>
   </Device>
 
+    <Device type="custom" id="BlueIrisUser" >
+        <Name>BlueIris User</Name>
+    <ConfigUI>
+        <Field id="username" type="menu">
+            <Label>Username :</Label>
+            <List class='self' filter="" method = "GetuserNames"  />
+        </Field>
+
+        <Field id="sep3" type="separator"/>
+    </ConfigUI>
+         <States>
+             <State id="deviceIsOnline">
+                <ValueType>Boolean</ValueType>
+                <TriggerLabel>Device is online</TriggerLabel>
+                <ControlPageLabel>Device is Online</ControlPageLabel>
+            </State>
+             <State id="username">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Username</TriggerLabel>
+                <ControlPageLabel>Username</ControlPageLabel>
+            </State>
+          <State id="timeLastLogin">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Time last Login</TriggerLabel>
+                <ControlPageLabel>Time last Login</ControlPageLabel>
+            </State>
+                       <State id="isOnline">
+                <ValueType>Boolean</ValueType>
+                <TriggerLabel>isOnline</TriggerLabel>
+                <ControlPageLabel>isOnline</ControlPageLabel>
+            </State>
+          <State id="object">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Current Camera or Clip Stream</TriggerLabel>
+                <ControlPageLabel>Current Camera or Clip Stream</ControlPageLabel>
+            </State>
+                       <State id="date">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Date last Login UTC seconds</TriggerLabel>
+                <ControlPageLabel>Date last Login UTC seconds</ControlPageLabel>
+            </State>
+          <State id="msg">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Access string description</TriggerLabel>
+                <ControlPageLabel>Access tring description</ControlPageLabel>
+            </State>
+                       <State id="level">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Level description</TriggerLabel>
+                <ControlPageLabel>Level</ControlPageLabel>
+            </State>
+         </States>
+        <UiDisplayStateId>isOnline</UiDisplayStateId>
+
+  </Device>
+
+
   <Device type="custom" id="BlueIrisCamera" >
         <Name>BlueIris Camera</Name>
 

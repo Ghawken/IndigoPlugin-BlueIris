@@ -1267,7 +1267,7 @@ class Plugin(indigo.PluginBase):
 
          # add to own def to run occ#
         # Backwards please
-        if len(self.logMsgs)>0:
+        if len(self.logMsgs)>0 and isinstance(self.logMsgs,list):
             n= len(self.logMsgs)
             for i in range(n-1,0,-1):
                 if i>1:

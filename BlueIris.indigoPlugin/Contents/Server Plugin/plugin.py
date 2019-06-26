@@ -1245,39 +1245,44 @@ class Plugin(indigo.PluginBase):
                         self.logger.debug(u' -- Resetting Motion as more than 10 seconds-- ' +dev.name)
         return
 
-
     def downloadMsgs(self):
         self.logger.debug(u'downloadMsgs Called')
         timetoget = int(t.time()) - 20
         logmsgs = self.sendccommand('log', {'aftertime': timetoget})
-        #self.logger.debug(unicode(logmsgs))
-        #self.logger.error(type(logmsgs))
+        if self.debugmsg:
+            self.logger.debug(u'logmsgs:' + unicode(logmsgs))
+            self.logger.debug(u'logmsgs type:' + unicode(type(logmsgs)))
+
+        # if an session or an result in logmsgs indicates failure to download
+        # eg.
+        # Plugin.downloadMsgs             {u'session': u'698266b02c39259371981e1b72932b45', u'result': u'fail'}
+        if 'result' in logmsgs:
+            # failed to download correctly
+            self.logger.debug(u'Failed to Download Messages from Server')
+            return False
 
         # while coding debugging
         # add for self.logMsgs to be inhouse version of recent within 100 seconds only of messages
         # as message received check whether new by comparing if new parse
 
         for item in logmsgs:
-            #self.logger.debug(unicode(item))
+            # self.logger.debug(unicode(item))
             if item not in self.logMsgs:
                 self.logMsgs.append(item)
                 self.parsemsgreceived(item)
         if self.debugmsg:
-            self.logger.debug(unicode(self.logMsgs))
+            self.logger.debug(unicode("self.logMsgs:") + unicode(self.logMsgs))
 
-         # add to own def to run occ#
+        # add to own def to run occ#
         # Backwards please
-        if len(self.logMsgs)>0 and isinstance(self.logMsgs,list):
-            n= len(self.logMsgs)
-            for i in range(n-1,0,-1):
-                if i>1:
-                    if int(self.logMsgs[i]['date']) < t.time()-30:  # 30 seconds old
-                        self.logMsgs.remove(self.logMsgs[i])
+        if self.logMsgs and isinstance(self.logMsgs, list):
+            newlogMsgs = [item for item in self.logMsgs if (int(item['date']) > t.time() - 30)]
+            self.logMsgs = newlogMsgs
             if self.debugmsg:
                 self.logger.debug(unicode(self.logMsgs))
-                self.logger.debug(u'Current Time:'+unicode(t.time() ) )
+                self.logger.debug(u'Current Time:' + unicode(t.time()))
 
-        return self.logMsgs
+        return True
 
     def parsemsgreceived(self, item):
         if self.debugmsg:
@@ -1288,6 +1293,8 @@ class Plugin(indigo.PluginBase):
                 self.parseMotion(item)
             if ('Login' in item['msg']):
                 self.parseLogin(item)
+        #    if ('Events' in item['msg']):
+        #        self.parseEvent(item)
 
 
         except:
@@ -1351,9 +1358,11 @@ class Plugin(indigo.PluginBase):
                 #self.debugLog(u" ")
 
                     if t.time()>updateMsgs:
-                        self.downloadMsgs()
-                        updateMsgs = t.time() +10
-                        self.resetLogMotion()
+                        if self.downloadMsgs():
+                            updateMsgs = t.time() +10
+                            self.resetLogMotion()
+                        else:
+                            updateMsgs = t.time()+2
                     if t.time()>updateUsers:
                         self.updateUsers()
                         updateUsers = t.time()+60

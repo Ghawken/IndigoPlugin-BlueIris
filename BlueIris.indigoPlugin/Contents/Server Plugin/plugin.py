@@ -1962,7 +1962,7 @@ color: #ff3300;
                 self.logger.info('Only available to BlueIris v5 Users.  Suggest upgrading BlueIris software for full features.')
 
         except:
-            self.logger.exception(u'Error within Change Macro - check details entered...')
+            self.logger.debug(u'Caught Error within Change Macro - check details entered...')
 
         return
 

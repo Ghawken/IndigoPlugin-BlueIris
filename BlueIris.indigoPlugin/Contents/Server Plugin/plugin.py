@@ -144,6 +144,7 @@ class Plugin(indigo.PluginBase):
 
         self.debugLevel = self.pluginPrefs.get('showDebugLevel', "20")
         self.debugextra = self.pluginPrefs.get('debugextra', False)
+        self.parselog = self.pluginPrefs.get('parselog', False)
         self.debuggif = self.pluginPrefs.get('debuggif', False)
         self.debugserver = self.pluginPrefs.get('debugserver', False)
         self.debugmsg = self.pluginPrefs.get('debugmsg', False)
@@ -214,6 +215,7 @@ class Plugin(indigo.PluginBase):
 
             self.prefsUpdated = True
             self.debugextra = valuesDict.get('debugextra', False)
+            self.parselog = valuesDict.get('parselog', False)
             self.debugserver = valuesDict.get('debugserver', False)
 
             self.debugmsg = valuesDict.get('debugmsg', False)
@@ -1303,18 +1305,21 @@ class Plugin(indigo.PluginBase):
     def parseLogin(self, item):
         if self.debugmsg:
             self.logger.debug(u'Parse Login Item recevied: Item:'+unicode(item))
-
         username = item['obj']
+
         for dev in indigo.devices.itervalues('self.BlueIrisUser'):
             if dev.enabled:
                 if dev.states['username'] == item['obj']:
-                    update_time = t.strftime('%c', t.localtime(int(item['date'])))
-                    dev.updateStateOnServer('timeLastLogin', value=update_time)
-                    dev.updateStateOnServer('isOnline', value=True)
-                    dev.updateStateOnServer('date', value=item['date']  )
-                    dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOn)
-                    self.logger.debug(u'Login Detected:'+unicode(username))
-
+                    if t.time() > float(dev.states['date'])+15:
+                        update_time = t.strftime('%c', t.localtime(int(item['date'])))
+                        dev.updateStateOnServer('timeLastLogin', value=update_time)
+                        dev.updateStateOnServer('isOnline', value=True)
+                        dev.updateStateOnServer('date', value=item['date']  )
+                        dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOn)
+                        self.logger.debug(u'ParseLog:  Login Detected:'+unicode(username))
+                    else:
+                        self.logger.debug(u'Cancelling Trigger for Found Login as already triggered:')
+                        return
         #move trigger away from device - can trigger without devices exisiting
         self.triggerCheck('', item['obj'],  'userLogin')
 
@@ -1357,12 +1362,13 @@ class Plugin(indigo.PluginBase):
                 while self.prefsUpdated == False:
                 #self.debugLog(u" ")
 
-                    if t.time()>updateMsgs:
-                        if self.downloadMsgs():
-                            updateMsgs = t.time() +10
-                            self.resetLogMotion()
-                        else:
-                            updateMsgs = t.time()+2
+                    if self.parselog:
+                        if t.time()>updateMsgs:
+                            if self.downloadMsgs():
+                                updateMsgs = t.time() +10
+                                self.resetLogMotion()
+                            else:
+                                updateMsgs = t.time()+2
                     if t.time()>updateUsers:
                         self.updateUsers()
                         updateUsers = t.time()+60
@@ -2363,7 +2369,6 @@ class httpHandler(BaseHTTPRequestHandler):
                             dev.updateStateOnServer('timeLastMotion', value=str(update_time))
                             dev.updateStateOnServer('lastMotionTriggerType', value=str(typetrigger))
                             self.plugin.triggerCheck(dev, cameraname, 'motiontrue')
-
                             dev.updateStateOnServer('triggeredbyLog', value=False)
                             if dev.pluginProps.get('saveimage', False):
                                 self.plugin.downloadImage(dev)
@@ -2372,6 +2377,20 @@ class httpHandler(BaseHTTPRequestHandler):
                             dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
                             dev.updateStateOnServer('lastMotionTriggerType', value=str(typetrigger))
                             self.plugin.triggerCheck(dev, cameraname, 'motionfalse')
+
+            # check for username login alert.....
+            for dev in indigo.devices.itervalues('self.BlueIrisUser'):
+                if dev.enabled:
+                    if dev.states['username'] == motion:
+                            update_time = t.strftime('%c')
+                            dev.updateStateOnServer('timeLastLogin', value=update_time)
+                            dev.updateStateOnServer('isOnline', value=True)
+                            dev.updateStateOnServer('date', value=t.time())
+                            dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOn)
+                            self.plugin.logger.debug(u'From HTTP_Server/Camera Alert:Login Detected:' + unicode(motion))
+            # move trigger away from device - can trigger without devices exisiting
+            self.plugin.triggerCheck('', motion, 'userLogin')
+
             return
         except:
             self.plugin.logger.exception(u'Exception in do_POST single thread.')

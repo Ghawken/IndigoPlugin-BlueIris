@@ -1204,7 +1204,7 @@ class Plugin(indigo.PluginBase):
                             else:
                                 dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOff)
         except:
-            self.logger.exception(u'Caught exception within Update Users:')
+            self.logger.debug(u'Caught exception within Update Users:')
 
 
     def GetuserNames(self, filter=0, valuesDict=None, typeId="", targetId=0):
@@ -1950,7 +1950,8 @@ color: #ff3300;
 
         try:
             if self.blueirisserverVersion >=5:
-                self.logger.debug(unicode(valuesDict))
+                if self.debugother:
+                    self.logger.debug(unicode(valuesDict))
                 macronumber = self.substitute(valuesDict.props['macroNumber'])
                 macrotext = self.substitute(valuesDict.props['macroText'])
 

@@ -3,7 +3,6 @@ ChangeLog
 v1.0.5
 
 BlueIris version 5 only
-
 - Add Action Group to change Macro
 e.g. update Temp/Location/Information Macros as needed from within Indigo
 These then overlay on the video
@@ -34,8 +33,12 @@ Format:
 IndigoIPAddress:4556/&CAM/&TYPE/&PROFILE/glenn
 Same as other alerts - just change the last item to correct name of user.
 
-- Risks two triggers if have both Action Group in Camera set as above, and Parsing Log.
-Will check Indigo BI User device for time of last log in and not trigger if within 15 seconds
+- Risks two triggers if have both Alert Group in Camera set as above, and Parsing Log running within Plugin.
+
+As will trigger immediately with alert being sent, and then again when log parsed a few seconds later and login found.
+
+To resolve:
+Will check Indigo BI User device for time of last log in and not trigger if within last 15 seconds
 If have both Action Group set, and Parsing log without Indigo BI User device then may trigger twice.
 If issue - create Indigo BI User Device for appropriate user.
 
@@ -47,8 +50,7 @@ If issue - create Indigo BI User Device for appropriate user.
 
 TODO
 
-Alert logging for connection, messages, IVS Subscriptions from cameras, Errors, Server Restarts
-
+Consider Alert logging for connection, messages, IVS Subscriptions from cameras, Errors, Server Restarts
 
 Add Camera Event Subscription with item number - eg. 000002efd
 Triggered when enabled, never disabled

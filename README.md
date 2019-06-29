@@ -1,5 +1,5 @@
 # BlueIris Indigo Plugin
-![https://s17.postimg.org/mv5typblr/icon.png](https://s17.postimg.org/mv5typblr/icon.png)
+![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images]
 
 
 Have put together the Indigo Plugin for BlueIris windows based Cam Server Software.

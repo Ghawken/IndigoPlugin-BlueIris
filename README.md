@@ -117,7 +117,7 @@ eg. Version 5
 
 Trigger On:
 
-![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/v5CameraAlertON.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/v4CameraAlertSetup.png)
+![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/v5CameraAlertON.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/v5CameraAlertON.png)
 
 
 Trigger Ended:
@@ -196,7 +196,6 @@ This image can be used in Control Pages (showing last triggering) or used to sen
 
 ## Animated GIFs Created
 
-From version 0.6.0
 
 The Plugin can also generate an Animated Gif for each Camera.  This can be done automatically if triggered from within the Camera Device settings, or it can be performed as an Action on selected Cameras
 

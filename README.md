@@ -18,12 +18,12 @@ Installation
 Download, Enable.
 
 For Neatness I suggest creating a BlueIris Directory - which the plugin will use.
-![https://s17.postimg.org/41k11akz3/Create_Directory.png](https://s17.postimg.org/41k11akz3/Create_Directory.png)
+![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/CreateDirectory.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/CreateDirectory.png)
 
 
 Go to Plugin Config
 
-![https://s17.postimg.org/7l5yr4xzj/Plug_Config1.png](https://s17.postimg.org/7l5yr4xzj/Plug_Config1.png)
+![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/PlugConfig1.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/PlugConfig1.png)
 
 
 Enter:
@@ -46,18 +46,18 @@ Can be changed to any allowed port if needed.
 
 
 Click Login/Generate Server Device, here:
-![https://s17.postimg.org/9pqbs74r3/Plug_Config_Loginbutton.png](https://s17.postimg.org/9pqbs74r3/Plug_Config_Loginbutton.png)
+![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/PlugConfigLoginbutton.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/PlugConfigLoginbutton.png)
 
 
 (This will generate a main BI server device in either BlueIris directory or main)
-![https://s17.postimg.org/jzsqrg2cf/Main_Device_Created.png](https://s17.postimg.org/jzsqrg2cf/Main_Device_Created.png)
+![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/MainDeviceCreated.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/MainDeviceCreated.png)
 
 if all goes well -- Generate Cameras button should appear
-![https://s17.postimg.org/qdhtuorsv/Generate_Camera_Button.png](https://s17.postimg.org/qdhtuorsv/Generate_Camera_Button.png)
+![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/GenerateCameraButton.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/GenerateCameraButton.png)
 
 Click this - to generate all your camera devices...
 
-![https://s17.postimg.org/9cyxm19mn/List_Camera_Devices.png](https://s17.postimg.org/9cyxm19mn/List_Camera_Devices.png)
+![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/ListCameraDevices.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/ListCameraDevices.png)
 
 
 
@@ -108,7 +108,21 @@ to each camera in BlueIris;  Camera: Alerts, request from web service:  When tri
 
 **BI ScreenShots:**
 
-![http://i68.tinypic.com/30agg7c.png](http://i68.tinypic.com/30agg7c.png)
+eg. Version 4
+
+![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/v4CameraAlertSetup.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/v4CameraAlertSetup.png)
+
+
+eg. Version 5
+
+Trigger On:
+
+![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/v5CameraAlertON.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/v4CameraAlertSetup.png)
+
+
+Trigger Ended:
+![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/v5CameraAlertOFF.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/v5CameraAlertOFF.png)
+
 
 -----------------------------------------------------------------------------------------------------------------------------
 This has changed from new version 0.6.0
@@ -136,7 +150,7 @@ This will trigger and update camera in Indigo everytime triggered or motion sens
 
 There are multiple support actions that can be performed on each/some/or the Server
 
-![https://s17.postimg.org/vowqfdqq7/Action_Options.pnghttps://s17.postimg.org/vowqfdqq7/Action_Options.png](https://s17.postimg.org/vowqfdqq7/Action_Options.pnghttps://s17.postimg.org/vowqfdqq7/Action_Options.png)
+![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/ActionOptions.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/ActionOptions.png)
 
 ![https://camo.githubusercontent.com/6da5f1a4ee61eefae425c1064cfc4ff058fdc757/687474703a2f2f6936332e74696e797069632e636f6d2f33327a693235642e706e67](https://camo.githubusercontent.com/6da5f1a4ee61eefae425c1064cfc4ff058fdc757/687474703a2f2f6936332e74696e797069632e636f6d2f33327a693235642e706e67)
 
@@ -160,7 +174,7 @@ The Plugin also creates a Trigger which is run when the selected Camera(s) detec
 
 You can select multiple cameras:
 
-![https://s17.postimg.org/si26vsgkv/Select_Trigger_Cameras.png](https://s17.postimg.org/si26vsgkv/Select_Trigger_Cameras.png)
+![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/SelectTriggerCameras.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/SelectTriggerCameras.png)
 
 The triggering of these alerts is dependant in the settings that are created within BlueIris as above - including the retrigger timeout - will not retrigger until this time has passed.
 
@@ -172,7 +186,7 @@ The Camera Devices have a few user configurable options:
 - Save Image if Camera Triggered
 - Width in Pixels of image (up to maximum of the camera)  Proportions are left unchanged
 
-![http://i65.tinypic.com/ftzfw1.png](http://i65.tinypic.com/ftzfw1.png)
+![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/CameraOptions.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/CameraOptions.png)
 
 If this option is select the plugin will download an image from this camera locally everytime it is triggered.
 It is stored in path

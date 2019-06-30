@@ -123,7 +123,7 @@ Trigger On:
 Trigger Ended:
 ![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/v5CameraAlertOFF.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/v5CameraAlertOFF.png)
 
-
+ 
 -----------------------------------------------------------------------------------------------------------------------------
 This has changed from new version 0.6.0
 Same for everyone - no longer different for Basic/Digest Authenication

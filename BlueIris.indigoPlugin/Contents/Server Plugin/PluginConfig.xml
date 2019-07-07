@@ -7,7 +7,6 @@
   <Field id="space0" type="label" fontColor="black" >
     <Label>Developed by: GlennNZ</Label>
   </Field>
-  <Field id="sep7" type="separator"/>
     <Field id="sepnew44" type="separator"/>
 
 			<Field id="serverip"
@@ -43,7 +42,13 @@
 				   secure = "True">
 				<Label>Enter your Password:</Label>
 			</Field>
-
+      <Field id="label2a2" type="label" fontSize="small" fontColor="black">
+    <Label>
+        Ideally above user should have Administrator rights within BlueIris for full functionality
+        Can limit user to LAN only access, which should reassure
+        See Blue Iris server/Settings/Users/Access options
+    </Label>
+      </Field>
     <Field id="sep2aa33" type="separator"/>
        <Field id="Httpserverport"
 				   type="textfield"
@@ -53,18 +58,7 @@
 	</Field>
 
       <Field id="sep2aa24" type="separator"/>
-    <Field id="parselog" type="checkbox" tooltip="Use BI Server Log to set Actions/Logins.">
-        <Label/>
-        <Description>Parse the BI Server Log (BI v5 only)</Description>
-    </Field>
-      <Field id="label22" type="label" fontSize="small" fontColor="black">
-    <Label>
-        Use Log Messages from BI Server to get Actions Motion On/User Login/Logout
-        Alternative to setting alert actions for each Camera.  Will lead to slight delay
-        compared with Camera Action groups which should be preferred setting.
-    </Label>
-    </Field>
-      <Field id="sep233" type="separator"/>
+
 
        <Field id="loginServer"
 				   type="button"
@@ -73,7 +67,10 @@
 				<Title>Login Generate Main Server Device</Title>
 				<CallbackMethod>loginServer</CallbackMethod>
 	</Field>
-
+          <Field id="label2b2" type="label" fontSize="small" fontColor="black">
+    <Label>
+        Login using above details and Generate Blue Iris Server Device within Indigo    </Label>
+          </Field>
       <Field id="sep224" type="separator"/>
 
       <Field id="generateCameras"
@@ -84,6 +81,13 @@
 				<Title>Generate Cameras Devices</Title>
 				<CallbackMethod>generateCameras</CallbackMethod>
 	</Field>
+    <Field id="label2c2" type="label" fontSize="small" fontColor="black">
+    <Label>
+        Generate All Cameras Devices, or re-Generate and check if already exist.
+        Click if new Cameras are added to update BI Indigo Camera Devices </Label>
+          </Field>
+
+
    <Field id="sep235" type="separator" visibleBindingId="loginOK" visibleBindingValue="true"  />
     <Field id="directory"
 				   type="textfield"
@@ -102,6 +106,25 @@
 
     <Field id="sep23ab5" type="separator" visibleBindingId="loginOK" visibleBindingValue="true" hidden="true" />
 
+     <Field id="sep9" type="separator"/>
+
+ <Field id="parselog" type="checkbox" tooltip="Use BI Server Log to set Actions/Logins.">
+        <Label>
+
+
+        </Label>
+        <Description>Parse the BI Server Log (BI v5 only)</Description>
+    </Field>
+      <Field id="label22" type="label" fontSize="small" fontColor="black">
+    <Label>
+        Use Log Messages from BI Server to get Actions Motion On/User Login/Logout.
+        Alternative to setting alert actions for each Camera.
+        Will lead to slight delay compared with Camera Action groups which should be
+        preferred setting.
+        (Needs BI Plugin User to have Administrator rights)
+    </Label>
+    </Field>
+      <Field id="sep233" type="separator"/>
 
   <Field id="space1" type="label" fontColor="black" hidden="true">
     <Label>Check for Updates:</Label>
@@ -119,7 +142,7 @@
     <Label> Open PluginStore if newer version at time of check</Label>
     <Description>Enable/Disable</Description>
   </Field>
- <Field id="sep9" type="separator"/>
+
 
   <Field id="space10" type="label" alignText="left">
     <Label>Debugging:</Label>

@@ -99,6 +99,8 @@ class Plugin(indigo.PluginBase):
 
         self.blueirisserverVersion = '4.0.0.0'
 
+        self.currentuseradmin = False
+
         self.listenPort = 4556 #default
         # add callhere
         self.validatePrefsConfigUi(pluginPrefs)
@@ -878,6 +880,7 @@ class Plugin(indigo.PluginBase):
                         dev.updateStatesOnServer(stateList)
                         self.blueirisserverVersion = int(self.systemdata['version'][0] )
                         self.logger.debug(u'Setting BlueIrisVersion to  '+unicode(self.blueirisserverVersion))
+                        self.currentuseradmin = bool(self.systemdata['admin'])
                         if self.debugextra:
                             self.logger.debug(u'updateSystemDevice Updated/Done.')
 
@@ -1182,27 +1185,33 @@ class Plugin(indigo.PluginBase):
     def updateUsers(self):
         self.logger.debug(u'update Users called')
         try:
-            listusers = self.sendccommand('users','')
-            for dev in indigo.devices.itervalues('self.BlueIrisUser'):
-                for users in listusers:
+            if self.currentuseradmin:
+                listusers = self.sendccommand('users','')
+                for dev in indigo.devices.itervalues('self.BlueIrisUser'):
+                    for users in listusers:
+                        if dev.enabled:
+                            if dev.pluginProps.get('username', 0) == users['obj']:
+                                # Matching username found for device created and enabled
+                                stateList = [
+                                    {'key': 'isOnline', 'value': users['isOnline']},
+                                    {'key': 'object', 'value': users['object']},
+                                    {'key': 'date', 'value': users['date']},
+                                    {'key': 'username', 'value': users['obj']},
+                                    {'key': 'msg', 'value': users['msg']},
+                                    {'key': 'level', 'value': users['level']},
+                               ]
+                                dev.updateStatesOnServer(stateList)
+                                update_time = t.strftime('%c', t.localtime(int(users['date'])))
+                                dev.updateStateOnServer('timeLastLogin', value=update_time)
+                                if users['isOnline']:
+                                    dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOn)
+                                else:
+                                    dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOff)
+            else:
+                for dev in indigo.devices.itervalues('self.BlueIrisUser'):
                     if dev.enabled:
-                        if dev.pluginProps.get('username', 0) == users['obj']:
-                            # Matching username found for device created and enabled
-                            stateList = [
-                                {'key': 'isOnline', 'value': users['isOnline']},
-                                {'key': 'object', 'value': users['object']},
-                                {'key': 'date', 'value': users['date']},
-                                {'key': 'username', 'value': users['obj']},
-                                {'key': 'msg', 'value': users['msg']},
-                                {'key': 'level', 'value': users['level']},
-                           ]
-                            dev.updateStatesOnServer(stateList)
-                            update_time = t.strftime('%c', t.localtime(int(users['date'])))
-                            dev.updateStateOnServer('timeLastLogin', value=update_time)
-                            if users['isOnline']:
-                                dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOn)
-                            else:
-                                dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOff)
+                            dev.updateStateOnServer('msg', value='Limited states available as not admin user')
+
         except:
             self.logger.debug(u'Caught exception within Update Users:')
 
@@ -1210,7 +1219,12 @@ class Plugin(indigo.PluginBase):
     def GetuserNames(self, filter=0, valuesDict=None, typeId="", targetId=0):
         self.logger.debug(u'GetUserNames called')
         # update profile list by calling server
-
+        if self.checkadminuser() == False:
+            self.logger.info(u'Plugins BlueIris user needs to have Administrator rights.  Check BI/Settings/Users/Access options')
+            self.currentuseradmin = False
+            usernames = []
+            usernames.append('User needs to have Admin rights on BI Check Log for Details')
+            return usernames
         try:
             listusers = self.sendccommand('users','')
             usernames = []
@@ -1249,6 +1263,11 @@ class Plugin(indigo.PluginBase):
 
     def downloadMsgs(self):
         self.logger.debug(u'downloadMsgs Called')
+
+        if self.checkadminuser() == False:
+            self.logger.info(u'BlueIris Server User is not admin, Checking BI Server Log not possible.')
+            return
+
         timetoget = int(t.time()) - 20
         logmsgs = self.sendccommand('log', {'aftertime': timetoget})
         if self.debugmsg:
@@ -1359,16 +1378,21 @@ class Plugin(indigo.PluginBase):
                 updateServer = t.time() +2
                 updateMsgs = t.time() +10
                 updateUsers = t.time() + 60
+                self.currentuseradmin = self.checkadminuser()
                 while self.prefsUpdated == False:
                 #self.debugLog(u" ")
 
-                    if self.parselog:
-                        if t.time()>updateMsgs:
+                    if self.parselog and self.currentuseradmin:
+                        if t.time() > updateMsgs:
                             if self.downloadMsgs():
                                 updateMsgs = t.time() +10
                                 self.resetLogMotion()
                             else:
                                 updateMsgs = t.time()+2
+                    elif t.time()>updateMsgs and self.parselog and self.currentuseradmin == False:
+                        self.logger.info(u'To Check BI Server Log, BI user needs to be Administrator.')
+                        updateMsgs = t.time() + 120
+
                     if t.time()>updateUsers:
                         self.updateUsers()
                         updateUsers = t.time()+60
@@ -1384,6 +1408,7 @@ class Plugin(indigo.PluginBase):
                         self.sleep(0.2)
                         updateServer = t.time()+120
                         self.updateSystemDevice()
+                        self.currentuseradmin = self.checkadminuser()
 
         except self.StopThread:
             self.logger.info(u'Restarting/or error. Stopping  thread.')
@@ -1471,9 +1496,12 @@ class Plugin(indigo.PluginBase):
                     if bool(dev.states['admin']):
                         if self.debugextra:
                             self.logger.debug(u'Check Admin User: Admin User Found.')
+                        self.currentuseradmin = True
+                        admin = True
                         return True
             if admin == False:
                 self.logger.debug(u'BlueIris Server User is not Admin.')
+                self.currentuseradmin = False
                 return False
         except:
             self.logger.exception(u'Caught Exception in Checkadmin User')

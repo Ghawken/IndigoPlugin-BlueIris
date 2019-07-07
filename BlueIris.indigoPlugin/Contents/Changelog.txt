@@ -48,6 +48,12 @@ If issue - create Indigo BI User Device for appropriate user.
 - Add optional disable of BI server log parsing (as can do everything with Camera based alerts - better, slightly quicker, just more setup
 
 
+1.1.6
+
+Bug fixes for non-admin users within BI Server.
+Cosmetic changes with Plugin Config
+Preferred option would be always admin user, and limit to local-LAN access only if any concerns.
+
 TODO
 
 Consider Alert logging for connection, messages, IVS Subscriptions from cameras, Errors, Server Restarts

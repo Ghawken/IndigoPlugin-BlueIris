@@ -1529,7 +1529,7 @@ class Plugin(indigo.PluginBase):
             elif conditions[1] =='True':
                 argtouse =True
             else:
-                argtouse = conditions[1]
+                argtouse = int(conditions[1])
 
             self.logger.debug(u'Action ArgtoUse:'+unicode(argtouse))
             self.logger.debug(u'Action Called =' + unicode(action) + u' action event:' + unicode(conditions))
@@ -1539,8 +1539,59 @@ class Plugin(indigo.PluginBase):
             self.camconfigUpdateData(configdata, device)
             #self.sendccommand('camconfig', {'camera': str(cameraname), 'motion': False})
         except:
-            self.logger.exception(u'Caught Exception within Cam Config')
+            self.logger.exception(u'Caught Exception within Cam Config.  Some commands BlueIris v5 only.')
+
         return
+
+    def setmotioncamconfig(self,valuesDict):
+
+        try:
+            self.logger.debug(u'SetMotion CamConfig Called: args'+unicode(valuesDict))
+
+            if self.checkadminuser() == False:
+                self.logger.info(u'BlueIris Server User is not admin these commands will not work.')
+                return
+
+            device = indigo.devices[valuesDict.deviceId]
+            cameraname = device.states['optionValue']
+            #self.logger.info(unicode(valuesDict))
+            action = str(valuesDict.props['setmotionConfigargs'])
+            #split to get two arguments to send
+            conditions = action.split(':')
+
+            if conditions[1]=='False':
+                argtouse = False
+            elif conditions[1] =='True':
+                argtouse =True
+            else:
+                argtouse = int(conditions[1])
+
+            if conditions[0] == 'maketime':
+                number = float(valuesDict.props['setmotionnumber'])
+                argtouse = int(number*10 ) # whats time in 10ths of seconds, eg. 1 = 0.1 sec etc.
+            elif conditions[0] == 'contrast':
+                number = float(valuesDict.props['setmotionnumber2'])  # use 2 for contrast and so on
+                argtouse = int(number) # whats time in 10ths of seconds, eg. 1 = 0.1 sec etc.
+            elif conditions[0] == 'breaktime':
+                number = float(valuesDict.props['setmotionnumber3'])
+                argtouse = int(number*10 ) # whats time in 10ths of seconds, eg. 1 = 0.1 sec etc.
+            elif conditions[0] == 'sense':
+                number = float(valuesDict.props['setmotionnumber4'])  # use 2 for contrast and so on
+                argtouse = 12000 - int(number*10) # w if 11000 want 1000, if 1000 want 11000 and everthing in between
+
+            self.logger.debug(u'Action ArgtoUse:'+unicode(argtouse))
+            self.logger.debug(u'Action Called =' + unicode(action) + u' action event:' + unicode(conditions[0]) + u' and argtouse:'+unicode(argtouse))
+
+            configdata = self.sendccommand('camconfig', {'camera': str(cameraname), 'setmotion': { conditions[0]:argtouse }})
+            # if command set update camera now with data received
+            self.camconfigUpdateData(configdata, device)
+            #self.sendccommand('camconfig', {'camera': str(cameraname), 'motion': False})
+        except:
+            self.logger.exception(u'Caught Exception within Cam Config.  Some commands BlueIris v5 only.')
+
+        return
+
+
 
     def actionEnableAnim(self, valuesDict):
         self.logger.debug(u'action Enable Anim called')

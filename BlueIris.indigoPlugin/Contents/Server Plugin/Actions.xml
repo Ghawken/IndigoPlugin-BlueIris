@@ -17,6 +17,7 @@
     </ConfigUI>
   </Action>
 
+
     <Action id="changeMacro">
     <Name>Change Macro Contents</Name>
         <CallbackMethod>actionChangeMacro</CallbackMethod>
@@ -28,7 +29,14 @@
 				<Label>Macro Number:</Label>
 			</Field>
 
-    </ConfigUI>
+        <Field id="label2d2" type="label" fontSize="small" fontColor="black">
+    <Label>Change the BlueIris Macro.
+    Device/Variable substitution allowed eg. %%d:241092027:temp%%
+    (Need to be BI Admin User)
+    </Label>
+          </Field>
+
+        </ConfigUI>
   </Action>
 
     <Action id="Left" deviceFilter="self.BlueIrisCamera">
@@ -47,6 +55,7 @@
     <Name>Ptz: Tilt Down</Name>
     <CallbackMethod>ptzAction</CallbackMethod>
   </Action>
+
     <Action id="camconfig" deviceFilter="self.BlueIrisCamera">
     <Name>Config Camera</Name>
     <CallbackMethod>camconfig</CallbackMethod>
@@ -59,15 +68,76 @@
             <Option value="enable:False">Disable Camera</Option>
             <Option value="motion:True">Enable Motion Detector</Option>
             <Option value="motion:False">Disable Motion Detector</Option>
-            <Option value="pause:-1">Pause Camera</Option>
+
+                <Option value="record:-1">Record: Set to Manual</Option>
+                <Option value="record:0">Record: Set to Periodic</Option>
+                <Option value="record:1">Record: Set to Continuous</Option>
+                <Option value="record:2">Record: Set to Triggered</Option>
+                <Option value="record:3">Record: Set to Motion/Periodic</Option>
+
+                <Option value="hide:True">Hide Camera</Option>
+                <Option value="hide:False">Show Camera</Option>
+                <Option value="output:True">Set Cameras first DIO output</Option>
+                <Option value="output:False">Reset Cameras first DIO output</Option>
+                <Option value="resetnew:True">Reset Alert Counter for Camera</Option>
+                <Option value="audio:True">Audio Enable</Option>
+                <Option value="audio:False">Audio Disable</Option>
+                <Option value="lock:True">Lock Camera Enable</Option>
+                <Option value="lock:False">Unlock Camera</Option>
+
+                <Option value="manrec:True">Start Manual Recording</Option>
+                <Option value="manrec:False">Stop Manual Recording</Option>
+
+                <Option value="pause:-1">Pause Camera</Option>
                 <Option value="pause:0">UnPause Camera</Option>
             <Option value="ptzcycle:True">PTZ Cycle Enable</Option>
             <Option value="ptzcycle:False">PTZ Cycle Disable</Option>
         </List>
         </Field>
     </ConfigUI>
+    </Action>
 
+    <Action id="setmotion" deviceFilter="self.BlueIrisCamera">
+    <Name>Motion Trigger Settings Camera</Name>
+    <CallbackMethod>setmotioncamconfig</CallbackMethod>
+    <ConfigUI>
+        <Field id="setmotionConfigargs" type="menu">
+            <Label>Options:  (need BlueIris admin access for these)</Label>
+            <List>
+            <Option value="shadows:True">Cancel Shadows</Option>
+            <Option value="shadows:False">Disable Cancel Shadows</Option>
+            <Option value="audio_trigger:True">Enable Audio Trigger of Camera</Option>
+            <Option value="audio_trigger:False">Disable Audio Trigger of Camera</Option>
+            <Option value="objects:True">Enable Object Detection</Option>
+            <Option value="objects:False">Disable Object Detection</Option>
+                <Option value="usemask:True">Enable Zones and hot spot</Option>
+            <Option value="usemask:False">Disable Zones and hot Spots</Option>
+                <Option value="luminance:True">Enable Black and White</Option>
+            <Option value="luminance:False">Disable Black and White</Option>
+                <Option value="showmotion:1">Enable Show Motion</Option>
+            <Option value="showmotion:0">Disable Show Motion</Option>
+                <Option value="maketime:1">Alter the Make Time </Option>
+            <Option value="contrast:1">Alter the Minimum Contrast needed </Option>
+               <Option value="breaktime:1">Alter the Break Time </Option>
+                <Option value="sense:1">Alter Sensitivity </Option>
+        </List>
+        </Field>
+
+        <Field id="setmotionnumber" type="textfield" visibleBindingId="setmotionConfigargs" visibleBindingValue="maketime:1">
+            <Label>Seconds:</Label>
+        </Field>
+        <Field id="setmotionnumber2" type="textfield" visibleBindingId="setmotionConfigargs" visibleBindingValue="contrast:1">
+            <Label>Contrast Value 12-84:</Label>
+        </Field>
+        <Field id="setmotionnumber3" type="textfield" visibleBindingId="setmotionConfigargs" visibleBindingValue="breaktime:1">
+            <Label>Seconds:</Label>
+        </Field>
+        <Field id="setmotionnumber4" type="textfield" visibleBindingId="setmotionConfigargs" visibleBindingValue="sense:1">
+            <Label>Minimum object size 100-1100:</Label>
+        </Field>
+    </ConfigUI>
   </Action>
+
     <Action id="Preset" deviceFilter="self.BlueIrisCamera">
     <Name>Ptz: Set Preset</Name>
     <CallbackMethod>ptzPreset</CallbackMethod>

@@ -54,6 +54,36 @@ Bug fixes for non-admin users within BI Server.
 Cosmetic changes with Plugin Config
 Preferred option would be always admin user, and limit to local-LAN access only if any concerns.
 
+1.1.7
+
+Few further info boxes in Config dialogs
+
+Add support for Action/Camera Config:
+           Record: Set to Manual, Periodic, Continuous, Triggered,Motion/Periodic, and Motion/Continuous
+           Hide/Show Camera
+           Set/Reset Cameras first DIO output
+           Reset Alert Counter for Camera
+           Audio enable for Camera
+           Audio disable for Camera
+           Lock/Unlock Camera
+           Start/Stop Manual Recording
+           Fix for Pause/Unpause Camera
+
+New Action to alter Camera Motion Trigger Settings:
+             Cancel Shadows/Disable Cancel Shadows
+             Enable/Disable Audio Trigger of Camera
+             Enable/Disable Object Detection
+             Disable/Enable Zones and hot spot
+             Disable/Enable Black and White
+             Enable/Disable Show Motion
+             Set the Min Contrast Level
+             Set the Break Time/seconds
+             Set the Make Time/seconds
+             Alter Sensitivity/Minimum output size
+
+
+
+
 TODO
 
 Consider Alert logging for connection, messages, IVS Subscriptions from cameras, Errors, Server Restarts

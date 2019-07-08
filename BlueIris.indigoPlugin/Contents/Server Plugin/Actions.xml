@@ -101,7 +101,7 @@
     <Name>Motion Trigger Settings Camera</Name>
     <CallbackMethod>setmotioncamconfig</CallbackMethod>
     <ConfigUI>
-        <Field id="setmotionConfigargs" type="menu">
+        <Field id="setmotionConfigargs" type="menu" defaultValue="shadows:True">
             <Label>Options:  (need BlueIris admin access for these)</Label>
             <List>
             <Option value="shadows:True">Cancel Shadows</Option>

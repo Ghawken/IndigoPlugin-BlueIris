@@ -2136,7 +2136,7 @@ color: #ff3300;
                     #self.logger.debug(unicode(trigger))
                 #self.logger.error(unicode(trigger))
                 # Change to List for all Cameras
-                if trigger.pluginTypeId == 'motionTriggerOn' or trigger.pluginTypeId=='motionTriggerOff':
+                if (trigger.pluginTypeId == 'motionTriggerOn' or trigger.pluginTypeId=='motionTriggerOff') and (event=='motionfalse' or event=='motiontrue'):
                     if str(device.id) not in trigger.pluginProps['deviceCamera'] :
                         if self.debugtriggers:
                             self.logger.debug("\t\tSkipping Trigger %s (%s), wrong User/Camera: %s" % (trigger.name, trigger.id, device.id))
@@ -2179,6 +2179,22 @@ color: #ff3300;
     def pluginstoreUpdate(self):
         iurl = 'http://www.indigodomo.com/pluginstore/149/'
         self.browserOpen(iurl)
+
+    def logMotionSettings(self):
+
+        self.logger.info(u"{0:=^130}".format(""))
+        if self.checkadminuser():
+            for camera in indigo.devices.itervalues('self.BlueIrisCamera'):
+                self.sleep(0.1)
+                if camera.enabled:
+                    cameraname = camera.states['optionValue']
+                    if self.debugother:
+                        self.logger.debug(u'Checking CamConfig for Camera:' + cameraname)
+                    cameraconfigdata = self.sendccommand('camconfig', {'camera': str(cameraname), 'setmotion': { '':True }} )
+                    # self.logger.info(unicode(cameraconfigdata))
+                #    camerastring = unicode('Camera: ')+unicode(cameraname)+u'\t : '+ u'Shadows:\t'+unicode(cameraconfigdata['setmotion']['shadows']) +u'\tAudio Sen: ' +unicode(cameraconfigdata['setmotion']['audio_sense']) + u'\tLuminance:\t'+unicode(cameraconfigdata['setmotion']['luminance']) + u'\tAudio Trigger:\t'+unicode(cameraconfigdata['setmotion']['audio_trigger']) + u'\tMakeTime:'+unicode(cameraconfigdata['setmotion']['maketime'])+ u'\tObjects:\t'+unicode(cameraconfigdata['setmotion']['objects']) + u'\tBreakTime:\t'+unicode(cameraconfigdata['setmotion']['breaktime']) + u'\tObject Size:\t'+unicode(cameraconfigdata['setmotion']['sense'])     + u'\tContrast:\t'+unicode(cameraconfigdata['setmotion']['contrast'])
+                    self.logger.info(u"{0:<12s} {1:<12s} {2:<12s}".format("Camera :"+cameraname, 'Shadows:', cameraconfigdata['setmotion']['shadows'])   )
+
 ################## Animated Gifs
 
 ################## Run the create gifs in a seperate thread as will take a few seconds we can't afford

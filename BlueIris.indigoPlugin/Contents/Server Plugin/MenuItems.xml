@@ -9,10 +9,7 @@
         <Name>Open PluginStore for Download</Name>
         <CallbackMethod>pluginstoreUpdate</CallbackMethod>
     </MenuItem>
-    <MenuItem id="logMotionSettings">
-        <Name>Display in Log Camera Motion Settings</Name>
-        <CallbackMethod>logMotionSettings</CallbackMethod>
-    </MenuItem>
+
   <MenuItem id="toggleDebug">
     <Name>Toggle Debugging</Name>
     <CallbackMethod>toggleDebugEnabled</CallbackMethod>

@@ -79,9 +79,11 @@ New Action to alter Camera Motion Trigger Settings:
              Set the Min Contrast Level
              Set the Break Time/seconds
              Set the Make Time/seconds
-             Alter Sensitivity/Minimum output size
+             Alter Sensitivity/Minimum object size
 
+1.1.8
 
+Proper bug fix for Triggering error reported
 
 
 TODO

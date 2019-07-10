@@ -666,6 +666,13 @@ class Plugin(indigo.PluginBase):
         if self.debugextra:
             self.logger.debug(u'loginServer Called.')
 
+        self.validatePrefsConfigUi(valuesDict)
+
+        self.serverip = valuesDict.get('serverip', False)
+        self.serverport = int(valuesDict.get('serverport', '80'))
+        self.serverusername = valuesDict.get('serverusername', '')
+        self.serverpassword = valuesDict.get('serverpassword', '')
+
         #self.logger.debug(unicode(valuesDict))
         statusresults = self.sendccommand('status','')
         #result = statusresults['mem']
@@ -673,7 +680,8 @@ class Plugin(indigo.PluginBase):
 
         if statusresults is None:
             self.logger.info(u'Cannot login to BI Server.  Are details correct?')
-            return
+            valuesDict['loginOK'] = False
+            return valuesDict
 
         # update BlueIris Server Device
         FoundDevice = False

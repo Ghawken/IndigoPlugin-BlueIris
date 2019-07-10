@@ -81,7 +81,7 @@
 				<Title>Generate Cameras Devices</Title>
 				<CallbackMethod>generateCameras</CallbackMethod>
 	</Field>
-    <Field id="label2c2" type="label" fontSize="small" fontColor="black">
+    <Field id="label2c2" type="label" fontSize="small" fontColor="black" visibleBindingId="loginOK" visibleBindingValue="true" >
     <Label>
         Generate All Cameras Devices, or re-Generate and check if already exist.
         Click if new Cameras are added to update BI Indigo Camera Devices </Label>

@@ -42,7 +42,12 @@
 				   secure = "True">
 				<Label>Enter your Password:</Label>
 			</Field>
-      <Field id="label2a2" type="label" fontSize="small" fontColor="black">
+      <Field id="Broadcast" type="checkbox" tooltip="Check to enable broadcasting messages within Indigo" default="False">
+        <Label>Enable Broadcast for additional AI Plugin Support </Label>
+        <Description>Enable/Disable</Description>
+             </Field>
+
+    <Field id="label2a2" type="label" fontSize="small" fontColor="black">
     <Label>
         Ideally above user should have Administrator rights within BlueIris for full functionality
         Can limit user to LAN only access, which should reassure

@@ -143,6 +143,7 @@ class Plugin(indigo.PluginBase):
         self.serverport = int(self.pluginPrefs.get('serverport', '80'))
         self.serverusername = self.pluginPrefs.get('serverusername', '')
         self.serverpassword = self.pluginPrefs.get('serverpassword', '')
+        self.Broadcast = self.pluginPrefs.get('Broadcast',False)
 
         self.debugLevel = self.pluginPrefs.get('showDebugLevel', "20")
         self.debugextra = self.pluginPrefs.get('debugextra', False)
@@ -214,6 +215,8 @@ class Plugin(indigo.PluginBase):
             self.serverport = int(valuesDict.get('serverport', '80'))
             self.serverusername = valuesDict.get('serverusername', '')
             self.serverpassword = valuesDict.get('serverpassword','')
+
+            self.Broadcast = valuesDict.get('Broadcast','False')
 
             self.prefsUpdated = True
             self.debugextra = valuesDict.get('debugextra', False)
@@ -1362,7 +1365,7 @@ class Plugin(indigo.PluginBase):
 
                     if self.debugmsg:
                         self.logger.debug(u'Msg basedTrigger Motion for this Camera:'+unicode(cameraname))
-
+                    newimagedownloaded = False
                     dev.updateStateOnServer('Motion', value=True, uiValue='True')
                     dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensorTripped)
                     update_time = t.strftime('%c')
@@ -1370,11 +1373,13 @@ class Plugin(indigo.PluginBase):
                     dev.updateStateOnServer('motionUTC', value=t.time())
                     dev.updateStateOnServer('lastMotionTriggerType', value=str(item['msg']))
                     dev.updateStateOnServer('triggeredbyLog', value=True)
-                    self.triggerCheck(dev, cameraname, 'motiontrue')
+                    self.triggerCheck(dev, cameraname,  'motiontrue')
 
                     if dev.pluginProps.get('saveimage', False):
                         self.downloadImage(dev)
-
+                        newimagedownloaded = True
+                        ## Broadcast <Message> regarding motion
+                    self.broadcastMessage(dev, cameraname, update_time, newimagedownloaded,'motiontrue')
 
     def runConcurrentThread(self):
 
@@ -1427,12 +1432,14 @@ class Plugin(indigo.PluginBase):
         self.logger.debug(u"shutdown() method called.")
         self.pluginIsShuttingDown = True
         self.prefsUpdated = True
+        indigo.server.broadcastToSubscribers(u"broadcasterShutdown")
 
     def startup(self):
 
         self.logger.debug(u"Starting Plugin. startup() method called.")
 
-
+        self.logger.debug(u'Sending BroadcasttoSubscribers')
+        indigo.server.broadcastToSubscribers(u"broadcasterStarted")
         # MAChome = os.path.expanduser("~") + "/"
         # folderLocation = MAChome + "Documents/Indigo-BlueIris/"
         # if not os.path.exists(folderLocation):
@@ -1855,7 +1862,6 @@ color: #ff3300;
             self.logger.exception(u'Caught Exception in action clipList Image')
             return
 
-
     def threadDownloadImage(self, cameraname, path, url):
         if self.debugimage:
             self.logger.debug(u'threadDownloadImages called.  Action New Thread For Camera:' + unicode(
@@ -1895,7 +1901,6 @@ color: #ff3300;
 
         except:
             self.logger.exception(u'Caught Exception in threadDownloadImage')
-
 
 
 
@@ -2103,7 +2108,24 @@ color: #ff3300;
         except:
             self.logger.exception(u'Caught Exception in download Camera Image')
             return
+################## Broadcast - similar to triggers
 
+    def broadcastMessage(self, dev, cameraname, updatetime, newimagedownloaded, event):
+        if self.Broadcast==False:
+            return
+
+        self.logger.debug('sending Broadcast Message for Cameraname:'+unicode(cameraname)+' and event:'+unicode(event))
+
+        # list to send
+        listtosend = []
+        listtosend.append("http://" + str(self.serverip) + ':' + str(self.serverport) + '/image/' + cameraname)
+        listtosend.append(cameraname)
+        listtosend.append(self.saveDirectory + str(cameraname) + '.jpg')
+        listtosend.append(updatetime)
+        listtosend.append(newimagedownloaded)
+
+        indigo.server.broadcastToSubscribers(u"motionTrue", listtosend)
+        return
 
 ##################  Triggers
 
@@ -2467,15 +2489,22 @@ class httpHandler(BaseHTTPRequestHandler):
                         if self.plugin.debugserver:
                             self.plugin.logger.debug(u'Trigger Motion for this Camera:'+unicode(cameraname))
                         if motion == 'true':
+                            newimagedownloaded = False
                             dev.updateStateOnServer('Motion', value=True, uiValue='True')
                             dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensorTripped)
                             update_time = t.strftime('%c')
                             dev.updateStateOnServer('timeLastMotion', value=str(update_time))
                             dev.updateStateOnServer('lastMotionTriggerType', value=str(typetrigger))
                             self.plugin.triggerCheck(dev, cameraname, 'motiontrue')
+                            ## Broadcast <Message> regarding motion
+
+
                             dev.updateStateOnServer('triggeredbyLog', value=False)
                             if dev.pluginProps.get('saveimage', False):
                                 self.plugin.downloadImage(dev)
+                                newimagedownloaded = True
+                            self.plugin.broadcastMessage(dev, cameraname, update_time, newimagedownloaded,  'motiontrue')
+
                         elif motion =='false':
                             dev.updateStateOnServer('Motion', value=False, uiValue='False')
                             dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)

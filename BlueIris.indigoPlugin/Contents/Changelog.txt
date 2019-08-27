@@ -86,6 +86,11 @@ New Action to alter Camera Motion Trigger Settings:
 Proper bug fix for Triggering error reported
 & Update for releasing
 
+1.1.11
+
+Add Broadcast support for future Plugins using local AI.
+Add Plugin Config setting to enable/disable broadcast support
+For future DeepStateAI Plugin coming soon
 
 TODO
 

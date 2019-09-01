@@ -1379,7 +1379,7 @@ class Plugin(indigo.PluginBase):
                         self.downloadImage(dev)
                         newimagedownloaded = True
                         ## Broadcast <Message> regarding motion
-                    self.broadcastMessage(dev, cameraname, update_time, newimagedownloaded,'motiontrue')
+                    self.broadcastMessage(dev, cameraname, float(t.time()), newimagedownloaded,'motiontrue')
 
     def runConcurrentThread(self):
 
@@ -2118,7 +2118,7 @@ color: #ff3300;
 
         # list to send
         listtosend = []
-        listtosend.append("http://" + str(self.serverip) + ':' + str(self.serverport) + '/image/' + cameraname)
+        listtosend.append("http://"+ str(self.serverusername)+ ':'+str(self.serverpassword)+ '@'+  str(self.serverip) + ':' + str(self.serverport) + '/image/' + cameraname)
         listtosend.append(cameraname)
         listtosend.append(self.saveDirectory + str(cameraname) + '.jpg')
         listtosend.append(updatetime)
@@ -2497,13 +2497,11 @@ class httpHandler(BaseHTTPRequestHandler):
                             dev.updateStateOnServer('lastMotionTriggerType', value=str(typetrigger))
                             self.plugin.triggerCheck(dev, cameraname, 'motiontrue')
                             ## Broadcast <Message> regarding motion
-
-
                             dev.updateStateOnServer('triggeredbyLog', value=False)
                             if dev.pluginProps.get('saveimage', False):
                                 self.plugin.downloadImage(dev)
                                 newimagedownloaded = True
-                            self.plugin.broadcastMessage(dev, cameraname, update_time, newimagedownloaded,  'motiontrue')
+                            self.plugin.broadcastMessage(dev, cameraname, float(t.time()), newimagedownloaded,  'motiontrue')
 
                         elif motion =='false':
                             dev.updateStateOnServer('Motion', value=False, uiValue='False')

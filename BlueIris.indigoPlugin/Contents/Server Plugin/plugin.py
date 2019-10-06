@@ -2110,7 +2110,7 @@ color: #ff3300;
             return
 ################## Broadcast - similar to triggers
 
-    def broadcastMessage(self, dev, cameraname, updatetime, newimagedownloaded, event, deviceid, typetrigger):
+    def broadcastMessage(self, dev, cameraname, updatetime, newimagedownloaded, event, deviceid, typetrigger, alertimage):
         if self.Broadcast==False:
             return
 
@@ -2125,7 +2125,7 @@ color: #ff3300;
         listtosend.append(newimagedownloaded)
         listtosend.append(deviceid)
         listtosend.append(typetrigger)
-
+        listtosend.append("http://"+ str(self.serverusername)+ ':'+str(self.serverpassword)+ '@'+  str(self.serverip) + ':' + str(self.serverport) + '/alerts/' + alertimage)
         indigo.server.broadcastToSubscribers(u"motionTrue", listtosend)
         return
 
@@ -2472,10 +2472,10 @@ class httpHandler(BaseHTTPRequestHandler):
             if len(listresults)<=4:
                 if self.plugin.debugserver:
                     self.plugin.logger.info(u'To few information received from BlueIris.  Have you used the correct format?' )
-                    self.plugin.logger.info(u'Should be: http://  IndigoIP:SelectedPort/&CAM/&TYPE/&PROFILE/True')
+                    self.plugin.logger.info(u'Should be: http://  IndigoIP:SelectedPort/&CAM/&TYPE/&PROFILE/True/&ALERT')
                     self.plugin.logger.info(u'POST text:  Indigo')
                     self.plugin.logger.info(u'& in reset when trigger is reset:')
-                    self.plugin.logger.info(u'Should be: http://  IndigoIP:SelectedPort/&CAM/&TYPE/&PROFILE/False')
+                    self.plugin.logger.info(u'Should be: http://  IndigoIP:SelectedPort/&CAM/&TYPE/&PROFILE/False/&ALERT')
                     self.plugin.logger.info(u'POST text:  Indigo')
                     return
             cameraname = str(listresults[1])
@@ -2483,6 +2483,10 @@ class httpHandler(BaseHTTPRequestHandler):
             activeprofile = listresults[3]
             motion = str(listresults[4]).lower()
             ## Check and Update Device as BIServer info received
+            alertimage = ''
+            ## add Alert Image data here
+            if len(listresults)>=5:
+                alertimage = str(listresults[5])
 
             for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
                 if dev.enabled:
@@ -2503,7 +2507,7 @@ class httpHandler(BaseHTTPRequestHandler):
                             if dev.pluginProps.get('saveimage', False):
                                 self.plugin.downloadImage(dev)
                                 newimagedownloaded = True
-                            self.plugin.broadcastMessage(dev, cameraname, float(t.time()), newimagedownloaded,  'motiontrue', dev.id, typetrigger)
+                            self.plugin.broadcastMessage(dev, cameraname, float(t.time()), newimagedownloaded,  'motiontrue', dev.id, typetrigger, alertimage)
 
                         elif motion =='false':
                             dev.updateStateOnServer('Motion', value=False, uiValue='False')

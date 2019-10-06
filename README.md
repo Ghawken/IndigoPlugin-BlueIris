@@ -81,11 +81,11 @@ Allows CPU,Mem Monitoring etc and triggering if CPU gets out of hand
 
 To enable triggers from with the plugin - add
 ```
-http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/True
+http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/True/&ALERT
 ```
 or
 ```
-http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/False
+http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/False/&ALERT
 ```
 
 
@@ -93,11 +93,11 @@ eg. IndigoIP = 192.168.1.6,  Port selected in PluginConfig: 4556
 
 ```
 When Triggered
-http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/True
+http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/True/&ALERT
 POST text: Indigo
 
 Request again when trigger is reset
-http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/False
+http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/False/&ALERT
 POST text: Indigo
 ```
 

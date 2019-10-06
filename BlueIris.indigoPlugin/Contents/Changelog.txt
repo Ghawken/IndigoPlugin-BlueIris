@@ -92,6 +92,9 @@ Add Broadcast support for future Plugins using local AI.
 Add Plugin Config setting to enable/disable broadcast support
 For future DeepStateAI Plugin coming soon
 
+1.1.16
+Further Broadcast additions including &ALERT
+
 TODO
 
 Consider Alert logging for connection, messages, IVS Subscriptions from cameras, Errors, Server Restarts

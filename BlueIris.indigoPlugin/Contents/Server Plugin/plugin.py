@@ -2493,7 +2493,7 @@ class httpHandler(BaseHTTPRequestHandler):
             ## Check and Update Device as BIServer info received
             alertimage = ''
             ## add Alert Image data here
-            if len(listresults)>=5:
+            if len(listresults)>=6:
                 alertimage = str(listresults[5])
 
             for dev in indigo.devices.itervalues('self.BlueIrisCamera'):

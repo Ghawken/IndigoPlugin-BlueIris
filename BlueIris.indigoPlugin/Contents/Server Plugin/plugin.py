@@ -1379,7 +1379,7 @@ class Plugin(indigo.PluginBase):
                         self.downloadImage(dev)
                         newimagedownloaded = True
                         ## Broadcast <Message> regarding motion
-                    self.broadcastMessage(dev, cameraname, float(t.time()), newimagedownloaded,'motiontrue', dev.id, 'log')
+                    self.broadcastMessage(dev, cameraname, float(t.time()), newimagedownloaded,'motiontrue', dev.id, 'log', '')
 
     def runConcurrentThread(self):
 

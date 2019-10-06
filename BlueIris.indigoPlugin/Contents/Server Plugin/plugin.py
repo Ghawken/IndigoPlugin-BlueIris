@@ -2111,23 +2111,31 @@ color: #ff3300;
 ################## Broadcast - similar to triggers
 
     def broadcastMessage(self, dev, cameraname, updatetime, newimagedownloaded, event, deviceid, typetrigger, alertimage):
-        if self.Broadcast==False:
+        try:
+            if self.Broadcast==False:
+                return
+            if self.debugimage:
+                self.logger.debug('sending Broadcast Message for Cameraname:'+unicode(cameraname)+' and event:'+unicode(event))
+
+            # list to send
+            listtosend = []
+            if alertimage != '' and alertimage != '&ALERT':
+                alertimage = "http://"+ str(self.serverusername)+ ':'+str(self.serverpassword)+ '@'+  str(self.serverip) + ':' + str(self.serverport) + '/alerts/' + alertimage + '&fulljpeg'
+
+            listtosend.append("http://"+ str(self.serverusername)+ ':'+str(self.serverpassword)+ '@'+  str(self.serverip) + ':' + str(self.serverport) + '/image/' + cameraname)
+            listtosend.append(cameraname)
+            listtosend.append(self.saveDirectory + str(cameraname) + '.jpg')
+            listtosend.append(updatetime)
+            listtosend.append(newimagedownloaded)
+            listtosend.append(deviceid)
+            listtosend.append(typetrigger)
+            listtosend.append(alertimage)
+            indigo.server.broadcastToSubscribers(u"motionTrue", listtosend)
+            return
+        except:
+            self.logger.info(u'Exception Caught in Broadcast Message')
             return
 
-        self.logger.debug('sending Broadcast Message for Cameraname:'+unicode(cameraname)+' and event:'+unicode(event))
-
-        # list to send
-        listtosend = []
-        listtosend.append("http://"+ str(self.serverusername)+ ':'+str(self.serverpassword)+ '@'+  str(self.serverip) + ':' + str(self.serverport) + '/image/' + cameraname)
-        listtosend.append(cameraname)
-        listtosend.append(self.saveDirectory + str(cameraname) + '.jpg')
-        listtosend.append(updatetime)
-        listtosend.append(newimagedownloaded)
-        listtosend.append(deviceid)
-        listtosend.append(typetrigger)
-        listtosend.append("http://"+ str(self.serverusername)+ ':'+str(self.serverpassword)+ '@'+  str(self.serverip) + ':' + str(self.serverport) + '/alerts/' + alertimage)
-        indigo.server.broadcastToSubscribers(u"motionTrue", listtosend)
-        return
 
 ##################  Triggers
 

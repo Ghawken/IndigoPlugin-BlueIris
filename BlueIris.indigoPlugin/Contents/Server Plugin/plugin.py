@@ -1288,6 +1288,11 @@ class Plugin(indigo.PluginBase):
         # if an session or an result in logmsgs indicates failure to download
         # eg.
         # Plugin.downloadMsgs             {u'session': u'698266b02c39259371981e1b72932b45', u'result': u'fail'}
+
+        if logmsgs is None:
+            self.logger.debug(u'No Messages downloaded.');
+            return True
+
         if 'result' in logmsgs:
             # failed to download correctly
             self.logger.debug(u'Failed to Download Messages from Server')
@@ -1296,6 +1301,7 @@ class Plugin(indigo.PluginBase):
         # while coding debugging
         # add for self.logMsgs to be inhouse version of recent within 100 seconds only of messages
         # as message received check whether new by comparing if new parse
+
 
         for item in logmsgs:
             # self.logger.debug(unicode(item))

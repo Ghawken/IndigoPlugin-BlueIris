@@ -119,7 +119,7 @@ eg. Version 5
 
 Trigger On:
 
-![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/v5CameraAlertON.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/v5CameraAlertON.png)
+![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/BIOnAlert.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/BIOnAlert.png)
 
 
 Trigger Ended:

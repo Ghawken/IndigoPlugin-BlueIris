@@ -2486,10 +2486,10 @@ class httpHandler(BaseHTTPRequestHandler):
             if len(listresults)<=4:
                 if self.plugin.debugserver:
                     self.plugin.logger.info(u'To few information received from BlueIris.  Have you used the correct format?' )
-                    self.plugin.logger.info(u'Should be: http://  IndigoIP:SelectedPort/&CAM/&TYPE/&PROFILE/True/&ALERT')
+                    self.plugin.logger.info(u'Should be: http://  IndigoIP:SelectedPort/&CAM/&TYPE/&PROFILE/True/&ALERT_PATH')
                     self.plugin.logger.info(u'POST text:  Indigo')
                     self.plugin.logger.info(u'& in reset when trigger is reset:')
-                    self.plugin.logger.info(u'Should be: http://  IndigoIP:SelectedPort/&CAM/&TYPE/&PROFILE/False/&ALERT')
+                    self.plugin.logger.info(u'Should be: http://  IndigoIP:SelectedPort/&CAM/&TYPE/&PROFILE/False/&ALERT_PATH')
                     self.plugin.logger.info(u'POST text:  Indigo')
                     return
             cameraname = str(listresults[1])

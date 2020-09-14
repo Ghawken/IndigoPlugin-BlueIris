@@ -79,13 +79,15 @@ Allows CPU,Mem Monitoring etc and triggering if CPU gets out of hand
 
 # BlueIris Server Camera End Setup
 
+NB:  Sometime recently blueiris changed &ALERT to &ALERT_PATH or &ALERT_DB
+
 To enable triggers from with the plugin - add
 ```
-http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/True/&ALERT
+http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/True/&ALERT_PATH
 ```
 or
 ```
-http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/False/&ALERT
+http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/False/&ALERT_PATH
 ```
 
 
@@ -93,11 +95,11 @@ eg. IndigoIP = 192.168.1.6,  Port selected in PluginConfig: 4556
 
 ```
 When Triggered
-http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/True/&ALERT
+http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/True/&ALERT_PATH
 POST text: Indigo
 
 Request again when trigger is reset
-http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/False/&ALERT
+http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/False/&ALERT_PATH
 POST text: Indigo
 ```
 

@@ -1207,6 +1207,7 @@ class Plugin(indigo.PluginBase):
                             if str(dev.pluginProps.get('devicename', 0)) == users['name'].encode('utf-8'):
                                 # Matching username found for device created and enabled
                                 count = 0
+                                oldinside = dev.states['inside']
                                 if count in users:
                                     count = users['count']
 
@@ -1226,6 +1227,15 @@ class Plugin(indigo.PluginBase):
                                     dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOn)
                                 elif str(users['inside']).lower() =="outside":
                                     dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOff)
+                                if oldinside != users['inside']:
+                                    ## something changed
+                                    self.logger.debug("Inside State has changed checking trigger.")
+                                    if users['inside'].lower() == "inside":
+                                        ## New must == outside
+                                        self.triggerCheck(dev,str(users['name'])+" inside geofence" , "geofence" )
+                                    if users['inside'].lower() == "outside":
+                                        ## New must == outside
+                                        self.triggerCheck(dev,str(users['name'])+" outside geofence" , "geofence" )
         except:
             self.logger.exception(u'Caught exception within Update Devices:')
 

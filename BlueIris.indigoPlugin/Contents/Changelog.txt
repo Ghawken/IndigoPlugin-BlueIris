@@ -1,5 +1,72 @@
 ChangeLog
 
+v 1.1.19
+Bug Fix for User Login - not sure where this cropped up
+Add new Device type:
+    BlueIris Device
+    - Enables creation of BI Mobile Device as know to BI
+    - Add Device states of this devices, checked every 60 seconds
+    Add Triggers for Enter Geofence and Exit Geofence for all BI mobile devices.
+        (do not need the indigo device to exist)
+    Potential fix if usernames including spaces/special characters
+
+
+1.1.18 …
+
+Change to &ALERT_PATH from &ALERT - changed sometime within Blue Iris Server
+Update Readme to reflect this
+
+1.1.17 …
+
+Add Broadcast ability for DeepState AI pluging (enabled/disable in PluginConfig
+Fix for Parsing log if empty
+
+1.1.16 …
+
+Add support for AlertImages to Broadcast
+Changes - Trigger setup
+
+1.1.11 …
+
+Add Broadcast settings
+
+1.1.10
+
+Fix for setttings sticking
+Fix for PlugionConfig Generate Buttons info being displayed without button
+
+v1.1.7
+
+Few further info boxes in Config dialogs
+
+Add support for Action/Camera Config:
+           Record: Set to Manual, Periodic, Continuous, Triggered,Motion/Periodic, and Motion/Continuous
+           Hide/Show Camera
+           Set/Reset Cameras first DIO output
+           Reset Alert Counter for Camera
+           Audio enable for Camera
+           Audio disable for Camera
+           Lock/Unlock Camera
+           Start/Stop Manual Recording
+           Fix for Pause/Unpause Camera
+
+New Action to alter Camera Motion Trigger Settings:
+             Cancel Shadows/Disable Cancel Shadows
+             Enable/Disable Audio Trigger of Camera
+             Enable/Disable Object Detection
+             Disable/Enable Zones and hot spot
+             Disable/Enable Black and White
+             Enable/Disable Show Motion
+             Set the Min Contrast Level
+             Set the Break Time/seconds
+             Set the Make Time/seconds
+             Alter Sensitivity/Minimum object size
+
+1.1.8
+
+Proper bug fix for Triggering error reported
+
+
 v1.0.5
 
 BlueIris version 5 only
@@ -12,7 +79,6 @@ eg.
 
 BI supports 1-100 Macros, only 1-10 shown in settings.
 Within Video Settings, Overlay settings, add text and add %1 for Macro One etc.
-
 
 1.0.8
 

@@ -181,7 +181,61 @@
 
     <UiDisplayStateId>deviceState</UiDisplayStateId>
   </Device>
+    <Device type="custom" id="BlueIrisDevice" >
+        <Name>BlueIris Device</Name>
+    <ConfigUI>
+        <Field id="devicename" type="menu">
+            <Label>Device :</Label>
+            <List class='self' filter="" method = "GetdeviceNames"  />
+        </Field>
 
+        <Field id="sep43" type="separator"/>
+    </ConfigUI>
+         <States>
+             <State id="id">
+                <ValueType>String</ValueType>
+                <TriggerLabel>id</TriggerLabel>
+                <ControlPageLabel>id</ControlPageLabel>
+            </State>
+          <State id="timeLastLogin">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Time last Login</TriggerLabel>
+                <ControlPageLabel>Time last Login</ControlPageLabel>
+            </State>
+                       <State id="name">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Name</TriggerLabel>
+                <ControlPageLabel>Name</ControlPageLabel>
+            </State>
+          <State id="inside">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Geofence State</TriggerLabel>
+                <ControlPageLabel>Geofence State</ControlPageLabel>
+            </State>
+                       <State id="date">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Date last Login UTC seconds</TriggerLabel>
+                <ControlPageLabel>Date last Login UTC seconds</ControlPageLabel>
+            </State>
+          <State id="push">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Push status</TriggerLabel>
+                <ControlPageLabel>Push Status</ControlPageLabel>
+            </State>
+                       <State id="count">
+                <ValueType>Number</ValueType>
+                <TriggerLabel>Number Logins</TriggerLabel>
+                <ControlPageLabel>Number Logins</ControlPageLabel>
+            </State>
+                       <State id="type">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Type Device</TriggerLabel>
+                <ControlPageLabel>Type Device</ControlPageLabel>
+            </State>
+         </States>
+        <UiDisplayStateId>inside</UiDisplayStateId>
+
+  </Device>
     <Device type="custom" id="BlueIrisUser" >
         <Name>BlueIris User</Name>
     <ConfigUI>

@@ -28,5 +28,23 @@
         </Field>
         </ConfigUI>
     </Event>
+        <Event id="geoFenceDeviceInside">
+        <Name>Trigger when Device Geofence Inside</Name>
+        <ConfigUI>
+        <Field id="devicename" type="menu">
+            <Label>Device :</Label>
+            <List class='self' filter="" method = "GetdeviceNames"  />
+        </Field>
+        </ConfigUI>
+    </Event>
+        <Event id="geoFenceDeviceOutside">
+        <Name>Trigger when Device Geofence Outside</Name>
+        <ConfigUI>
+        <Field id="devicename" type="menu">
+            <Label>Device :</Label>
+            <List class='self' filter="" method = "GetdeviceNames"  />
+        </Field>
+        </ConfigUI>
+    </Event>
 </Events>
 

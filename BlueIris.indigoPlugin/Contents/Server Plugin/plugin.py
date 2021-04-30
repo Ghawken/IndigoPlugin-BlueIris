@@ -19,6 +19,7 @@ import time as t
 import urllib
 import os
 import shutil
+from urllib import quote
 
 import subprocess
 import threading
@@ -508,7 +509,8 @@ class Plugin(indigo.PluginBase):
 
         self.logger.debug(u"deviceStopComm() method called.")
         #indigo.server.log(u"Stopping device: " + dev.name)
-        dev.updateStateOnServer('deviceIsOnline', value=False, uiValue="Offline")
+        if dev.deviceTypeId != "BlueIrisDevice":
+            dev.updateStateOnServer('deviceIsOnline', value=False, uiValue="Offline")
 
         dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
         if dev.deviceTypeId == 'BlueIrisCamera':
@@ -944,12 +946,13 @@ class Plugin(indigo.PluginBase):
                         cameraconfigdata = self.sendccommand('camconfig', {'camera': str(cameraname) })
                         #self.logger.info(unicode(cameraconfigdata))
                         if cameraconfigdata is not None and 'result' not in cameraconfigdata:
+                            if 'motion' in cameraconfigdata:
                         #if cameraconfigdata is not None :
-                            stateList = [
-                                        {'key': 'MotionDetection', 'value': cameraconfigdata['motion'] },
-                                        {'key': 'PtzCycle', 'value': cameraconfigdata['ptzcycle']},
-                                        {'key': 'CameraPaused', 'value': cameraconfigdata['pause']}
-                                        ]
+                                stateList = [
+                                            {'key': 'MotionDetection', 'value': cameraconfigdata['motion'] },
+                                            {'key': 'PtzCycle', 'value': cameraconfigdata['ptzcycle']},
+                                            {'key': 'CameraPaused', 'value': cameraconfigdata['pause']}
+                                            ]
                             if self.debugother:
                                 self.logger.debug(u'Updated Camera with new States:'+unicode(stateList))
                             camera.updateStatesOnServer(stateList)
@@ -1193,6 +1196,39 @@ class Plugin(indigo.PluginBase):
         else:
             return 'Error Connecting','Error Connecting'
 
+    def updateDevices(self):
+        self.logger.debug(u'update Devices called')
+        try:
+            if self.currentuseradmin:
+                listusers = self.sendccommand('devices', '')
+                for dev in indigo.devices.itervalues('self.BlueIrisDevice'):
+                    for users in listusers:
+                        if dev.enabled:
+                            if str(dev.pluginProps.get('devicename', 0)) == users['name'].encode('utf-8'):
+                                # Matching username found for device created and enabled
+                                count = 0
+                                if count in users:
+                                    count = users['count']
+
+                                stateList = [
+                                    {'key': 'id', 'value': users['id']},
+                                    {'key': 'name', 'value': users['name']},
+                                    {'key': 'date', 'value': users['date']},
+                                    {'key': 'count', 'value': count},
+                                    {'key': 'type', 'value': users['type']},
+                                    {'key': 'push', 'value': users['push']},
+                                    {'key': 'inside', 'value': users['inside']},
+                                ]
+                                dev.updateStatesOnServer(stateList)
+                                update_time = t.strftime('%c', t.localtime(int(users['date'])))
+                                dev.updateStateOnServer('timeLastLogin', value=update_time)
+                                if str(users['inside']).lower() =="inside":
+                                    dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOn)
+                                elif str(users['inside']).lower() =="outside":
+                                    dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOff)
+        except:
+            self.logger.exception(u'Caught exception within Update Devices:')
+
     def updateUsers(self):
         self.logger.debug(u'update Users called')
         try:
@@ -1226,6 +1262,27 @@ class Plugin(indigo.PluginBase):
         except:
             self.logger.debug(u'Caught exception within Update Users:')
 
+    def GetdeviceNames(self, filter=0, valuesDict=None, typeId="", targetId=0):
+        self.logger.debug(u'GetDeviceNames called')
+        # update profile list by calling server
+        if self.checkadminuser() == False:
+            self.logger.info(u'Plugins BlueIris user needs to have Administrator rights.  Check BI/Settings/Users/Access options')
+            self.currentuseradmin = False
+            usernames = []
+            usernames.append('User needs to have Admin rights on BI Check Log for Details')
+            return usernames
+        try:
+            listusers = self.sendccommand('devices','')
+            usernames = []
+            self.logger.debug(unicode(listusers))
+            for users in listusers:
+                usernames.append(users['name'])
+            #self.logger.error(unicode(usernames))
+            self.sleep(0.3)
+            return usernames
+
+        except:
+            self.logger.exception(u'Error in Get Device Names')
 
     def GetuserNames(self, filter=0, valuesDict=None, typeId="", targetId=0):
         self.logger.debug(u'GetUserNames called')
@@ -1397,6 +1454,7 @@ class Plugin(indigo.PluginBase):
                 updateServer = t.time() +2
                 updateMsgs = t.time() +10
                 updateUsers = t.time() + 60
+                updateDevices = t.time()+ 30
                 self.currentuseradmin = self.checkadminuser()
                 while self.prefsUpdated == False:
                 #self.debugLog(u" ")
@@ -1411,7 +1469,9 @@ class Plugin(indigo.PluginBase):
                     elif t.time()>updateMsgs and self.parselog and self.currentuseradmin == False:
                         self.logger.info(u'To Check BI Server Log, BI user needs to be Administrator.')
                         updateMsgs = t.time() + 120
-
+                    if t.time()>updateDevices:
+                        self.updateDevices()
+                        updateDevices = t.time()+60
                     if t.time()>updateUsers:
                         self.updateUsers()
                         updateUsers = t.time()+60
@@ -2165,14 +2225,15 @@ color: #ff3300;
                 return
 
             if event != 'userLogin':  #userLogin trigger unrelated to device
-                if device.states['deviceIsOnline'] == False:
-                    if self.debugtriggers:
-                        self.logger.debug(u'Trigger Cancelled as Device is Not Online')
-                    return
-                if device.states['PluginTriggeringEnabled'] ==False:
-                    if self.debugtriggers:
-                        self.logger.debug(u'Plugin Triggering is Disabled for this Camera')
-                    return
+                if "geofence" not in event:
+                    if device.states['deviceIsOnline'] == False:
+                        if self.debugtriggers:
+                            self.logger.debug(u'Trigger Cancelled as Device is Not Online')
+                        return
+                    if device.states['PluginTriggeringEnabled'] ==False:
+                        if self.debugtriggers:
+                            self.logger.debug(u'Plugin Triggering is Disabled for this Camera')
+                        return
 
 
             for triggerId, trigger in sorted(self.triggers.iteritems()):
@@ -2196,9 +2257,21 @@ color: #ff3300;
                         indigo.trigger.execute(trigger)
                 elif trigger.pluginTypeId == 'loginUserTrigger':
                     if event =='userLogin':
-                        if trigger.pluginProps['username'] == camera:
+                        if trigger.pluginProps['username'].lower() == camera:
                             if self.debugtriggers:
                                 self.logger.debug("===== Executing User Login Trigger %s (%d)" % (trigger.name, trigger.id))
+                            indigo.trigger.execute(trigger)
+                elif trigger.pluginTypeId == "geoFenceDeviceOutside":
+                    if 'outside' in camera:
+                        if trigger.pluginProps['devicename'] in camera:
+                            if self.debugtriggers:
+                                self.logger.debug("===== Executing GeoFence Outside Trigger %s (%d)" % (trigger.name, trigger.id))
+                            indigo.trigger.execute(trigger)
+                elif trigger.pluginTypeId == "geoFenceDeviceInside":
+                    if 'inside' in camera:
+                        if trigger.pluginProps['devicename'] in camera:
+                            if self.debugtriggers:
+                                self.logger.debug(  "===== Executing GeoFence Inside Trigger %s (%d)" % (trigger.name, trigger.id))
                             indigo.trigger.execute(trigger)
 
                 elif self.debugtriggers:
@@ -2497,6 +2570,11 @@ class httpHandler(BaseHTTPRequestHandler):
             activeprofile = listresults[3]
             motion = str(listresults[4]).lower()
             ## Check and Update Device as BIServer info received
+            if self.plugin.debugserver:
+                self.plugin.logger.debug("Cameraname:"+unicode(listresults[1]))
+                self.plugin.logger.debug("typetrigger:" + unicode(listresults[2]))
+                self.plugin.logger.debug("activeprofile:" + unicode(listresults[3]))
+                self.plugin.logger.debug("motion:" + unicode(listresults[4]))
             alertimage = ''
             ## add Alert Image data here
             if len(listresults)>=6:
@@ -2529,19 +2607,46 @@ class httpHandler(BaseHTTPRequestHandler):
                             dev.updateStateOnServer('lastMotionTriggerType', value=str(typetrigger))
                             self.plugin.triggerCheck(dev, cameraname, 'motionfalse')
 
+            for dev in indigo.devices.itervalues('self.BlueIrisDevice'):
+                if dev.enabled:
+                    devicesent = urllib.unquote_plus(typetrigger)
+                    self.plugin.logger.debug("URL Fixed:"+unicode(devicesent))
+                    if str(dev.states['name']) in devicesent.encode('utf-8') :#  for this cameraname = "Glenn Iphone inside"
+                            update_time = t.strftime('%c')
+                            dev.updateStateOnServer('timeLastLogin', value=update_time)
+                            dev.updateStateOnServer('date', value=t.time())
+                            if 'inside' in devicesent:
+                                dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOn)
+                                dev.updateStateOnServer('inside', value='Inside')
+                                #self.plugin.triggerCheck(dev, devicesent, 'geofenceInside')
+                                if self.plugin.debugserver:
+                                    self.plugin.logger.debug("INSIDE")
+                            elif 'outside' in devicesent:
+                                dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOff)
+                                dev.updateStateOnServer('inside', value='Outside')
+                                #self.plugin.triggerCheck(dev, devicesent, 'geofenceOutside')
+                                if self.plugin.debugserver:
+                                    self.plugin.logger.debug("OUTSIDE")
+                            if self.plugin.debugserver:
+                                self.plugin.logger.debug(u'From HTTP_Server/Camera Device GeoFence Updated:' + unicode(motion))
+
             # check for username login alert.....
             for dev in indigo.devices.itervalues('self.BlueIrisUser'):
                 if dev.enabled:
-                    if dev.states['username'] == motion:
+                    fixedname = urllib.unquote_plus(typetrigger)
+                    if dev.states['username'] == fixedname:
                             update_time = t.strftime('%c')
                             dev.updateStateOnServer('timeLastLogin', value=update_time)
                             dev.updateStateOnServer('isOnline', value=True)
                             dev.updateStateOnServer('date', value=t.time())
                             dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOn)
-                            self.plugin.logger.debug(u'From HTTP_Server/Camera Alert:Login Detected:' + unicode(motion))
-            # move trigger away from device - can trigger without devices exisiting
-            self.plugin.triggerCheck('', motion, 'userLogin')
+                            if self.plugin.debugserver:
+                                self.plugin.logger.debug(u'From HTTP_Server/Camera Alert:Login Detected:' + unicode(fixedname))
 
+            # move trigger away from device - can trigger without devices exisiting
+            self.plugin.triggerCheck('', urllib.unquote_plus(typetrigger), 'userLogin')
+            if 'exit' in typetrigger.lower() or 'enter' in typetrigger.lower():
+                self.plugin.triggerCheck('', urllib.unquote_plus(typetrigger), 'geofence')
             return
         except:
             self.plugin.logger.exception(u'Exception in do_POST single thread.')

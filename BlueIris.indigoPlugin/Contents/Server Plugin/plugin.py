@@ -3,8 +3,8 @@
 
 """
 BlueIris Indigo Plugin
-First draft
-
+Python 2 Version
+Now Depreciated in favour of Python 3
 """
 
 

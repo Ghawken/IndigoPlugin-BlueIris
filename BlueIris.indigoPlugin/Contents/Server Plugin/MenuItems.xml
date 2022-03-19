@@ -1,10 +1,6 @@
 <?xml version="1.0"?>
 <MenuItems>
 
-    <MenuItem id="checkForUpdates">
-        <Name>Check for Updates</Name>
-        <CallbackMethod>checkForUpdates</CallbackMethod>
-    </MenuItem>
     <MenuItem id="pluginstoreUpdate">
         <Name>Open PluginStore for Download</Name>
         <CallbackMethod>pluginstoreUpdate</CallbackMethod>

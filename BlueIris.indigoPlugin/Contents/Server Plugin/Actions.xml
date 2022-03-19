@@ -26,7 +26,7 @@
 				<Label>Macro Number:</Label>
 			</Field>
             <Field id="macroText" type="textfield">
-				<Label>Macro Number:</Label>
+				<Label>Macro Text:</Label>
 			</Field>
 
         <Field id="label2d2" type="label" fontSize="small" fontColor="black">

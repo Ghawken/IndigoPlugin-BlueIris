@@ -1,5 +1,10 @@
 ChangeLog
 
+v1.2.1
+Python3 Support
+
+
+End of Python2 Old Indigo Support
 v 1.1.19
 Bug Fix for User Login - not sure where this cropped up
 Add new Device type:

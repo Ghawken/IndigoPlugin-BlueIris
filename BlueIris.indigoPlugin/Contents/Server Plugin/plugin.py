@@ -1247,23 +1247,24 @@ class Plugin(indigo.PluginBase):
                 for dev in indigo.devices.itervalues('self.BlueIrisUser'):
                     for users in listusers:
                         if dev.enabled:
-                            if dev.pluginProps.get('username', 0) == users['obj']:
-                                # Matching username found for device created and enabled
-                                stateList = [
-                                    {'key': 'isOnline', 'value': users['isOnline']},
-                                    {'key': 'object', 'value': users['object']},
-                                    {'key': 'date', 'value': users['date']},
-                                    {'key': 'username', 'value': users['obj']},
-                                    {'key': 'msg', 'value': users['msg']},
-                                    {'key': 'level', 'value': users['level']},
-                               ]
-                                dev.updateStatesOnServer(stateList)
-                                update_time = t.strftime('%c', t.localtime(int(users['date'])))
-                                dev.updateStateOnServer('timeLastLogin', value=update_time)
-                                if users['isOnline']:
-                                    dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOn)
-                                else:
-                                    dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOff)
+                            if 'obj' in users:
+                                if dev.pluginProps.get('username', 0) == users['obj']:
+                                    # Matching username found for device created and enabled
+                                    stateList = [
+                                        {'key': 'isOnline', 'value': users['isOnline']},
+                                        {'key': 'object', 'value': users['object']},
+                                        {'key': 'date', 'value': users['date']},
+                                        {'key': 'username', 'value': users['obj']},
+                                        {'key': 'msg', 'value': users['msg']},
+                                        {'key': 'level', 'value': users['level']},
+                                   ]
+                                    dev.updateStatesOnServer(stateList)
+                                    update_time = t.strftime('%c', t.localtime(int(users['date'])))
+                                    dev.updateStateOnServer('timeLastLogin', value=update_time)
+                                    if users['isOnline']:
+                                        dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOn)
+                                    else:
+                                        dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOff)
             else:
                 for dev in indigo.devices.itervalues('self.BlueIrisUser'):
                     if dev.enabled:
@@ -1779,6 +1780,7 @@ class Plugin(indigo.PluginBase):
         except:
             self.logger.exception(u'Caught Exception in actiongetclipList')
             return
+
 
 
     def actiongetclipListThread(self, valuesDict):

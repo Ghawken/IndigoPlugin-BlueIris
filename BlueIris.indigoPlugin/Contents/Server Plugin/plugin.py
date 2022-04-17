@@ -1214,41 +1214,42 @@ class Plugin(indigo.PluginBase):
         try:
             if self.currentuseradmin:
                 listusers = self.sendccommand('devices', '')
-                for dev in indigo.devices.itervalues('self.BlueIrisDevice'):
-                    for users in listusers:
-                        if dev.enabled:
-                            if str(dev.pluginProps.get('devicename', 0)) == users['name'].encode('utf-8'):
-                                # Matching username found for device created and enabled
-                                count = 0
-                                oldinside = dev.states['inside']
-                                if count in users:
-                                    count = users['count']
+                if listusers != None:
+                    for dev in indigo.devices.itervalues('self.BlueIrisDevice'):
+                        for users in listusers:
+                            if dev.enabled:
+                                if str(dev.pluginProps.get('devicename', 0)) == users['name'].encode('utf-8'):
+                                    # Matching username found for device created and enabled
+                                    count = 0
+                                    oldinside = dev.states['inside']
+                                    if count in users:
+                                        count = users['count']
 
-                                stateList = [
-                                    {'key': 'id', 'value': users['id']},
-                                    {'key': 'name', 'value': users['name']},
-                                    {'key': 'date', 'value': users['date']},
-                                    {'key': 'count', 'value': count},
-                                    {'key': 'type', 'value': users['type']},
-                                    {'key': 'push', 'value': users['push']},
-                                    {'key': 'inside', 'value': users['inside']},
-                                ]
-                                dev.updateStatesOnServer(stateList)
-                                update_time = t.strftime('%c', t.localtime(int(users['date'])))
-                                dev.updateStateOnServer('timeLastLogin', value=update_time)
-                                if str(users['inside']).lower() =="inside":
-                                    dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOn)
-                                elif str(users['inside']).lower() =="outside":
-                                    dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOff)
-                                if oldinside != users['inside']:
-                                    ## something changed
-                                    self.logger.debug("Inside State has changed checking trigger.")
-                                    if users['inside'].lower() == "inside":
-                                        ## New must == outside
-                                        self.triggerCheck(dev,str(users['name'])+" inside geofence" , "geofence" )
-                                    if users['inside'].lower() == "outside":
-                                        ## New must == outside
-                                        self.triggerCheck(dev,str(users['name'])+" outside geofence" , "geofence" )
+                                    stateList = [
+                                        {'key': 'id', 'value': users['id']},
+                                        {'key': 'name', 'value': users['name']},
+                                        {'key': 'date', 'value': users['date']},
+                                        {'key': 'count', 'value': count},
+                                        {'key': 'type', 'value': users['type']},
+                                        {'key': 'push', 'value': users['push']},
+                                        {'key': 'inside', 'value': users['inside']},
+                                    ]
+                                    dev.updateStatesOnServer(stateList)
+                                    update_time = t.strftime('%c', t.localtime(int(users['date'])))
+                                    dev.updateStateOnServer('timeLastLogin', value=update_time)
+                                    if str(users['inside']).lower() =="inside":
+                                        dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOn)
+                                    elif str(users['inside']).lower() =="outside":
+                                        dev.updateStateImageOnServer(indigo.kStateImageSel.PowerOff)
+                                    if oldinside != users['inside']:
+                                        ## something changed
+                                        self.logger.debug("Inside State has changed checking trigger.")
+                                        if users['inside'].lower() == "inside":
+                                            ## New must == outside
+                                            self.triggerCheck(dev,str(users['name'])+" inside geofence" , "geofence" )
+                                        if users['inside'].lower() == "outside":
+                                            ## New must == outside
+                                            self.triggerCheck(dev,str(users['name'])+" outside geofence" , "geofence" )
         except:
             self.logger.exception(u'Caught exception within Update Devices:')
 

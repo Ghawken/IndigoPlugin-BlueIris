@@ -2355,8 +2355,6 @@ color: #ff3300;
             #     os.makedirs(folderLocation+'tmp')
 
             if width <= 0:
-                theUrl = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/image/' + cameraname
-            else:
                 theUrl = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/image/' + cameraname + '?w=' + str(width)
 
             x=100

@@ -945,7 +945,7 @@ class Plugin(indigo.PluginBase):
 
         # call CamConfig for each Camera to get Motion Detection Details
         # Can't Hammer it otherwise timesout.
-
+        stateList = []
         if self.debugextra:
             self.logger.debug(u'updateCamConfig Called')
         try:
@@ -968,7 +968,8 @@ class Plugin(indigo.PluginBase):
                                             ]
                             if self.debugother:
                                 self.logger.debug(u'Updated Camera with new States:'+str(stateList))
-                            camera.updateStatesOnServer(stateList)
+                            if stateList:
+                                camera.updateStatesOnServer(stateList)
                         self.sleep(1)
             else:
                 if self.debugextra:
@@ -985,11 +986,12 @@ class Plugin(indigo.PluginBase):
                                         {'key': 'PtzCycle', 'value':None, 'uiValue': 'Unknown'},
                                         {'key': 'CameraPaused', 'value': 'unknown', 'uiValue': 'Unknown'}
                                     ]
-                        camera.updateStatesOnServer(stateList)
+                        if stateList:
+                            camera.updateStatesOnServer(stateList)
                 return
         except:
             self.logger.debug(u'Exception within updateCamConfig:')
-            if self.debugextra:
+            if self.debugother:
                 self.logger.exception(u'Caught Exception:')
             self.logger.debug(u'Most likely to many calls to quickly.')
             return

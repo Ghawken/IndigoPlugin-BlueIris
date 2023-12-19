@@ -416,6 +416,11 @@
                 <TriggerLabel>Trigger by Log Entry</TriggerLabel>
                 <ControlPageLabel>Triggered by Log Entry</ControlPageLabel>
             </State>
+            <State id="isGroup">
+                <ValueType>Boolean</ValueType>
+                <TriggerLabel>Group of Cameras</TriggerLabel>
+                <ControlPageLabel>Group of Cameras</ControlPageLabel>
+            </State>
 
             <State id="FPS">
                 <ValueType>Number</ValueType>

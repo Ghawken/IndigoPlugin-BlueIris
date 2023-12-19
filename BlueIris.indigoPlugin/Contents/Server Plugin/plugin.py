@@ -539,6 +539,7 @@ class Plugin(indigo.PluginBase):
         # Generate Cameras - main check will not create cameras if deleted
 
         camlist = {}
+        group_camlist = {}
         results = self.sendccommand('camlist')
 
         if results is None:
@@ -546,15 +547,19 @@ class Plugin(indigo.PluginBase):
             return
 
         x = 0
+        y = 0
         for i in range(len(results)):
-            if 'ManRecLimit' in results[i]:
+            if 'ManRecLimit' in results[i]: ##Add All, including Grouped cameras...
                 camlist[x] = []
                 camlist[x].append(results[i])
                 x = x + 1
+            else:
+                group_camlist[y] = []
+                group_camlist[y].append(results[i])
+                y = y + 1
         # send camera list to check devices
         try:
             if camlist is not None:
-                x = 1
                 for i in range(len(camlist)):
                      deviceName = 'BlueIris Camera '+str(camlist[i][0]['optionDisplay'])
                      FoundDevice = False
@@ -596,6 +601,7 @@ class Plugin(indigo.PluginBase):
                                  {'key': 'isPaused', 'value': camlist[i][0]['isPaused']},
                                  {'key': 'error', 'value': camlist[i][0]['error']},
                                  {'key': 'audio', 'value': camlist[i][0]['audio']},
+                                 {'key': 'isGroup', 'value': False},
                                  {'key': 'nNoSignal', 'value': camlist[i][0]['nNoSignal']}
                              ]
                              dev.updateStatesOnServer(stateList)
@@ -648,6 +654,7 @@ class Plugin(indigo.PluginBase):
                              {'key': 'isPaused', 'value': camlist[i][0]['isPaused']},
                              {'key': 'error', 'value': camlist[i][0]['error']},
                              {'key': 'audio', 'value': camlist[i][0]['audio']},
+                             {'key': 'isGroup', 'value': False},
                              {'key': 'nNoSignal', 'value': camlist[i][0]['nNoSignal']}
                          ]
                          device.updateStatesOnServer(stateList)
@@ -662,9 +669,69 @@ class Plugin(indigo.PluginBase):
                          update_time = t.strftime('%c')
                          device.updateStateOnServer('deviceLastUpdated', value=str(update_time))
 
-                     #create motion variable in folder
-                     #self.createupdatevariable(str(camlist[i][0]['optionValue']).replace(' ',''), camlist[i][0]['isTriggered'])
-                x=x+1
+            self.logger.info("Checking and Creating Camera Groups..")
+            if group_camlist is not None:
+                for i in range(len(group_camlist)):
+                    deviceName = 'BlueIris Camera Group ' + str(group_camlist[i][0]['optionDisplay'])
+                    FoundDevice = False
+                    for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
+                        if dev.name == deviceName:
+                            if self.debugextra:
+                                self.logger.debug(u'Found BlueIris Camera Device Matching:' + str(deviceName))
+                            FoundDevice = True
+                            optionValue = group_camlist[i][0]['optionValue']
+                            stateList = [
+                                {'key': 'FPS', 'value': group_camlist[i][0]['FPS']},
+                                {'key': 'height', 'value': group_camlist[i][0]['height']},
+                                {'key': 'width', 'value': group_camlist[i][0]['width']},
+                                {'key': 'optionDisplay', 'value': group_camlist[i][0]['optionDisplay']},
+                                {'key': 'optionValue', 'value': optionValue},
+                                {'key': 'isTriggered', 'value': group_camlist[i][0]['isTriggered']},
+                                {'key': 'isMotion', 'value': group_camlist[i][0]['isMotion']},
+                                {'key': 'isGroup', 'value': True},
+                                {'key': 'audio', 'value': group_camlist[i][0]['audio']}
+                            ]
+                            dev.updateStatesOnServer(stateList)
+                            if group_camlist[i][0]['isEnabled']:
+                                dev.updateStateOnServer('deviceIsOnline', value=True, uiValue="Online")
+                                dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
+                                dev.updateStateOnServer('Motion', value=False, uiValue='False')
+                            else:
+                                dev.updateStateOnServer('deviceIsOnline', value=False, uiValue="Offline")
+                                dev.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+                                dev.updateStateOnServer('Motion', value=False, uiValue='Disabled')
+                            update_time = t.strftime('%c')
+                            dev.updateStateOnServer('deviceLastUpdated', value=str(update_time))
+
+                    if FoundDevice == False:
+                        self.logger.info(u'No matching Camera Device Found - creating one:')
+                        self.logger.info(str(deviceName) + '  created Device')
+                        device = indigo.device.create(address=deviceName, deviceTypeId='BlueIrisCamera', name=deviceName, protocol=indigo.kProtocol.Plugin, folder='BlueIris')
+                        self.sleep(0.2)
+                        optionValue = group_camlist[i][0]['optionValue']
+                        stateList = [
+                            {'key': 'FPS', 'value': group_camlist[i][0]['FPS']},
+                            {'key': 'height', 'value': group_camlist[i][0]['height']},
+                            {'key': 'width', 'value': group_camlist[i][0]['width']},
+                            {'key': 'optionDisplay', 'value': group_camlist[i][0]['optionDisplay']},
+                            {'key': 'optionValue', 'value': optionValue},
+                            {'key': 'isTriggered', 'value': group_camlist[i][0]['isTriggered']},
+                            {'key': 'isMotion', 'value': group_camlist[i][0]['isMotion']},
+                            {'key': 'isGroup', 'value': True},
+                            {'key': 'audio', 'value': group_camlist[i][0]['audio']}
+                        ]
+                        device.updateStatesOnServer(stateList)
+                        if group_camlist[i][0]['isEnabled']:
+                            device.updateStateOnServer('deviceIsOnline', value=True, uiValue="Online")
+                            device.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
+                            device.updateStateOnServer('Motion', value=False, uiValue='')
+                        else:
+                            device.updateStateOnServer('deviceIsOnline', value=False, uiValue="Offline")
+                            device.updateStateImageOnServer(indigo.kStateImageSel.SensorOff)
+
+                        update_time = t.strftime('%c')
+                        device.updateStateOnServer('deviceLastUpdated', value=str(update_time))
+
             #now fill with data
                 self.sleep(0.1)
 

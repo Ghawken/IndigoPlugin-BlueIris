@@ -279,12 +279,12 @@
 
            <Field id="gifcompression" type="textfield" tooltip="Width of Image.">
             <Label>Lossy Compression of Webp:</Label>
-        <Description>Compression from 20-200 for saved Gif</Description>
+        <Description>Compression from 1-100 for saved WebP</Description>
     </Field>
 
                <Field id="label11222" type="label" fontSize="small" fontColor="black">
-    <Label>Compression of Animated Gif - trying to make smaller files
-        from 30 to 200
+    <Label>Compression of Animated WebP - trying to make smaller files
+        from 1 to 100.  Ideal approx 20
     </Label>
                </Field>
 

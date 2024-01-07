@@ -1805,8 +1805,8 @@ class Plugin(indigo.PluginBase):
                         cameraname = dev.states['optionValue']
                         gifwidth = int(valuesDict.props.get('gifwidth', 800))
                         giftime = int(valuesDict.props.get('giftime', 10))
-                        gifcompression = int(valuesDict.props.get('gifcompression', '50'))
-                        gifnumber = int(valuesDict.props.get('gifnumber', '15'))
+                        gifcompression = int(valuesDict.props.get('gifcompression', 20))
+                        gifnumber = int(valuesDict.props.get('gifnumber', 15))
                         #width = int(gifwidth)
                         #time = int(giftime)
                         #gifcompression = int(gifcompression)
@@ -2451,6 +2451,14 @@ color: #ff3300;
                 self.logger.debug(f"Error with gifnumber - likely need to open action group edit and save")
                 gifnumber = 15
 
+            try:
+                if int(gifcompression) >= 100:
+                    gifcompression = 100
+                elif int(gifcompression) <= 1:
+                    gifcompression = 1
+            except:
+                gifcompression = 80
+
             folderLocation = self.saveDirectory+str(cameraname)+'/'
 
             if width <= 0:
@@ -2500,33 +2508,32 @@ color: #ff3300;
             #
             #self.newThreadDownload( folderLocation, cameraname, width, time)
             INPUT_DIR=Path(folderLocation+'tmp/')
-            x = 0
             input_frames = sorted(INPUT_DIR.glob("*.jpg"))
-
             newfilename = folderLocation + 'Animated.webp'
             OUTPUT_FILE = Path(newfilename)
 
             delay_hundreds = constant_interval * 1000 ## should be 100 but seems some delays in display - using 500
             if self.debuggif:
-                self.logger.debug(f"Using {delay_hundreds} for delay in webp, give 15 images over time: {time} == {time/15} per image given")
+                self.logger.debug(f"Using {delay_hundreds} for delay in webp, give 15 images over time: {time} == {time/15} per image given, &image numbers {gifnumber}")
 
             try:
                 frame_duration_ms = round(delay_hundreds)
                 frames = [Image.open(frame) for frame in input_frames]
-                frames[0].save(OUTPUT_FILE, "webp", append_images=frames[1:], duration=frame_duration_ms, save_all=True)
+                frames[0].save(OUTPUT_FILE, "webp", append_images=frames[1:], duration=frame_duration_ms, save_all=True, lossless=False, quality=int(gifcompression) )
 
             except Exception as e:
                 self.logger.exception(u'Caught Exception within webP Image Pillow - newThread')
 
             self.createupdatevariable('lastwebP', f"{OUTPUT_FILE}")
             self.logger.debug(f"Successfully Saved Webp Image to {OUTPUT_FILE}")
+            self.logger.debug(u'with Settings: camera:' + str(cameraname) + u' Width:' + str(width) + u'(pixels) length seconds:' + str(time) + u'(secs) Webp Quality:' + str(gifcompression) + f" and Number Images :{gifnumber}")
 
         except requests.exceptions.Timeout:
-            self.logger.debug(u'animGif requests has timed out and cannot connect to BI Server.')
+            self.logger.debug(u'Anim WebP requests has timed out and cannot connect to BI Server.')
             pass
 
         except requests.exceptions.ConnectionError:
-            self.logger.debug(u'animGif requests has timed out/Connection Error and cannot connect to BI Server.')
+            self.logger.debug(u'Anim WebP requests has timed out/Connection Error and cannot connect to BI Server.')
             pass
 
 
@@ -2535,7 +2542,7 @@ color: #ff3300;
             pass
 
         except:
-            self.logger.exception(u'Caught Error in Anim Gif Thread')
+            self.logger.exception(u'Caught Error in Anim WebP Thread')
 ################## Run the create gifs in a seperate thread as will take a few seconds we can't afford
 
     def animateGif(self, cameraname, width, time, gifcompression, gifnumber):

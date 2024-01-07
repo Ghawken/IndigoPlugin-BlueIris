@@ -8,6 +8,14 @@ Python 3 Version
 
 
 import logging
+try:
+    import indigo
+except:
+    pass
+import logging
+installation_output = ""
+from auto_installer import install_package_and_retry_import
+
 import sys
 import requests
 import json
@@ -24,9 +32,20 @@ from urllib.request import urlopen, Request
 from urllib.error import HTTPError
 from urllib.parse import parse_qs
 
-from PIL import Image
+try:
+    from PIL import Image
+except ImportError:
+    installation_output = install_package_and_retry_import()
+    from PIL import Image
+
 from pathlib import Path
 # from urllib import quote
+
+try:
+    from plugin_gifsicle import get_gifsicle_binary
+except ImportError:
+    installation_output += install_package_and_retry_import()
+    from plugin_gifsicle import get_gifsicle_binary
 
 import subprocess
 import threading
@@ -46,11 +65,6 @@ from socketserver import ThreadingMixIn
 #from cgi import parse_qs
 
 #from ghpu import GitHubPluginUpdater
-
-try:
-    import indigo
-except:
-    pass
 
 # Establish default plugin prefs; create them if they don't already exist.
 kDefaultPluginPrefs = {
@@ -72,8 +86,10 @@ class Plugin(indigo.PluginBase):
     def __init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs):
         indigo.PluginBase.__init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs)
         self.startingUp = True
+        global installation_output
+        self.packages_installed = False
         self.pathtoPlugin = os.getcwd()
-        self.pathtoGifsicle = self.pathtoPlugin+'/gifsicle/1.91/bin/gifsicle'
+        self.pathtoGifsicle = get_gifsicle_binary()
         self.pluginIsInitializing = True
         self.pluginIsShuttingDown = False
         self.prefsUpdated = False
@@ -85,6 +101,11 @@ class Plugin(indigo.PluginBase):
         self.ImageTimeout =10
         self.ServerTimeout = 5
         self.requestTimeout = self.ServerTimeout
+
+        if installation_output !="":
+            self.packages_installed = True
+            self.logger.warning(f"Dependencies Found for Plugin.  One time installation:\n{installation_output}")
+            self.logger.warning(f"Installed Correctly, now Starting plugin.")
 
         self.logger.info(u"")
         self.logger.info(u"{0:=^130}".format(" Initializing New Plugin Session "))

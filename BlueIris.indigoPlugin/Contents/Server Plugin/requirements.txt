@@ -1,0 +1,2 @@
+plugin_gifsicle
+pillow>=10.2.0

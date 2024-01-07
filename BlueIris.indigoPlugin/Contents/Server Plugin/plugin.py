@@ -24,7 +24,8 @@ from urllib.request import urlopen, Request
 from urllib.error import HTTPError
 from urllib.parse import parse_qs
 
-
+from PIL import Image
+from pathlib import Path
 # from urllib import quote
 
 import subprocess
@@ -72,7 +73,7 @@ class Plugin(indigo.PluginBase):
         indigo.PluginBase.__init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs)
         self.startingUp = True
         self.pathtoPlugin = os.getcwd()
-        self.pathtoGifsicle = self.pathtoPlugin+'/gifsicle/1.91/bin/giflossy'
+        self.pathtoGifsicle = self.pathtoPlugin+'/gifsicle/1.91/bin/gifsicle'
         self.pluginIsInitializing = True
         self.pluginIsShuttingDown = False
         self.prefsUpdated = False
@@ -1792,6 +1793,36 @@ class Plugin(indigo.PluginBase):
             self.logger.exception(u'Caught Exception in Enable Anim Gifs')
             return
 
+    def actionCreateWebp(self, valuesDict):
+        self.logger.debug(u'action Create Webp for Cameras/s ')
+        try:
+            action = valuesDict.pluginTypeId
+            if self.debuggif:
+                self.logger.debug(str(valuesDict))
+            cameras = valuesDict.props.get('deviceCamera',[])
+            for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
+                if str(dev.id) in cameras and dev.enabled:
+                        cameraname = dev.states['optionValue']
+                        gifwidth = int(valuesDict.props.get('gifwidth', 800))
+                        giftime = int(valuesDict.props.get('giftime', 10))
+                        gifcompression = int(valuesDict.props.get('gifcompression', '50'))
+                        gifnumber = int(valuesDict.props.get('gifnumber', '15'))
+                        #width = int(gifwidth)
+                        #time = int(giftime)
+                        #gifcompression = int(gifcompression)
+                        if self.debuggif:
+                            self.logger.debug(u'Action Webp: Cameraname:'+str(cameraname)+u' gifwidth:'+str(gifwidth)+u' giftime:'+str(giftime)+u' gifcompression:'+str(gifcompression)+ f" {gifnumber=}")
+                        AnothermyThread = threading.Thread(target=self.animateWebp,args=[cameraname, gifwidth, giftime, gifcompression, gifnumber])
+                        AnothermyThread.start()
+                        self.logger.debug(
+                            u'Webp: Action New Thread For Camera:' + str(cameraname) + u' & Number of Active Threads:' + str(
+                                threading.activeCount()))
+                        self.sleep(0.05)
+            return
+        except:
+            self.logger.exception(u'Caught Exception in Create Anim Gifs')
+            return
+
     def actionCreateAnimGif(self, valuesDict):
         self.logger.debug(u'action Create Gif for Cameras/s ')
         try:
@@ -1805,12 +1836,13 @@ class Plugin(indigo.PluginBase):
                         gifwidth = int(valuesDict.props.get('gifwidth', 800))
                         giftime = int(valuesDict.props.get('giftime', 10))
                         gifcompression = int(valuesDict.props.get('gifcompression', '50'))
+                        gifnumber = int(valuesDict.props.get('gifnumber', '15'))
                         #width = int(gifwidth)
                         #time = int(giftime)
                         #gifcompression = int(gifcompression)
                         if self.debuggif:
-                            self.logger.debug(u'Action AnimGif: Cameraname:'+str(cameraname)+u' gifwidth:'+str(gifwidth)+u' giftime:'+str(giftime)+u' gifcompression:'+str(gifcompression))
-                        AnothermyThread = threading.Thread(target=self.animateGif,args=[cameraname, gifwidth, giftime, gifcompression])
+                            self.logger.debug(u'Action AnimGif: Cameraname:'+str(cameraname)+u' gifwidth:'+str(gifwidth)+u' giftime:'+str(giftime)+u' gifcompression:'+str(gifcompression)+ f" {gifnumber=}")
+                        AnothermyThread = threading.Thread(target=self.animateGif,args=[cameraname, gifwidth, giftime, gifcompression, gifnumber])
                         AnothermyThread.start()
                         self.logger.debug(
                             u'AnimGif: Action New Thread For Camera:' + str(cameraname) + u' & Number of Active Threads:' + str(
@@ -2263,7 +2295,7 @@ color: #ff3300;
                     width = int(gifwidth)
                     time = int(giftime)
                     gifcompression = int(gifcompression)
-                    myThread = threading.Thread(target=self.animateGif, args=[cameraname, width, time, gifcompression])
+                    myThread = threading.Thread(target=self.animateGif, args=[cameraname, width, time, gifcompression, 15])  ## default image number to 15 here
                     myThread.start()
                     self.logger.debug(u'New Thread Camera:'+str(cameraname)+u' & Number of Active Threads:'+str(threading.activeCount()))
                     return
@@ -2404,17 +2436,122 @@ color: #ff3300;
                     self.logger.info(u"{0:<12s} {1:<12s} {2:<12s}".format("Camera :"+cameraname, 'Shadows:', cameraconfigdata['setmotion']['shadows'])   )
 
 ################## Animated Gifs
+    def animateWebp(self, cameraname, width, time, gifcompression, gifnumber):
+        # file_names = sorted((fn for fn in os.listdir(folderLocation) ))
+        try:
+            if self.debuggif:
+                self.logger.debug(u'AnimateWebp Called: In a New thread:')
+                self.logger.debug(u'animateWebp: camera:'+str(cameraname)+u' width:'+str(width)+u' time:'+str(time)+u' gifcompression:'+str(gifcompression) +f" and {gifnumber=}")
+            # MAChome = os.path.expanduser("~") + "/"
+            # folderLocation = MAChome + "Documents/Indigo-BlueIris/"+str(cameraname)+'/'
 
+            try:
+                gifnumber = int(gifnumber)
+            except:
+                self.logger.debug(f"Error with gifnumber - likely need to open action group edit and save")
+                gifnumber = 15
+
+            folderLocation = self.saveDirectory+str(cameraname)+'/'
+
+            if width <= 0:
+                theUrl = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/image/' + cameraname
+            else:
+                theUrl = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/image/' + cameraname + '?w=' + str(width)
+
+            x=100
+            constant_interval = float(time) / int(gifnumber)
+            while x < ( 100+int(gifnumber) ):
+            #for x in range(100,115):
+                start = t.time()
+                path = folderLocation + 'tmp/' + str(x)+'.jpg'
+                r = requests.get(theUrl, auth=(str(self.serverusername), str(self.serverpassword)), stream=True, timeout=self.ServerTimeout)
+                if self.debuggif:
+                    self.logger.debug(u'URL Called:'+str(theUrl))
+                    self.logger.debug(u'Time '+str(t.time())+u' Path/Name in Order:'+str(path))
+                if r.status_code == 200:
+                    with open(path, 'wb') as f:
+                        for chunk in r.iter_content(1024):
+                            f.write(chunk)
+                            if t.time() > (start + self.ImageTimeout):
+                                self.logger.error(u'WebP - Download Image Taking to long.  Aborted.')
+                                break
+                    if self.debuggif:
+                        self.logger.debug(u'WebP: Image Download Attempt for: ' + str(path) + u' in [seconds]:' + str(t.time() - start))
+                    download_time = t.time()-start
+
+                    if self.debuggif:
+                        self.logger.debug(f"Took {download_time} secs to download, removing this from delay.")
+                else:
+                    self.logger.debug(u'Issue with BI connection. No image downloaded. Status code:'+str(r.status_code)+' Error:'+str(r.text))
+                    #not sure about below - might hang forever and lead to multiple threads versus missing image..
+                    #removing
+                    #x=x-1
+                    t.sleep(2)
+
+                Interval = float( (float(time) / int(gifnumber))  - download_time)
+                #change above
+                if self.debuggif:
+                    self.logger.debug(u'Wait Interval: '+str(Interval))
+                x=x+1
+                if Interval > 0:
+                    t.sleep(Interval)
+                else:
+                    self.logger.debug(f"Seems BI can't download images faster enough.  Skipping any delay")
+            #
+            #self.newThreadDownload( folderLocation, cameraname, width, time)
+            INPUT_DIR=Path(folderLocation+'tmp/')
+            x = 0
+            input_frames = sorted(INPUT_DIR.glob("*.jpg"))
+
+            newfilename = folderLocation + 'Animated.webp'
+            OUTPUT_FILE = Path(newfilename)
+
+            delay_hundreds = constant_interval * 1000 ## should be 100 but seems some delays in display - using 500
+            if self.debuggif:
+                self.logger.debug(f"Using {delay_hundreds} for delay in webp, give 15 images over time: {time} == {time/15} per image given")
+
+            try:
+                frame_duration_ms = round(delay_hundreds)
+                frames = [Image.open(frame) for frame in input_frames]
+                frames[0].save(OUTPUT_FILE, "webp", append_images=frames[1:], duration=frame_duration_ms, save_all=True)
+
+            except Exception as e:
+                self.logger.exception(u'Caught Exception within webP Image Pillow - newThread')
+
+            self.createupdatevariable('lastwebP', f"{OUTPUT_FILE}")
+            self.logger.debug(f"Successfully Saved Webp Image to {OUTPUT_FILE}")
+
+        except requests.exceptions.Timeout:
+            self.logger.debug(u'animGif requests has timed out and cannot connect to BI Server.')
+            pass
+
+        except requests.exceptions.ConnectionError:
+            self.logger.debug(u'animGif requests has timed out/Connection Error and cannot connect to BI Server.')
+            pass
+
+
+        except self.StopThread:
+            self.logger.info(u'Restarting/or error. Stopping thread.')
+            pass
+
+        except:
+            self.logger.exception(u'Caught Error in Anim Gif Thread')
 ################## Run the create gifs in a seperate thread as will take a few seconds we can't afford
 
-    def animateGif(self, cameraname, width, time, gifcompression):
+    def animateGif(self, cameraname, width, time, gifcompression, gifnumber):
         # file_names = sorted((fn for fn in os.listdir(folderLocation) ))
         try:
             if self.debuggif:
                 self.logger.debug(u'AnimateGif Called: In a New thread:')
-                self.logger.debug(u'animateGif: camera:'+str(cameraname)+u' width:'+str(width)+u' time:'+str(time)+u' gifcompression:'+str(gifcompression))
+                self.logger.debug(u'animateGif: camera:'+str(cameraname)+u' width:'+str(width)+u' time:'+str(time)+u' gifcompression:'+str(gifcompression) +f" and {gifnumber=}")
             # MAChome = os.path.expanduser("~") + "/"
             # folderLocation = MAChome + "Documents/Indigo-BlueIris/"+str(cameraname)+'/'
+
+            try:
+                gifnumber = int(gifnumber)
+            except:
+                self.logger.debug(f"Error with gifnumber - likely need to open action group edit and save")
+                gifnumber = 15
 
             folderLocation = self.saveDirectory+str(cameraname)+'/'
 
@@ -2430,7 +2567,8 @@ color: #ff3300;
                 theUrl = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/image/' + cameraname + '?w=' + str(width)
 
             x=100
-            while x <115:
+            constant_interval = float(time) / int(gifnumber)
+            while x < ( 100+int(gifnumber) ):
             #for x in range(100,115):
                 start = t.time()
                 path = folderLocation + 'tmp/' + str(x)+'.jpg'
@@ -2448,6 +2586,10 @@ color: #ff3300;
                                 break
                     if self.debuggif:
                         self.logger.debug(u'Animgif: Image Download Attempt for: ' + str(path) + u' in [seconds]:' + str(t.time() - start))
+                    download_time = t.time()-start
+
+                    if self.debuggif:
+                        self.logger.debug(f"Took {download_time} secs to download, removing this from delay.")
                     #
                     # with open(path, 'wb') as f:
                     #     r.raw.decode_content = True
@@ -2460,12 +2602,15 @@ color: #ff3300;
                     t.sleep(2)
 
 
-                Interval = float( float(time) / 15)
+                Interval = float( (float(time) / int(gifnumber))  - download_time)
                 #change above
                 if self.debuggif:
                     self.logger.debug(u'Wait Interval: '+str(Interval))
                 x=x+1
-                t.sleep(Interval)
+                if Interval > 0:
+                    t.sleep(Interval)
+                else:
+                    self.logger.debug(f"Seems BI can't download images faster enough.  Skipping any delay")
             #
             #self.newThreadDownload( folderLocation, cameraname, width, time)
             file_names = os.listdir(folderLocation+'tmp/')
@@ -2495,6 +2640,9 @@ color: #ff3300;
                 if '.gif' in filename:
                     listfilenames = listfilenames + ' ' + folderLocation + 'tmp/' + filename
 
+            delay_hundreds = constant_interval * 100 ## should be 100 but seems some delays in display - using 500
+            if self.debuggif:
+                self.logger.debug(f"Using {delay_hundreds} for delay in gif, give 15 images over timeframe given")
             pathtouse = os.path.normpath(self.pathtoGifsicle)
             #self.logger.info(str(self.pathtoGifsicle))
             #self.logger.info(str(pathtouse))
@@ -2502,7 +2650,7 @@ color: #ff3300;
                 self.logger.debug(u'listfilenames (and order) to make into anim:'+str(listfilenames))
                 self.logger.debug(u'new save filename'+str(newfilename))
             try:
-                argstopass = '"' + pathtouse + '"' +' --delay 50 --colors 256 --loopcount --lossy='+str(gifcompression)+' ' + str(
+                argstopass = '"' + pathtouse + '"' +f' --delay {delay_hundreds:.0f} --loopcount --lossy='+str(gifcompression)+' ' + str(
                     listfilenames) + ' > ' + str(newfilename)
                 p1 = subprocess.Popen([argstopass], shell=True)
 

@@ -244,6 +244,53 @@
             </ConfigUI>
     </Action>
 
+    <Action id="makewebP">
+    <Name>Create Animated Webp Image</Name>
+    <CallbackMethod>actionCreateWebp</CallbackMethod>
+        <ConfigUI>
+            <Field id="deviceCamera" type="list" rows="14">
+                <Label>Select Camera(s)</Label>
+                <List class="indigo.devices" filter="self.BlueIrisCamera"/>
+            </Field>
+             <Field id="gifwidth" type="textfield" tooltip="Width of Image.">
+            <Label>Width in Pixels of Image:</Label>
+        <Description>Width of Image Saved</Description>
+    </Field>
+                <Field id="label2222" type="label" fontSize="small" fontColor="black">
+    <Label>Width of Animated Webp Created bigger = bigger file size
+    </Label>  </Field>
+
+        <Field id="giftime" type="textfield" tooltip="Width of Image.">
+            <Label>Time of Saved Images in Seconds</Label>
+        <Description>Time of Image</Description>
+    </Field>
+        <Field id="label222" type="label" fontSize="small" fontColor="black">
+    <Label>Time over which images are saved and displayed eg. 5 seconds or 15 seconds.
+    </Label>
+        </Field>
+        <Field id="gifnumber" type="textfield" tooltip="Number of Images.">
+            <Label>Number of Images</Label>
+        <Description>Number of Image</Description>
+    </Field>
+        <Field id="numberlabel222" type="label" fontSize="small" fontColor="black">
+    <Label>Number of captured images.  Defaults to 15.  More == bigger file size.
+    </Label>
+        </Field>
+
+           <Field id="gifcompression" type="textfield" tooltip="Width of Image.">
+            <Label>Lossy Compression of Webp:</Label>
+        <Description>Compression from 20-200 for saved Gif</Description>
+    </Field>
+
+               <Field id="label11222" type="label" fontSize="small" fontColor="black">
+    <Label>Compression of Animated Gif - trying to make smaller files
+        from 30 to 200
+    </Label>
+               </Field>
+
+        </ConfigUI>
+    </Action>
+
     <Action id="makeAnim">
     <Name>Create Animated Gif</Name>
     <CallbackMethod>actionCreateAnimGif</CallbackMethod>
@@ -266,8 +313,16 @@
     </Field>
         <Field id="label222" type="label" fontSize="small" fontColor="black">
     <Label>Time over which images are saved and displayed eg. 5 seconds or 15 seconds.
-    </Label>        </Field>
-
+    </Label>
+        </Field>
+        <Field id="gifnumber" type="textfield" tooltip="Number of Images.">
+            <Label>Number of Images</Label>
+        <Description>Number of Image</Description>
+    </Field>
+        <Field id="numberlabel222" type="label" fontSize="small" fontColor="black">
+    <Label>Number of captured images.  Defaults to 15.  More == bigger file size.
+    </Label>
+        </Field>
 
            <Field id="gifcompression" type="textfield" tooltip="Width of Image.">
             <Label>Lossy Compression of Gif:</Label>
@@ -277,7 +332,8 @@
                <Field id="label11222" type="label" fontSize="small" fontColor="black">
     <Label>Compression of Animated Gif - trying to make smaller files
         from 30 to 200
-    </Label>        </Field>
+    </Label>
+               </Field>
 
         </ConfigUI>
     </Action>

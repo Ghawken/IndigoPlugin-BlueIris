@@ -1,2 +1,2 @@
-plugin_gifsicle
+plugin_gifsicle>=0.0.3
 pillow>=10.2.0

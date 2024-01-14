@@ -13,8 +13,6 @@ try:
 except:
     pass
 import logging
-installation_output = ""
-from auto_installer import install_package_and_retry_import
 
 import sys
 import requests
@@ -32,20 +30,14 @@ from urllib.request import urlopen, Request
 from urllib.error import HTTPError
 from urllib.parse import parse_qs
 
-try:
-    from PIL import Image
-except ImportError:
-    installation_output = install_package_and_retry_import()
-    from PIL import Image
+from PIL import Image
 
 from pathlib import Path
 # from urllib import quote
 
-try:
-    from plugin_gifsicle import get_gifsicle_binary
-except ImportError:
-    installation_output += install_package_and_retry_import()
-    from plugin_gifsicle import get_gifsicle_binary
+
+from plugin_gifsicle import get_gifsicle_binary
+
 
 import subprocess
 import threading
@@ -86,8 +78,7 @@ class Plugin(indigo.PluginBase):
     def __init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs):
         indigo.PluginBase.__init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs)
         self.startingUp = True
-        global installation_output
-        self.packages_installed = False
+
         self.pathtoPlugin = os.getcwd()
         self.pathtoGifsicle = get_gifsicle_binary()
         self.pluginIsInitializing = True
@@ -101,11 +92,6 @@ class Plugin(indigo.PluginBase):
         self.ImageTimeout =10
         self.ServerTimeout = 5
         self.requestTimeout = self.ServerTimeout
-
-        if installation_output !="":
-            self.packages_installed = True
-            self.logger.warning(f"Dependencies Found for Plugin.  One time installation:\n{installation_output}")
-            self.logger.warning(f"Installed Correctly, now Starting plugin.")
 
         self.logger.info(u"")
         self.logger.info(u"{0:=^130}".format(" Initializing New Plugin Session "))

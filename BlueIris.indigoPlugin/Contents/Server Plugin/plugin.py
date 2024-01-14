@@ -52,11 +52,6 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 #from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 
-#from urlparse import urlparse
-#from cgi import parse_qs
-#from cgi import parse_qs
-
-#from ghpu import GitHubPluginUpdater
 
 # Establish default plugin prefs; create them if they don't already exist.
 kDefaultPluginPrefs = {

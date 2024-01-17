@@ -1,6 +1,6 @@
 # BlueIris Indigo Plugin
 
-![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/icon.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/icon.png)
+![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/Python3/Images/icon.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/Python3/Images/iconsmall.png?raw=True)
 
 
 Have put together the Indigo Plugin for BlueIris windows based Cam Server Software.
@@ -18,7 +18,7 @@ Installation
 Download, Enable.
 
 For Neatness I suggest creating a BlueIris Directory - which the plugin will use.
-![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/CreateDirectory.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/CreateDirectory.png)
+![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/CreateDirectory.png?raw=True](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/CreateDirectory.png?raw=True)
 
 
 Go to Plugin Config

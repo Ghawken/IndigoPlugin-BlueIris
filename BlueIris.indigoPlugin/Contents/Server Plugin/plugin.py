@@ -29,15 +29,11 @@ from urllib.parse import urlparse, urlencode
 from urllib.request import urlopen, Request
 from urllib.error import HTTPError
 from urllib.parse import parse_qs
-
 from PIL import Image
-
 from pathlib import Path
 # from urllib import quote
 
-
 from plugin_gifsicle import get_gifsicle_binary
-
 
 import subprocess
 import threading

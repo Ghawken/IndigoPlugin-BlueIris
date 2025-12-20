@@ -834,7 +834,7 @@ class Plugin(indigo.PluginBase):
 
         try:
             if self.debugextra:
-                self.logger.debug(u' updateBIServerdevice called')
+                self.logger.debug(f' updateBIServerdevice called {statusresults}')
 
             disktotal = None
             diskallocated = None
@@ -882,7 +882,8 @@ class Plugin(indigo.PluginBase):
                                  {'key': 'signal', 'value': statusresults['signal']},
                                  {'key': 'alerts', 'value': statusresults['alerts']},
                                  {'key': 'tzone', 'value': statusresults['tzone']},
-                                 {'key': 'clips', 'value': statusresults['clips']},
+                                # {'key': 'clips', 'value': statusresults['clips']},
+                ## remove above clips here is the info about clips, not level of access
                                  {'key': 'memload', 'value': statusresults['memload']},
                                  {'key': 'memfree', 'value': statusresults['mem']},
                                  {'key': 'warnings', 'value': statusresults['warnings']},
@@ -958,11 +959,15 @@ class Plugin(indigo.PluginBase):
                 for dev in indigo.devices.itervalues('self.BlueIrisServer'):
                     if dev.enabled:
                         streamslist = '|'.join(self.systemdata['streams'])
+
+                        #self.logger.info(f"{self.systemdata=}")
+
                         stateList = [
                                 {'key': 'systemName', 'value': self.systemdata['system name'] },
                                 {'key': 'admin', 'value': self.systemdata['admin']},
                                 {'key': 'audio', 'value': self.systemdata['audio']},
                                 {'key': 'clips', 'value': self.systemdata['clips']},
+                            ## clips here refers to ability to access clips should be true/false and stay that
                                 {'key': 'user', 'value': self.systemdata['user']},
                                 {'key': 'latitude', 'value': self.systemdata['latitude']},
                                 {'key': 'longitude', 'value': self.systemdata['longitude']},

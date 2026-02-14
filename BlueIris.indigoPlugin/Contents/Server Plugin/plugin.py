@@ -39,7 +39,7 @@ import subprocess
 import threading
 
 ## Role together own httpserver
-import string,cgi
+#import string,cgi
 
 #import http.client
 

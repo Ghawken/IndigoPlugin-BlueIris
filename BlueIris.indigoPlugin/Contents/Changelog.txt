@@ -1,5 +1,120 @@
 ChangeLog
 
+v1.3.29
+Simplify the macro-number / macro-text substitution validation in
+`actionChangeMacro` to match Indigo's actual `self.substitute(s,
+validateOnly=True)` contract observed at runtime: it returns the
+input string when valid and only returns a `(False, errorMessage)`
+tuple when invalid.  The previous helper tried to handle a `(bool,
+str)` tuple in both branches and tripped `ValueError: not enough
+values to unpack` on the valid path.  The check now treats a tuple
+result with a falsy first element as the sole failure signal, skips
+empty inputs, and otherwise lets the action proceed.
+
+v1.3.28
+Fix `ValueError: not enough values to unpack (expected 2, got 1)` in
+`actionChangeMacro`.  The validation added in v1.3.25 assumed
+``self.substitute(s, validateOnly=True)`` always returns a
+``(bool, errorString)`` tuple, but in practice some Indigo builds
+return a single value (or none at all for empty input), which broke
+the tuple unpack and tripped the broad `except` block.  The validation
+now goes through a small helper that normalises the return value into
+a `(bool, str)` tuple, skips empty inputs, and treats unexpected
+exceptions as a validation failure rather than crashing the action.
+
+v1.3.27
+Fix TypeError in actionChangeMacro: ``self.blueirisserverVersion`` was
+initialised to the string ``'4.0.0.0'`` and only later replaced with an
+``int`` in ``updateSystemDevice``.  If the Change Macro action ran
+before the server version had been fetched (or login had failed), the
+comparison ``self.blueirisserverVersion >= 5`` raised
+``TypeError: '>=' not supported between instances of 'str' and 'int'``
+on Python 3.  The default value is now ``int(4)`` and the comparison
+site coerces defensively, so the action behaves consistently regardless
+of when it is triggered.
+
+v1.3.26
+Added a new IndigoLogHandler (mirrors the implementation used in
+appleTV-indigoPlugin and other Ghawken plugins).  The default Indigo
+log handler is removed at startup and replaced with this handler, which
+prepends file/function/line context to debug and error messages and
+prints a full traceback when an exception is logged.  Also adds a
+separate "Plugin File Log Level" preference (``showDebugFileLevel``) so
+the rotating on-disk log can be more or less verbose than the Indigo
+Event Log.  Both levels are applied at startup, when the plugin config
+dialog is saved, and when debug logging is toggled from the menu.
+
+v1.3.25
+actionChangeMacro: validate Indigo substitution tokens in the macro
+number / macro text action fields before using them.  Previously, an
+invalid token (for example, a stale device id or a non-existent state
+such as ``%%d:1465684179:sensorValue.ui%%``) would cause Indigo to log
+"Device id X or state id Y not found for substitution" and silently
+substitute an empty value, and the action would then continue and send
+garbage to BlueIris.  We now call ``substitute(..., validateOnly=True)``
+first, log a clear error naming the offending field, and abort the
+action cleanly.  Also coerces the macro number safely (previously a
+non-integer substitution result would raise inside ``int()`` and only
+produce a debug message).
+
+v1.3.24
+logMessageTrigger: BI's log "level" field is a category enum, not a
+severity ladder.  Replaced the warn/error/any selector with the actual
+categories observed in real BI server output:
+  0  = Web request
+  2  = Warning
+  3  = Motion trigger / Retriggered
+  5  = Error
+  8  = AI Alerted
+  9  = Alert canceled
+  10 = Connection / Login / Logout
+Default severity is now "Any level" (no level filter), so the textFilter
+alone decides whether the trigger fires.  This stops the trigger firing
+on every camera Motion_A entry when the user previously selected
+"Error", which mapped to level 3 in v1.3.23.
+
+v1.3.23
+Phase 4 - new triggers / events:
+  - logMessageTrigger: fires from BI server log polling on warning/error log
+    entries.  Severity is now matched against BI's documented level enum
+    (warn=2, error=3, any=warn|error) instead of a >=N ladder, so routine
+    info / login / connect entries (levels 4 / 8 / 10) no longer fire.
+  - aiTagTrigger: restricted to AI/event log entries (level 8) before the
+    keyword match so generic log text containing the tag word does not
+    cause false positives.
+  - cameraNoSignalTrigger: fires on the per-camera transition into
+    isNoSignal = True.
+  - softwareUpdateTrigger: fires when the BI server status first reports an
+    available software update.  Adds a new BlueIrisServer state
+    'softwareUpdate' carrying the reported update string.
+  - diskFreeBelowTrigger: fires per-disk on the transition above->below a
+    user supplied free-space threshold (GB).  Optional disk-name filter.
+
+v1.3.22
+Bug fix pass against BlueIris HTTP Interface Manual review:
+  - updateBIServerdevice: tolerate missing status fields (mem/memfree/cpu/etc.)
+    so a single missing key no longer hides the whole update behind the
+    bare except and marks the server Offline.
+  - mem state now stores total physical RAM (BI 'memphys') and memfree stores
+    free RAM (BI 'mem' / v4 'memfree') so the two states are no longer
+    populated with the same value.
+  - Status 'signal' is now stored as a label (red/green/yellow) rather than
+    the raw int.
+  - updateUsers / updateDevices: validate the BI response is actually a list
+    before iterating (BI returns {"result":"fail"} on session expiry/non-admin).
+  - updateDevices: stopped comparing str to bytes (encode('utf-8')) so
+    geofence/mobile-device matching works under Python 3.
+  - changeProfile: guard against an empty profiles_list and unknown profile
+    names instead of raising and aborting the action mid-way.
+  - sendccommand now reuses the existing BI session instead of running a full
+    two-step login on every JSON command, and only re-logs in when the server
+    replies result:fail.
+  - shutdown() sends a logout command so BI no longer accumulates ghost
+    sessions across plugin restarts.
+  - checkCamDevices matches cameras by their BI optionValue (short name)
+    instead of by the Indigo device name, so renaming the Indigo device no
+    longer breaks subsequent state updates.
+
 v1.2.1
 Python3 Support
 

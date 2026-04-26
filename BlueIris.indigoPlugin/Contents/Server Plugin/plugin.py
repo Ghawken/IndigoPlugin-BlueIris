@@ -19,11 +19,13 @@ import requests
 import json
 import hashlib
 import datetime
+import traceback
 
 import time as t
 import urllib
 import os
 import shutil
+from os import path
 
 from urllib.parse import urlparse, urlencode
 from urllib.request import urlopen, Request
@@ -38,6 +40,37 @@ from plugin_gifsicle import get_gifsicle_binary
 import subprocess
 import threading
 
+# Blue Iris log "level" enum used by the /json log command.
+# Treated as a category, not a monotonic severity ladder.  Values
+# observed in real BI server output:
+#   0  = Web request (e.g. "Web: 200 OK")
+#   2  = Warning (rare; not present in every install)
+#   3  = Motion trigger / Retriggered (e.g. "Trigger: Motion_A")
+#   5  = Error (when present)
+#   8  = AI Alerted (e.g. "Trigger: Alerted")
+#   9  = Alert canceled (e.g. "Trigger: Alert canceled [nothing found]")
+#   10 = User activity (Login / Logout / Connected)
+BI_LOG_LEVEL_WEB = 0
+BI_LOG_LEVEL_WARNING = 2
+BI_LOG_LEVEL_MOTION = 3
+BI_LOG_LEVEL_ERROR = 5
+BI_LOG_LEVEL_AI = 8
+BI_LOG_AI_LEVEL = BI_LOG_LEVEL_AI  # back-compat alias used by aiTagTrigger
+BI_LOG_LEVEL_CANCELED = 9
+BI_LOG_LEVEL_CONNECTION = 10
+
+# Map of severity option (Events.xml) -> set of BI levels that satisfy it.
+# 'any' bypasses the level filter entirely.
+BI_LOG_SEVERITY_LEVELS = {
+    'web':        frozenset({BI_LOG_LEVEL_WEB}),
+    'warning':    frozenset({BI_LOG_LEVEL_WARNING}),
+    'motion':     frozenset({BI_LOG_LEVEL_MOTION}),
+    'error':      frozenset({BI_LOG_LEVEL_ERROR}),
+    'ai_alerted': frozenset({BI_LOG_LEVEL_AI}),
+    'canceled':   frozenset({BI_LOG_LEVEL_CANCELED}),
+    'connection': frozenset({BI_LOG_LEVEL_CONNECTION}),
+}
+
 ## Role together own httpserver
 #import string,cgi
 
@@ -49,6 +82,56 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 
 
+################################################################################
+# New Indigo Log Handler - mirrors the handler used in other Ghawken plugins
+# (e.g. appleTV-indigoPlugin).  Adds file/function/line context to debug and
+# error/exception messages and forwards traceback details on exceptions.
+################################################################################
+class IndigoLogHandler(logging.Handler):
+    def __init__(self, display_name, level=logging.NOTSET):
+        super().__init__(level)
+        self.displayName = display_name
+
+    def emit(self, record):
+        """ not used by this class; must be called independently by indigo """
+        logmessage = ""
+        is_error = False
+        levelno = logging.NOTSET
+        try:
+            levelno = int(record.levelno)
+            is_exception = False
+            if self.level <= levelno:  ## should display this..
+                if record.exc_info is not None:
+                    is_exception = True
+                if levelno == 5:  # 5
+                    logmessage = '({}:{}:{}): {}'.format(path.basename(record.pathname), record.funcName, record.lineno, record.getMessage())
+                elif levelno == logging.DEBUG:  # 10
+                    logmessage = '({}:{}:{}): {}'.format(path.basename(record.pathname), record.funcName, record.lineno, record.getMessage())
+                elif levelno == logging.INFO:  # 20
+                    logmessage = record.getMessage()
+                elif levelno == logging.WARNING:  # 30
+                    logmessage = record.getMessage()
+                elif levelno == logging.ERROR:  # 40
+                    logmessage = '({}: Function: {}  line: {}):    Error :  Message : {}'.format(path.basename(record.pathname), record.funcName, record.lineno, record.getMessage())
+                    is_error = True
+                if is_exception:
+                    logmessage = '({}: Function: {}  line: {}):    Exception :  Message : {}'.format(path.basename(record.pathname), record.funcName, record.lineno, record.getMessage())
+                    indigo.server.log(message=logmessage, type=self.displayName, isError=is_error, level=levelno)
+                    if record.exc_info is not None:
+                        etype, value, tb = record.exc_info
+                        tb_string = "".join(traceback.format_tb(tb))
+                        indigo.server.log(f"Traceback:\n{tb_string}", type=self.displayName, isError=is_error, level=levelno)
+                        indigo.server.log(f"Error in plugin execution:\n\n{traceback.format_exc(30)}", type=self.displayName, isError=is_error, level=levelno)
+                    indigo.server.log(f"\nExc_info: {record.exc_info} \nExc_Text: {record.exc_text} \nStack_info: {record.stack_info}", type=self.displayName, isError=is_error, level=levelno)
+                    return
+                indigo.server.log(message=logmessage, type=self.displayName, isError=is_error, level=levelno)
+        except Exception as ex:
+            try:
+                indigo.server.log(f"Error in Logging: {ex}", type=self.displayName, isError=is_error, level=levelno)
+            except Exception:
+                pass
+
+
 # Establish default plugin prefs; create them if they don't already exist.
 kDefaultPluginPrefs = {
     u'configMenuPollInterval': "300",  # Frequency of refreshes.
@@ -58,6 +141,7 @@ kDefaultPluginPrefs = {
     u'configUpdaterForceUpdate': False,
     u'configUpdaterInterval': 24,
     u'showDebugLevel': "1",  # Low, Medium or High debug output.
+    u'showDebugFileLevel': "10",  # File log level (separate from Indigo log).
     u'updaterEmail': "",  # Email to notify of plugin updates.
     u'updaterEmailsEnabled': False,  # Notification of plugin updates wanted.
     u'ServerTimeout': 5,
@@ -79,6 +163,7 @@ class Plugin(indigo.PluginBase):
         self.oldlistenPort = 4556
         self.systemdata = None
         self.session =''
+        self.response = ''
 
         self.ImageTimeout =10
         self.ServerTimeout = 5
@@ -104,13 +189,52 @@ class Plugin(indigo.PluginBase):
         except:
             self.logLevel = logging.INFO
 
+        try:
+            self.fileloglevel = int(self.pluginPrefs[u"showDebugFileLevel"])
+        except:
+            self.fileloglevel = logging.DEBUG
+
+        # Replace the default Indigo log handler with our richer
+        # IndigoLogHandler (file/function/line context, traceback dump on
+        # exceptions).  Mirrors the pattern used by other Ghawken plugins
+        # such as appleTV-indigoPlugin.
+        self.logger.setLevel(logging.DEBUG)
+        try:
+            self.logger.removeHandler(self.indigo_log_handler)
+        except Exception:
+            pass
+        self.indigo_log_handler = IndigoLogHandler(pluginDisplayName, logging.INFO)
+        ifmt = logging.Formatter("%(message)s")
+        self.indigo_log_handler.setFormatter(ifmt)
         self.indigo_log_handler.setLevel(self.logLevel)
+        self.logger.addHandler(self.indigo_log_handler)
+
+        # Apply the (separately configurable) file log level to the rotating
+        # plugin_file_handler so the on-disk log can be more or less verbose
+        # than what's shown in the Indigo Event Log.
+        try:
+            self.plugin_file_handler.setLevel(self.fileloglevel)
+        except Exception:
+            pass
+
         self.logger.debug(u"logLevel = " + str(self.logLevel))
+        self.logger.debug(u"fileloglevel = " + str(self.fileloglevel))
         self.triggers = {}
+        # Edge-trigger memory for Phase 4 triggers.  Keys reset on plugin
+        # restart so the first poll after a restart will not re-fire stale
+        # transitions.
+        self._lastNoSignal = {}          # dev.id -> bool
+        self._lastDiskBelow = {}         # (dev.id, disk_name, threshold_gb) -> bool
+        self._lastSoftwareUpdate = {}    # dev.id -> str (last seen update string)
 
         self.pathtoPlugin = indigo.server.getInstallFolderPath()
 
-        self.blueirisserverVersion = '4.0.0.0'
+        # Default to int 4 (not the previous string '4.0.0.0') so that
+        # numeric comparisons like ``self.blueirisserverVersion >= 5`` work
+        # before the real version has been fetched from the server.  The
+        # value is overwritten with ``int(self.systemdata['version'][0])``
+        # inside ``updateSystemDevice`` once login succeeds.
+        self.blueirisserverVersion = 4
 
         self.currentuseradmin = False
 
@@ -219,8 +343,18 @@ class Plugin(indigo.PluginBase):
             except:
                 self.logLevel = logging.INFO
 
+            try:
+                self.fileloglevel = int(valuesDict[u"showDebugFileLevel"])
+            except:
+                self.fileloglevel = logging.DEBUG
+
             self.indigo_log_handler.setLevel(self.logLevel)
+            try:
+                self.plugin_file_handler.setLevel(self.fileloglevel)
+            except Exception:
+                pass
             self.logger.debug(u"logLevel = " + str(self.logLevel))
+            self.logger.debug(u"fileloglevel = " + str(self.fileloglevel))
             self.logger.debug(u"User prefs saved.")
             self.logger.debug(u"Debugging on (Level: {0})".format(self.debugLevel))
 
@@ -865,41 +999,122 @@ class Plugin(indigo.PluginBase):
         try:
             #dev = indigo.devices[devId]
 
-            # add checks from memfree versus mem - which is a v4 and v5 difference
-            memFree = '_';
-            if 'mem' in statusresults:
-                memFree = statusresults['mem']
-            elif 'memfree' in statusresults:
-                memFree = statusresults['memFree']
+            # BlueIris returns these RAM-related fields:
+            #   mem      - free memory available to BI (e.g. "2.77GB")
+            #   memphys  - total physical RAM on the host (e.g. "23.8GB")
+            #   memload  - overall memory load percentage (e.g. "47%")
+            # Older v4 builds only returned ``memfree`` instead of ``mem``.
+            # Map them onto distinct Indigo states so ``mem`` reflects total
+            # RAM and ``memfree`` reflects free RAM (previously both states
+            # were populated with the same value).
+            memFree = statusresults.get('mem', statusresults.get('memfree', ''))
+            memTotal = statusresults.get('memphys', '')
+
+            # BI returns signal as an int (0=red, 1=green, 2=yellow).  Persist the
+            # label rather than the raw int so users can write triggers/control
+            # pages against a meaningful value.
+            signal_raw = statusresults.get('signal')
+            signal_map = {0: 'red', 1: 'green', 2: 'yellow'}
+            try:
+                signal_value = signal_map.get(int(signal_raw), str(signal_raw))
+            except (TypeError, ValueError):
+                signal_value = str(signal_raw) if signal_raw is not None else ''
+
+            # BI status may include an 'update' field (string) when an
+            # available software update is detected.  Fire the
+            # softwareUpdateTrigger on the empty -> non-empty transition.
+            update_value = statusresults.get('update', '') or ''
+            try:
+                update_value = str(update_value).strip()
+            except Exception:
+                update_value = ''
 
             stateList = [
-                                 {'key': 'cxns', 'value': statusresults['cxns']},
-                                 {'key': 'profile', 'value': statusresults['profile']},
-                                 {'key': 'uptime', 'value': statusresults['uptime']},
-                                 {'key': 'schedule', 'value': statusresults['schedule']},
-                                 {'key': 'mem', 'value': memFree},
-                                 {'key': 'lock', 'value': statusresults['lock']},
-                                 {'key': 'signal', 'value': statusresults['signal']},
-                                 {'key': 'alerts', 'value': statusresults['alerts']},
-                                 {'key': 'tzone', 'value': statusresults['tzone']},
+                                 {'key': 'cxns', 'value': statusresults.get('cxns', '')},
+                                 {'key': 'profile', 'value': statusresults.get('profile', '')},
+                                 {'key': 'uptime', 'value': statusresults.get('uptime', '')},
+                                 {'key': 'schedule', 'value': statusresults.get('schedule', '')},
+                                 {'key': 'mem', 'value': memTotal},
+                                 {'key': 'lock', 'value': statusresults.get('lock', '')},
+                                 {'key': 'signal', 'value': signal_value},
+                                 {'key': 'alerts', 'value': statusresults.get('alerts', '')},
+                                 {'key': 'tzone', 'value': statusresults.get('tzone', '')},
                                 # {'key': 'clips', 'value': statusresults['clips']},
                 ## remove above clips here is the info about clips, not level of access
-                                 {'key': 'memload', 'value': statusresults['memload']},
-                                 {'key': 'memfree', 'value': statusresults['mem']},
-                                 {'key': 'warnings', 'value': statusresults['warnings']},
-                                 {'key': 'cpu', 'value': statusresults['cpu']},
-                                 {'key': 'clipsInfo', 'value': str(statusresults['clips'])},
+                                 {'key': 'memload', 'value': statusresults.get('memload', '')},
+                                 {'key': 'memfree', 'value': memFree},
+                                 {'key': 'warnings', 'value': statusresults.get('warnings', '')},
+                                 {'key': 'cpu', 'value': statusresults.get('cpu', '')},
+                                 {'key': 'clipsInfo', 'value': str(statusresults.get('clips', ''))},
                                  {'key': 'disktotal', 'value': disktotal},
                                  {'key': 'diskallocated', 'value': diskallocated},
                                  {'key': 'diskname', 'value': diskname},
                                  {'key': 'diskfree', 'value': diskfree},
-                                 {'key': 'diskused', 'value': diskused}
+                                 {'key': 'diskused', 'value': diskused},
+                                 {'key': 'softwareUpdate', 'value': update_value}
             ]
             dev.updateStatesOnServer(stateList)
+
+            # Phase 4 - softwareUpdate transition trigger
+            try:
+                prev_update = self._lastSoftwareUpdate.get(dev.id, None)
+                if prev_update is None:
+                    # Seed from the device state so we don't re-fire on every
+                    # plugin restart while the same update is still pending.
+                    prev_update = str(dev.states.get('softwareUpdate', '') or '')
+                if update_value and update_value != prev_update:
+                    self.triggerCheck(dev, update_value, 'softwareUpdate')
+                self._lastSoftwareUpdate[dev.id] = update_value
+            except:
+                if self.debugtriggers:
+                    self.logger.exception(u'softwareUpdate trigger transition check failed')
+
+            # Phase 4 - per-disk free-space threshold triggers.  BI reports
+            # disk free/total in MB; compare to the user threshold (GB).
+            try:
+                for disk in (statusresults.get('disks') or []):
+                    d_name = disk.get('disk', '')
+                    d_free_mb = disk.get('free')
+                    if d_free_mb is None:
+                        continue
+                    try:
+                        d_free_gb = float(d_free_mb) / 1024.0
+                    except (TypeError, ValueError):
+                        continue
+                    for trig in self.triggers.values():
+                        if trig.pluginTypeId != 'diskFreeBelowTrigger':
+                            continue
+                        try:
+                            threshold_gb = float(trig.pluginProps.get('thresholdGB', 0) or 0)
+                        except (TypeError, ValueError):
+                            continue
+                        if threshold_gb <= 0:
+                            continue
+                        wanted_disk = (trig.pluginProps.get('diskName', '') or '').strip()
+                        if wanted_disk and wanted_disk.lower() != str(d_name).lower():
+                            continue
+                        key = (dev.id, str(d_name), threshold_gb)
+                        now_below = d_free_gb < threshold_gb
+                        # Seed prev_below to the current observation the
+                        # first time we see this (disk, threshold) pair so
+                        # we don't fire the trigger on the first poll after
+                        # a plugin restart when disk space is already below
+                        # the threshold.  Subsequent polls fire only on the
+                        # above -> below transition.
+                        if key not in self._lastDiskBelow:
+                            self._lastDiskBelow[key] = now_below
+                        prev_below = self._lastDiskBelow[key]
+                        if now_below and not prev_below:
+                            self.triggerCheck(dev, str(d_name), 'diskFreeBelow')
+                        self._lastDiskBelow[key] = now_below
+            except:
+                if self.debugtriggers:
+                    self.logger.exception(u'diskFreeBelow trigger evaluation failed')
+
             update_time = t.strftime('%c')
 
 
-            deviceState = str('Cpu :')+str(statusresults['cpu'])+'% MemFree :'+str(memFree)
+            deviceState = str('Cpu :')+str(statusresults.get('cpu', ''))+'% MemFree :'+str(memFree)
 
             dev.updateStateOnServer('deviceLastUpdated', value=str(update_time))
             dev.updateStateOnServer('deviceTimestamp', value=str(t.time()))
@@ -1077,9 +1292,19 @@ class Plugin(indigo.PluginBase):
                 x = 1
                 for i in range(len(camlist)):
                      deviceName = 'BlueIris Camera '+str(camlist[i][0]['optionDisplay'])
+                     # Match the BI camera to an Indigo device by its
+                     # optionValue (the BI short name).  Previously this
+                     # matched on dev.name, which silently broke every
+                     # subsequent state update if the user renamed the
+                     # Indigo device.
+                     cam_short = camlist[i][0].get('optionValue')
                      FoundDevice = False
                      for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
-                         if dev.name == deviceName:
+                         if dev.states.get('optionValue', '') == cam_short and cam_short:
+                             match = True
+                         else:
+                             match = (dev.name == deviceName)
+                         if match:
                              if self.debugextra:
                                 self.logger.debug(u'Found BlueIris Camera Device Matching:')
                              FoundDevice = True
@@ -1118,6 +1343,18 @@ class Plugin(indigo.PluginBase):
                                  {'key': 'audio', 'value': camlist[i][0]['audio']},
                                  {'key': 'nNoSignal', 'value': camlist[i][0]['nNoSignal']}
                              ]
+                             # Phase 4 - emit a noSignal trigger on the
+                             # transition from "has signal" to "no signal".
+                             try:
+                                 prev_no_signal = bool(self._lastNoSignal.get(dev.id, dev.states.get('isNoSignal', False)))
+                                 new_no_signal = bool(camlist[i][0].get('isNoSignal', False))
+                                 if new_no_signal and not prev_no_signal:
+                                     cam_name = camlist[i][0].get('optionValue', dev.name)
+                                     self.triggerCheck(dev, cam_name, 'noSignal')
+                                 self._lastNoSignal[dev.id] = new_no_signal
+                             except:
+                                 if self.debugtriggers:
+                                     self.logger.exception(u'noSignal trigger transition check failed')
                              dev.updateStatesOnServer(stateList)
                              if camlist[i][0]['isOnline'] == True and camlist[i][0]['isEnabled']:
                                  dev.updateStateOnServer('deviceIsOnline', value=True, uiValue="Online")
@@ -1152,12 +1389,20 @@ class Plugin(indigo.PluginBase):
             if self.debugextra:
                 self.logger.debug(u'sendcommand called')
                 self.logger.debug(u'cmd ='+str(cmd)+' params='+str(params))
-            if self.connectServer():  #this commands updates session key before command called
-                if self.debugextra:
-                    self.logger.debug(u'Connection to Server Complete')
-            else:
-                self.logger.debug(u'Failed connection to server.')
-                return
+
+            # Re-use the existing BI session if we already have one.  Only
+            # establish/refresh a session when we don't have credentials yet.
+            # This avoids running the full two-step login on every command,
+            # which used to flood the BI log and double the latency of every
+            # call.  If a command later returns ``result:fail`` we invalidate
+            # the session and retry once below.
+            if not getattr(self, 'session', '') or not getattr(self, 'response', ''):
+                if self.connectServer():
+                    if self.debugextra:
+                        self.logger.debug(u'Connection to Server Complete')
+                else:
+                    self.logger.debug(u'Failed connection to server.')
+                    return
 
             if len(self.session)==0:
                 self.logger.debug(u'No self.session cannot run command')
@@ -1189,9 +1434,31 @@ class Plugin(indigo.PluginBase):
                 self.logger.debug(u'sendcommand r.json result:')# + str(r.json()  )   )
 
             try:
-                return r.json()["data"]
+                payload = r.json()
             except:
-                return r.json()
+                payload = None
+
+            # If BI says the session is no longer valid, drop it and retry the
+            # command once with a fresh login.
+            if isinstance(payload, dict) and payload.get('result') == 'fail' and cmd != 'login':
+                if self.debugextra:
+                    self.logger.debug(u'sendcommand: BI returned result:fail, refreshing session and retrying once.')
+                self.session = ''
+                self.response = ''
+                if self.connectServer():
+                    args['session'] = self.session
+                    if 'response' in args:
+                        args['response'] = self.response
+                    r = requests.post(self.url, data=json.dumps(args), timeout=self.ServerTimeout)
+                    if r.status_code == 200:
+                        try:
+                            payload = r.json()
+                        except:
+                            payload = None
+
+            if isinstance(payload, dict) and 'data' in payload:
+                return payload['data']
+            return payload
 
         except requests.exceptions.Timeout:
             self.logger.debug(u'sendCommand has timed out and cannot connect to BI Server.')
@@ -1287,11 +1554,22 @@ class Plugin(indigo.PluginBase):
         try:
             if self.currentuseradmin:
                 listusers = self.sendccommand('devices', '')
-                if listusers != None:
-                    for dev in indigo.devices.itervalues('self.BlueIrisDevice'):
-                        for users in listusers:
-                            if dev.enabled:
-                                if str(dev.pluginProps.get('devicename', 0)) == users['name'].encode('utf-8'):
+                # BI returns a dict (e.g. {"result":"fail",...}) rather than the
+                # documented array on session expiry / non-admin.  Make sure we
+                # actually got the list before iterating.
+                if not isinstance(listusers, list):
+                    if self.debugextra:
+                        self.logger.debug(u'updateDevices: server did not return a device list (got %s); skipping.' % type(listusers).__name__)
+                    return
+                for dev in indigo.devices.itervalues('self.BlueIrisDevice'):
+                    for users in listusers:
+                        if dev.enabled:
+                            # Compare strings to strings - the previous
+                            # ``users['name'].encode('utf-8')`` returned bytes
+                            # under Python 3, so this comparison was always
+                            # False unless the name was pure ASCII and the
+                            # bytes/str coercion happened to line up.
+                            if str(dev.pluginProps.get('devicename', 0)) == str(users.get('name', '')):
                                     # Matching username found for device created and enabled
                                     count = 0
                                     oldinside = dev.states['inside']
@@ -1331,6 +1609,13 @@ class Plugin(indigo.PluginBase):
         try:
             if self.currentuseradmin:
                 listusers = self.sendccommand('users','')
+                # BI returns a dict like {"result":"fail",...} on session
+                # expiry / non-admin.  Only iterate when we actually got the
+                # documented list of user objects back.
+                if not isinstance(listusers, list):
+                    if self.debugextra:
+                        self.logger.debug(u'updateUsers: server did not return a user list (got %s); skipping.' % type(listusers).__name__)
+                    return
                 for dev in indigo.devices.itervalues('self.BlueIrisUser'):
                     for users in listusers:
                         if dev.enabled:
@@ -1489,6 +1774,16 @@ class Plugin(indigo.PluginBase):
         #    if ('Events' in item['msg']):
         #        self.parseEvent(item)
 
+            # Phase 4 - dispatch log-message and AI-tag triggers for every
+            # incoming log entry.  These triggers do not require a matching
+            # Indigo camera device, so we hand the raw log item through
+            # ``camera`` and let triggerCheck filter on severity / tag /
+            # camera selection.
+            try:
+                self.triggerCheck(None, item, 'logMessage')
+                self.triggerCheck(None, item, 'aiTag')
+            except:
+                self.logger.exception(u'Error dispatching Phase 4 log/AI triggers')
 
         except:
             self.logger.exception(u'Error in parseMsgReceived')
@@ -1594,6 +1889,18 @@ class Plugin(indigo.PluginBase):
     def shutdown(self):
 
         self.logger.debug(u"shutdown() method called.")
+        # Best-effort cleanup of the BI session so we don't leave a ghost
+        # connection on the server (BI never times these out aggressively).
+        try:
+            if getattr(self, 'session', '') and getattr(self, 'serverip', ''):
+                url = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/json'
+                requests.post(url,
+                              data=json.dumps({"cmd": "logout", "session": self.session}),
+                              timeout=self.ServerTimeout)
+        except:
+            self.logger.debug(u'shutdown: best-effort logout failed; ignoring.')
+        self.session = ''
+        self.response = ''
         self.pluginIsShuttingDown = True
         self.prefsUpdated = True
         indigo.server.broadcastToSubscribers(u"broadcasterShutdown")
@@ -2225,11 +2532,26 @@ color: #ff3300;
 
         self.logger.debug(str(valuesDict))
         profileselected = str(valuesDict.props['targetProfile'])
+        profile_id = None
         try:
-            profile_id = self.profiles_list.index(profileselected)
+            # Make sure we actually have a profile list to look up against -
+            # the user may invoke this action before the first poll has
+            # populated ``self.profiles_list``.
+            profiles = getattr(self, 'profiles_list', None)
+            if not profiles:
+                if self.connectServer():
+                    profiles = getattr(self, 'profiles_list', None)
+            if not profiles:
+                self.logger.info(u'Cannot change BlueIris profile: profile list unavailable (check server login).')
+                return
+            if profileselected not in profiles:
+                self.logger.info(u'Could not find Profile with that name: %s' % profileselected)
+                return
+            profile_id = profiles.index(profileselected)
             self.logger.debug(u'Selected Profile ID Equals:'+str(profile_id))
         except:
-            self.logger.info(u'Could not find Profile with that name')
+            self.logger.exception(u'Could not find Profile with that name')
+            return
         self.logger.info(u'Setting BlueIris active Profile to: %s  (id: %d)' % (profileselected, profile_id))
         self.sendccommand("status", {"profile": profile_id})
         return
@@ -2237,16 +2559,59 @@ color: #ff3300;
     def actionChangeMacro(self, valuesDict):
 
         try:
-            if self.blueirisserverVersion >=5:
+            try:
+                bi_version = int(self.blueirisserverVersion)
+            except (TypeError, ValueError):
+                # Defensive: if something has assigned a non-numeric string
+                # (e.g. '4.0.0.0') treat it as the major version it starts
+                # with so we don't blow up with a TypeError on the compare.
+                try:
+                    bi_version = int(str(self.blueirisserverVersion).split('.')[0])
+                except (TypeError, ValueError, IndexError):
+                    bi_version = 0
+            if bi_version >= 5:
                 if self.debugother:
                     self.logger.debug(str(valuesDict))
-                macronumber = self.substitute(valuesDict.props['macroNumber'])
-                macrotext = self.substitute(valuesDict.props['macroText'])
+                # Validate Indigo substitution tokens (e.g. %%d:123:state%% or
+                # %%v:456%%) before using them.  An invalid token causes the
+                # Indigo host to log "Device id X or state id Y not found for
+                # substitution" and silently substitute garbage, which then
+                # produces an unhelpful failure later when sendccommand runs.
+                # Surface the bad field clearly and abort the action.
+                raw_number = valuesDict.props.get('macroNumber', '')
+                raw_text = valuesDict.props.get('macroText', '')
+
+                # ``self.substitute(s, validateOnly=True)`` in this Indigo
+                # build returns the input string when valid and only returns
+                # a ``(False, errorMessage)`` tuple when invalid, so a tuple
+                # result is the sole failure signal.
+                def _check(raw, label):
+                    if not raw:
+                        return True
+                    result = self.substitute(raw, validateOnly=True)
+                    if isinstance(result, tuple) and not result[0]:
+                        err = result[1] if len(result) > 1 else u''
+                        self.logger.error(u'Change Macro: %s contains an invalid substitution token (%s): %s' % (label, err, raw))
+                        return False
+                    return True
+
+                if not _check(raw_number, u'macro number'):
+                    return
+                if not _check(raw_text, u'macro text'):
+                    return
+                macronumber = self.substitute(raw_number)
+                macrotext = self.substitute(raw_text)
+
+                try:
+                    macro_int = int(macronumber)
+                except (TypeError, ValueError):
+                    self.logger.error(u'Change Macro: macro number must be an integer after substitution, got: %r' % (macronumber,))
+                    return
 
                 data = {
                     "macro": {
 
-                            "number": int(macronumber),
+                            "number": macro_int,
                             "value": str(macrotext)
 
                 }}
@@ -2257,7 +2622,7 @@ color: #ff3300;
                 self.logger.info('Only available to BlueIris v5 Users.  Suggest upgrading BlueIris software for full features.')
 
         except:
-            self.logger.debug(u'Caught Error within Change Macro - check details entered...')
+            self.logger.exception(u'Caught Error within Change Macro - check details entered...')
 
         return
 
@@ -2359,7 +2724,12 @@ color: #ff3300;
                 self.logger.info(u'Trigger: Ignore as BlueIris Plugin Just started.')
                 return
 
-            if event != 'userLogin':  #userLogin trigger unrelated to device
+            # Phase 4 events do not require a matching enabled camera (or
+            # the camera may legitimately be Offline / no-signal), so skip
+            # the per-device guards for them.
+            non_device_events = ('userLogin', 'logMessage', 'aiTag',
+                                 'softwareUpdate', 'diskFreeBelow', 'noSignal')
+            if event not in non_device_events:
                 if "geofence" not in event:
                     if device.states['deviceIsOnline'] == False:
                         if self.debugtriggers:
@@ -2408,6 +2778,96 @@ color: #ff3300;
                             if self.debugtriggers:
                                 self.logger.debug(  "===== Executing GeoFence Inside Trigger %s (%d)" % (trigger.name, trigger.id))
                             indigo.trigger.execute(trigger)
+
+                # ---- Phase 4 triggers ------------------------------------
+                elif trigger.pluginTypeId == 'logMessageTrigger' and event == 'logMessage':
+                    # ``camera`` here is the raw log item dict produced by
+                    # parsemsgreceived().
+                    #
+                    # BI's log ``level`` is a CATEGORY enum, not a monotonic
+                    # severity ladder.  See BI_LOG_SEVERITY_LEVELS for the
+                    # categories observed in real BI server output.  Selecting
+                    # 'any' (the default) bypasses the level filter so the
+                    # textFilter alone decides whether the trigger fires.
+                    item = camera if isinstance(camera, dict) else {}
+                    try:
+                        level = int(item.get('level', -1))
+                    except (TypeError, ValueError):
+                        level = -1
+                    severity = trigger.pluginProps.get('severity', 'any')
+                    if severity != 'any':
+                        allowed = BI_LOG_SEVERITY_LEVELS.get(severity)
+                        if allowed is not None and level not in allowed:
+                            continue
+                    text_filter = (trigger.pluginProps.get('textFilter', '') or '').strip().lower()
+                    if text_filter:
+                        haystack = (str(item.get('msg', '')) + ' ' + str(item.get('memo', ''))).lower()
+                        if text_filter not in haystack:
+                            continue
+                    if self.debugtriggers:
+                        self.logger.debug("===== Executing logMessage Trigger %s (%d) level=%s severity=%s" % (trigger.name, trigger.id, level, severity))
+                    indigo.trigger.execute(trigger)
+
+                elif trigger.pluginTypeId == 'aiTagTrigger' and event == 'aiTag':
+                    item = camera if isinstance(camera, dict) else {}
+                    # AI / object-detection entries are level 8 in BI logs;
+                    # restricting here prevents false positives from generic
+                    # log text that happens to contain the tag keyword.
+                    try:
+                        level = int(item.get('level', -1))
+                    except (TypeError, ValueError):
+                        level = -1
+                    if level != BI_LOG_AI_LEVEL:
+                        continue
+                    tag = (trigger.pluginProps.get('tag', '') or '').strip().lower()
+                    if not tag:
+                        continue
+                    haystack = (str(item.get('msg', '')) + ' ' + str(item.get('memo', ''))).lower()
+                    if tag not in haystack:
+                        continue
+                    selected = trigger.pluginProps.get('deviceCamera') or []
+                    if selected:
+                        # Match the BI camera short-name in item['obj']
+                        # against the selected Indigo cam devices'
+                        # optionValue state.
+                        cam_short = str(item.get('obj', '')).strip()
+                        matched = False
+                        for sel_id in selected:
+                            try:
+                                sel_dev = indigo.devices[int(sel_id)]
+                            except Exception:
+                                continue
+                            if sel_dev.states.get('optionValue', '') == cam_short:
+                                matched = True
+                                break
+                        if not matched:
+                            continue
+                    if self.debugtriggers:
+                        self.logger.debug("===== Executing aiTag Trigger %s (%d) tag=%s" % (trigger.name, trigger.id, tag))
+                    indigo.trigger.execute(trigger)
+
+                elif trigger.pluginTypeId == 'cameraNoSignalTrigger' and event == 'noSignal':
+                    if device is None:
+                        continue
+                    selected = trigger.pluginProps.get('deviceCamera') or []
+                    if selected and str(device.id) not in selected:
+                        continue
+                    if self.debugtriggers:
+                        self.logger.debug("===== Executing cameraNoSignal Trigger %s (%d) cam=%s" % (trigger.name, trigger.id, camera))
+                    indigo.trigger.execute(trigger)
+
+                elif trigger.pluginTypeId == 'softwareUpdateTrigger' and event == 'softwareUpdate':
+                    if self.debugtriggers:
+                        self.logger.debug("===== Executing softwareUpdate Trigger %s (%d) update=%s" % (trigger.name, trigger.id, camera))
+                    indigo.trigger.execute(trigger)
+
+                elif trigger.pluginTypeId == 'diskFreeBelowTrigger' and event == 'diskFreeBelow':
+                    wanted_disk = (trigger.pluginProps.get('diskName', '') or '').strip().lower()
+                    if wanted_disk and wanted_disk != str(camera).lower():
+                        continue
+                    if self.debugtriggers:
+                        self.logger.debug("===== Executing diskFreeBelow Trigger %s (%d) disk=%s" % (trigger.name, trigger.id, camera))
+                    indigo.trigger.execute(trigger)
 
                 elif self.debugtriggers:
                         self.logger.debug("Not Run Trigger Type %s (%d), %s" % (trigger.name, trigger.id, trigger.pluginTypeId))

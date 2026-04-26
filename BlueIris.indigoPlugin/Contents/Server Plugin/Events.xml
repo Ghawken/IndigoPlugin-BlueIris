@@ -46,5 +46,66 @@
         </Field>
         </ConfigUI>
     </Event>
+    <Event id="logMessageTrigger">
+        <Name>Trigger on BI Log Message (by category)</Name>
+        <ConfigUI>
+            <Field id="severity" type="menu" defaultValue="any">
+                <Label>BI log category (level):</Label>
+                <List>
+                    <Option value="any">Any level</Option>
+                    <Option value="motion">Motion trigger (level 3)</Option>
+                    <Option value="ai_alerted">AI Alerted (level 8)</Option>
+                    <Option value="canceled">Alert canceled (level 9)</Option>
+                    <Option value="connection">Connection / Login / Logout (level 10)</Option>
+                    <Option value="web">Web request (level 0)</Option>
+                    <Option value="warning">Warning (level 2)</Option>
+                    <Option value="error">Error (level 5)</Option>
+                </List>
+            </Field>
+            <Field id="textFilter" type="textfield" defaultValue="">
+                <Label>Optional substring filter on message (blank = any):</Label>
+            </Field>
+        </ConfigUI>
+    </Event>
+    <Event id="aiTagTrigger">
+        <Name>Trigger on AI Tag (person/vehicle/plate/...)</Name>
+        <ConfigUI>
+            <Field id="tag" type="textfield" defaultValue="person">
+                <Label>Tag keyword (case-insensitive). Examples: person, vehicle, animal, plate</Label>
+            </Field>
+            <Field id="deviceCamera" type="list" rows="10">
+                <Label>Limit to Cameras (none selected = any camera):</Label>
+                <List class="indigo.devices" filter="self.BlueIrisCamera"/>
+            </Field>
+        </ConfigUI>
+    </Event>
+    <Event id="cameraNoSignalTrigger">
+        <Name>Trigger when Camera Loses Signal (No Signal)</Name>
+        <ConfigUI>
+            <Field id="deviceCamera" type="list" rows="14">
+                <Label>Select Camera(s)</Label>
+                <List class="indigo.devices" filter="self.BlueIrisCamera"/>
+            </Field>
+        </ConfigUI>
+    </Event>
+    <Event id="softwareUpdateTrigger">
+        <Name>Trigger when Blue Iris Software Update Available</Name>
+        <ConfigUI>
+            <Field id="info" type="label">
+                <Label>Fires when the BI server first reports an available software update (transition from no update -&gt; update available).</Label>
+            </Field>
+        </ConfigUI>
+    </Event>
+    <Event id="diskFreeBelowTrigger">
+        <Name>Trigger when BI Disk Free Below Threshold</Name>
+        <ConfigUI>
+            <Field id="diskName" type="textfield" defaultValue="">
+                <Label>Disk name (e.g. C:, G:). Blank matches any disk.</Label>
+            </Field>
+            <Field id="thresholdGB" type="textfield" defaultValue="50">
+                <Label>Threshold (GB). Trigger fires when free space drops below this value.</Label>
+            </Field>
+        </ConfigUI>
+    </Event>
 </Events>
 

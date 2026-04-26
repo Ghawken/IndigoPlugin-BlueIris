@@ -5,7 +5,9 @@ Bug fix pass against BlueIris HTTP Interface Manual review:
   - updateBIServerdevice: tolerate missing status fields (mem/memfree/cpu/etc.)
     so a single missing key no longer hides the whole update behind the
     bare except and marks the server Offline.
-  - Fixed memFree/memfree typo when falling back to the v4-style mem field.
+  - mem state now stores total physical RAM (BI 'memphys') and memfree stores
+    free RAM (BI 'mem' / v4 'memfree') so the two states are no longer
+    populated with the same value.
   - Status 'signal' is now stored as a label (red/green/yellow) rather than
     the raw int.
   - updateUsers / updateDevices: validate the BI response is actually a list

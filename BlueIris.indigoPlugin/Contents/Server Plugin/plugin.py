@@ -866,10 +866,16 @@ class Plugin(indigo.PluginBase):
         try:
             #dev = indigo.devices[devId]
 
-            # add checks from memfree versus mem - which is a v4 and v5 difference
-            # Use .get() throughout so a single missing field doesn't blow up the
-            # whole state update (and silently mark the server Offline).
-            memFree = statusresults.get('mem', statusresults.get('memfree', '_'))
+            # BlueIris returns these RAM-related fields:
+            #   mem      - free memory available to BI (e.g. "2.77GB")
+            #   memphys  - total physical RAM on the host (e.g. "23.8GB")
+            #   memload  - overall memory load percentage (e.g. "47%")
+            # Older v4 builds only returned ``memfree`` instead of ``mem``.
+            # Map them onto distinct Indigo states so ``mem`` reflects total
+            # RAM and ``memfree`` reflects free RAM (previously both states
+            # were populated with the same value).
+            memFree = statusresults.get('mem', statusresults.get('memfree', ''))
+            memTotal = statusresults.get('memphys', '')
 
             # BI returns signal as an int (0=red, 1=green, 2=yellow).  Persist the
             # label rather than the raw int so users can write triggers/control
@@ -886,7 +892,7 @@ class Plugin(indigo.PluginBase):
                                  {'key': 'profile', 'value': statusresults.get('profile', '')},
                                  {'key': 'uptime', 'value': statusresults.get('uptime', '')},
                                  {'key': 'schedule', 'value': statusresults.get('schedule', '')},
-                                 {'key': 'mem', 'value': memFree},
+                                 {'key': 'mem', 'value': memTotal},
                                  {'key': 'lock', 'value': statusresults.get('lock', '')},
                                  {'key': 'signal', 'value': signal_value},
                                  {'key': 'alerts', 'value': statusresults.get('alerts', '')},

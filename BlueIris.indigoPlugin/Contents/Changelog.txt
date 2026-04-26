@@ -1,5 +1,16 @@
 ChangeLog
 
+v1.3.28
+Fix `ValueError: not enough values to unpack (expected 2, got 1)` in
+`actionChangeMacro`.  The validation added in v1.3.25 assumed
+``self.substitute(s, validateOnly=True)`` always returns a
+``(bool, errorString)`` tuple, but in practice some Indigo builds
+return a single value (or none at all for empty input), which broke
+the tuple unpack and tripped the broad `except` block.  The validation
+now goes through a small helper that normalises the return value into
+a `(bool, str)` tuple, skips empty inputs, and treats unexpected
+exceptions as a validation failure rather than crashing the action.
+
 v1.3.27
 Fix TypeError in actionChangeMacro: ``self.blueirisserverVersion`` was
 initialised to the string ``'4.0.0.0'`` and only later replaced with an

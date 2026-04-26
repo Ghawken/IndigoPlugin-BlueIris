@@ -2580,11 +2580,36 @@ color: #ff3300;
                 # Surface the bad field clearly and abort the action.
                 raw_number = valuesDict.props.get('macroNumber', '')
                 raw_text = valuesDict.props.get('macroText', '')
-                valid_n, err_n = self.substitute(raw_number, validateOnly=True)
+
+                def _validate_substitution(raw):
+                    """Wrapper around ``self.substitute(s, validateOnly=True)``.
+
+                    The documented Indigo API returns ``(success, errorString)``
+                    but some Indigo builds return only a single value (e.g. a
+                    bool, or just the substituted string for empty input).
+                    Normalise that into a ``(bool, str)`` tuple so we never
+                    blow up with ``ValueError: not enough values to unpack``.
+                    """
+                    if not raw:
+                        return True, u''
+                    try:
+                        result = self.substitute(raw, validateOnly=True)
+                    except Exception as ex:
+                        return False, u'%s' % ex
+                    if isinstance(result, tuple):
+                        if len(result) >= 2:
+                            return bool(result[0]), u'%s' % (result[1],)
+                        if len(result) == 1:
+                            return bool(result[0]), u''
+                        return True, u''
+                    # Single value returned: treat truthy as valid.
+                    return bool(result), u''
+
+                valid_n, err_n = _validate_substitution(raw_number)
                 if not valid_n:
                     self.logger.error(u'Change Macro: macro number contains an invalid substitution token (%s): %s' % (err_n, raw_number))
                     return
-                valid_t, err_t = self.substitute(raw_text, validateOnly=True)
+                valid_t, err_t = _validate_substitution(raw_text)
                 if not valid_t:
                     self.logger.error(u'Change Macro: macro text contains an invalid substitution token (%s): %s' % (err_t, raw_text))
                     return

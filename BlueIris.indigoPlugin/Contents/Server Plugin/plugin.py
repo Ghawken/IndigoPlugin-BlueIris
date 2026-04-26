@@ -177,6 +177,8 @@ class Plugin(indigo.PluginBase):
         self.logger.info("{0:<30} {1}".format("🏷  Plugin version:", pluginVersion))
         self.logger.info("{0:<30} {1}".format("🆔 Plugin ID:", pluginId))
         self.logger.info("{0:<30} {1}".format("🏠 Indigo version:", indigo.server.version))
+        for label, value in self.get_indigo_server_info():
+            self.logger.info("{0:<30} {1}".format(label, value))
         self.logger.info("{0:<30} {1}".format("🍎 System version:", f"{system_version} {longer_name}".strip()))
         self.logger.info("{0:<30} {1}".format("📦 Product version:", product_version))
         self.logger.info("{0:<30} {1}".format("🧬 Silicon version:", str(platform.machine())))
@@ -387,6 +389,42 @@ class Plugin(indigo.PluginBase):
             return f"Unknown macOS version for {version}"
         self.logger.debug(f"Major Version== {major_version}")
         return versions.get(major_version, f"Unknown macOS version for {version}")
+
+    ########################################
+    def get_indigo_server_info(self):
+        """Return a list of (label, value) tuples describing the running Indigo server.
+
+        Each endpoint is probed defensively so a missing/changed API on a
+        given Indigo build never breaks plugin start-up — endpoints that
+        raise or return None are simply omitted. Centralised here so future
+        Indigo metadata can be added in one place.
+        """
+        rows = []
+        # Map of (emoji label, callable returning the value). Callables are
+        # used (rather than precomputed values) so each probe is wrapped in
+        # its own try/except below.
+        probes = [
+            ("🌐 Web server URL:", lambda: indigo.server.getWebServerURL()),
+            ("🔁 Reflector URL:", lambda: indigo.server.getReflectorURL()),
+            ("🗄  Database name:", lambda: indigo.server.getDbName()),
+            ("💾 Database file path:", lambda: indigo.server.getDbFilePath()),
+            ("⏰ Server time:", lambda: indigo.server.getTime()),
+            ("🪪 License status:", lambda: indigo.server.getLicenseStatus()),
+            ("📥 Install folder:", lambda: indigo.server.getInstallFolderPath()),
+            ("🪵 Logs folder:", lambda: indigo.server.getLogsFolderPath()),
+            ("💽 Database folder:", lambda: indigo.server.getDbFolderPath()),
+        ]
+        for label, getter in probes:
+            try:
+                value = getter()
+            except Exception:
+                # API not present on this Indigo build — skip silently.
+                self.logger.debug(f"Indigo server probe {label!r} unavailable", exc_info=True)
+                continue
+            if value is None or value == "":
+                continue
+            rows.append((label, value))
+        return rows
 
     def closedPrefsConfigUi(self, valuesDict, userCancelled):
         if self.debugLevel >= 2:

@@ -47,14 +47,19 @@
         </ConfigUI>
     </Event>
     <Event id="logMessageTrigger">
-        <Name>Trigger on BI Log Warning/Error</Name>
+        <Name>Trigger on BI Log Message (by category)</Name>
         <ConfigUI>
-            <Field id="severity" type="menu" defaultValue="warn">
-                <Label>Severity (matches BI log level enum):</Label>
+            <Field id="severity" type="menu" defaultValue="any">
+                <Label>BI log category (level):</Label>
                 <List>
-                    <Option value="warn">Warning (level 2)</Option>
-                    <Option value="error">Error (level 3)</Option>
-                    <Option value="any">Warning or Error</Option>
+                    <Option value="any">Any level</Option>
+                    <Option value="motion">Motion trigger (level 3)</Option>
+                    <Option value="ai_alerted">AI Alerted (level 8)</Option>
+                    <Option value="canceled">Alert canceled (level 9)</Option>
+                    <Option value="connection">Connection / Login / Logout (level 10)</Option>
+                    <Option value="web">Web request (level 0)</Option>
+                    <Option value="warning">Warning (level 2)</Option>
+                    <Option value="error">Error (level 5)</Option>
                 </List>
             </Field>
             <Field id="textFilter" type="textfield" defaultValue="">

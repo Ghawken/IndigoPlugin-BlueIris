@@ -1,5 +1,21 @@
 ChangeLog
 
+v1.3.24
+logMessageTrigger: BI's log "level" field is a category enum, not a
+severity ladder.  Replaced the warn/error/any selector with the actual
+categories observed in real BI server output:
+  0  = Web request
+  2  = Warning
+  3  = Motion trigger / Retriggered
+  5  = Error
+  8  = AI Alerted
+  9  = Alert canceled
+  10 = Connection / Login / Logout
+Default severity is now "Any level" (no level filter), so the textFilter
+alone decides whether the trigger fires.  This stops the trigger firing
+on every camera Motion_A entry when the user previously selected
+"Error", which mapped to level 3 in v1.3.23.
+
 v1.3.23
 Phase 4 - new triggers / events:
   - logMessageTrigger: fires from BI server log polling on warning/error log

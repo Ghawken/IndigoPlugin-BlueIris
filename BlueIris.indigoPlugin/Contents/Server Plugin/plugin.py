@@ -39,11 +39,35 @@ import subprocess
 import threading
 
 # Blue Iris log "level" enum used by the /json log command.
-# Treated as a category, not a monotonic severity ladder.
-BI_LOG_WARN_LEVELS = frozenset({2})
-BI_LOG_ERROR_LEVELS = frozenset({3})
-BI_LOG_WARN_OR_ERROR_LEVELS = BI_LOG_WARN_LEVELS | BI_LOG_ERROR_LEVELS
-BI_LOG_AI_LEVEL = 8
+# Treated as a category, not a monotonic severity ladder.  Values
+# observed in real BI server output:
+#   0  = Web request (e.g. "Web: 200 OK")
+#   2  = Warning (rare; not present in every install)
+#   3  = Motion trigger / Retriggered (e.g. "Trigger: Motion_A")
+#   5  = Error (when present)
+#   8  = AI Alerted (e.g. "Trigger: Alerted")
+#   9  = Alert canceled (e.g. "Trigger: Alert canceled [nothing found]")
+#   10 = User activity (Login / Logout / Connected)
+BI_LOG_LEVEL_WEB = 0
+BI_LOG_LEVEL_WARNING = 2
+BI_LOG_LEVEL_MOTION = 3
+BI_LOG_LEVEL_ERROR = 5
+BI_LOG_LEVEL_AI = 8
+BI_LOG_AI_LEVEL = BI_LOG_LEVEL_AI  # back-compat alias used by aiTagTrigger
+BI_LOG_LEVEL_CANCELED = 9
+BI_LOG_LEVEL_CONNECTION = 10
+
+# Map of severity option (Events.xml) -> set of BI levels that satisfy it.
+# 'any' bypasses the level filter entirely.
+BI_LOG_SEVERITY_LEVELS = {
+    'web':        frozenset({BI_LOG_LEVEL_WEB}),
+    'warning':    frozenset({BI_LOG_LEVEL_WARNING}),
+    'motion':     frozenset({BI_LOG_LEVEL_MOTION}),
+    'error':      frozenset({BI_LOG_LEVEL_ERROR}),
+    'ai_alerted': frozenset({BI_LOG_LEVEL_AI}),
+    'canceled':   frozenset({BI_LOG_LEVEL_CANCELED}),
+    'connection': frozenset({BI_LOG_LEVEL_CONNECTION}),
+}
 
 ## Role together own httpserver
 #import string,cgi
@@ -2621,32 +2645,20 @@ color: #ff3300;
                     # ``camera`` here is the raw log item dict produced by
                     # parsemsgreceived().
                     #
-                    # BI's log ``level`` is an enumeration, NOT a monotonic
-                    # severity ladder, so we match against explicit sets.
-                    # Documented BI levels include (non-exhaustive):
-                    #   0  config / system
-                    #   2  warning
-                    #   3  error
-                    #   4  info / status (e.g. "Signal: restored")
-                    #   8  AI / event detection
-                    #   10 user activity (login, connect, ...)
-                    # Treating "warn" as ``level >= 1`` would fire on every
-                    # routine login/connect entry, which is the bug being
-                    # fixed here.
+                    # BI's log ``level`` is a CATEGORY enum, not a monotonic
+                    # severity ladder.  See BI_LOG_SEVERITY_LEVELS for the
+                    # categories observed in real BI server output.  Selecting
+                    # 'any' (the default) bypasses the level filter so the
+                    # textFilter alone decides whether the trigger fires.
                     item = camera if isinstance(camera, dict) else {}
                     try:
                         level = int(item.get('level', -1))
                     except (TypeError, ValueError):
                         level = -1
-                    severity = trigger.pluginProps.get('severity', 'warn')
-                    if severity == 'error':
-                        if level not in BI_LOG_ERROR_LEVELS:
-                            continue
-                    elif severity == 'warn':
-                        if level not in BI_LOG_WARN_LEVELS:
-                            continue
-                    elif severity == 'any':
-                        if level not in BI_LOG_WARN_OR_ERROR_LEVELS:
+                    severity = trigger.pluginProps.get('severity', 'any')
+                    if severity != 'any':
+                        allowed = BI_LOG_SEVERITY_LEVELS.get(severity)
+                        if allowed is not None and level not in allowed:
                             continue
                     text_filter = (trigger.pluginProps.get('textFilter', '') or '').strip().lower()
                     if text_filter:
@@ -2654,7 +2666,7 @@ color: #ff3300;
                         if text_filter not in haystack:
                             continue
                     if self.debugtriggers:
-                        self.logger.debug("===== Executing logMessage Trigger %s (%d) level=%s" % (trigger.name, trigger.id, level))
+                        self.logger.debug("===== Executing logMessage Trigger %s (%d) level=%s severity=%s" % (trigger.name, trigger.id, level, severity))
                     indigo.trigger.execute(trigger)
 
                 elif trigger.pluginTypeId == 'aiTagTrigger' and event == 'aiTag':

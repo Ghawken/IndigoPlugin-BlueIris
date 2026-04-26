@@ -3177,6 +3177,7 @@ color: #ff3300;
             "-quality", str(quality),
             "-compression_level", "4",
             "-preset", "picture",
+            "-f", "webp",
             str(tmp_output),
         ]
 

@@ -252,7 +252,7 @@
                 <Label>Select Camera(s)</Label>
                 <List class="indigo.devices" filter="self.BlueIrisCamera"/>
             </Field>
-             <Field id="gifwidth" type="textfield" tooltip="Width of Image.">
+             <Field id="gifwidth" type="textfield" tooltip="Width of Image." defaultValue="800">
             <Label>Width in Pixels of Image:</Label>
         <Description>Width of Image Saved</Description>
     </Field>
@@ -260,7 +260,7 @@
     <Label>Width of Animated Webp Created bigger = bigger file size
     </Label>  </Field>
 
-        <Field id="giftime" type="textfield" tooltip="Width of Image.">
+        <Field id="giftime" type="textfield" tooltip="Width of Image." defaultValue="10">
             <Label>Time of Saved Images in Seconds</Label>
         <Description>Time of Image</Description>
     </Field>
@@ -268,7 +268,7 @@
     <Label>Time over which images are saved and displayed eg. 5 seconds or 15 seconds.
     </Label>
         </Field>
-        <Field id="gifnumber" type="textfield" tooltip="Number of Images.">
+        <Field id="gifnumber" type="textfield" tooltip="Number of Images." defaultValue="15">
             <Label>Number of Images</Label>
         <Description>Number of Image</Description>
     </Field>
@@ -277,14 +277,26 @@
     </Label>
         </Field>
 
-           <Field id="gifcompression" type="textfield" tooltip="Width of Image.">
-            <Label>Lossy Compression of Webp:</Label>
-        <Description>Compression from 1-100 for saved WebP</Description>
+           <Field id="gifcompression" type="textfield" tooltip="WebP quality 1-100 (higher = better quality, larger file)." defaultValue="80">
+            <Label>WebP Quality (1-100):</Label>
+        <Description>Quality from 1-100 for saved WebP - higher means better quality and larger file</Description>
     </Field>
 
                <Field id="label11222" type="label" fontSize="small" fontColor="black">
-    <Label>Compression of Animated WebP - trying to make smaller files
-        from 1 to 100.  Ideal approx 20
+    <Label>WebP Quality from 1 to 100.  HIGHER = better quality (and larger file).
+        Recommended approx 80.  Values below 50 produce visibly blurry output.
+    </Label>
+               </Field>
+
+           <Field id="useStream" type="checkbox" defaultValue="true" tooltip="Capture frames from the BI MJPEG stream rather than polling /image. Produces sharper, time-aligned frames.">
+               <Label>Capture from MJPEG stream:</Label>
+               <Description>Use MJPEG stream for sharper frames (recommended)</Description>
+           </Field>
+
+               <Field id="streamlabel" type="label" fontSize="small" fontColor="black">
+    <Label>When enabled, frames are read from the BI MJPEG stream which avoids
+        duplicate/blurry frames from the snapshot endpoint.  If the stream
+        cannot be reached the action falls back to snapshot polling.
     </Label>
                </Field>
 

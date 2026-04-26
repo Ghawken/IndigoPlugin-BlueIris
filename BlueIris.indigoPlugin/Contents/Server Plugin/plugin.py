@@ -2103,34 +2103,98 @@ class Plugin(indigo.PluginBase):
             self.logger.exception(u'Caught Exception in Enable Anim Gifs')
             return
 
+    def _webp_int_prop(self, props, key, default):
+        """Coerce an action-prop value to int, falling back to default on blank/invalid."""
+        raw = props.get(key, default)
+        try:
+            if raw is None or (isinstance(raw, str) and raw.strip() == ''):
+                return int(default)
+            return int(raw)
+        except (TypeError, ValueError):
+            self.logger.debug(f"WebP action: invalid value for {key!r}={raw!r}, using default {default}")
+            return int(default)
+
+    def validateActionConfigUi(self, valuesDict, typeId, actionId):
+        """Validate config for the makewebP action.  Other actions pass through."""
+        errorDict = indigo.Dict()
+        if typeId == 'makewebP':
+            cameras = valuesDict.get('deviceCamera', [])
+            if not cameras:
+                errorDict['deviceCamera'] = 'Select at least one camera.'
+            for key, label, lo, hi, default in (
+                ('gifwidth', 'Width', 0, 4096, '800'),
+                ('giftime', 'Time (seconds)', 1, 600, '10'),
+                ('gifnumber', 'Number of Images', 1, 240, '15'),
+                ('gifcompression', 'WebP Quality', 1, 100, '80'),
+            ):
+                raw = valuesDict.get(key, '')
+                if raw is None or str(raw).strip() == '':
+                    valuesDict[key] = default
+                    continue
+                try:
+                    val = int(raw)
+                except (TypeError, ValueError):
+                    errorDict[key] = f'{label} must be a whole number.'
+                    continue
+                if val < lo or val > hi:
+                    errorDict[key] = f'{label} must be between {lo} and {hi}.'
+            if errorDict:
+                return (False, valuesDict, errorDict)
+            return (True, valuesDict)
+        return (True, valuesDict)
+
     def actionCreateWebp(self, valuesDict):
         self.logger.debug(u'action Create Webp for Cameras/s ')
         try:
-            action = valuesDict.pluginTypeId
             if self.debuggif:
                 self.logger.debug(str(valuesDict))
-            cameras = valuesDict.props.get('deviceCamera',[])
+            props = valuesDict.props
+            cameras = props.get('deviceCamera', [])
+            gifwidth = self._webp_int_prop(props, 'gifwidth', 800)
+            giftime = self._webp_int_prop(props, 'giftime', 10)
+            gifcompression = self._webp_int_prop(props, 'gifcompression', 80)
+            gifnumber = self._webp_int_prop(props, 'gifnumber', 15)
+            # Clamp to sensible ranges so the worker thread always gets safe values.
+            if gifnumber < 1:
+                gifnumber = 1
+            if giftime < 1:
+                giftime = 1
+            if gifcompression < 1:
+                gifcompression = 1
+            elif gifcompression > 100:
+                gifcompression = 100
+            use_stream = bool(props.get('useStream', True))
+            if isinstance(use_stream, str):
+                use_stream = use_stream.lower() in ('true', 'yes', '1')
+
             for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
                 if str(dev.id) in cameras and dev.enabled:
-                        cameraname = dev.states['optionValue']
-                        gifwidth = int(valuesDict.props.get('gifwidth', 800))
-                        giftime = int(valuesDict.props.get('giftime', 10))
-                        gifcompression = int(valuesDict.props.get('gifcompression', 20))
-                        gifnumber = int(valuesDict.props.get('gifnumber', 15))
-                        #width = int(gifwidth)
-                        #time = int(giftime)
-                        #gifcompression = int(gifcompression)
-                        if self.debuggif:
-                            self.logger.debug(u'Action Webp: Cameraname:'+str(cameraname)+u' gifwidth:'+str(gifwidth)+u' giftime:'+str(giftime)+u' gifcompression:'+str(gifcompression)+ f" {gifnumber=}")
-                        AnothermyThread = threading.Thread(target=self.animateWebp,args=[cameraname, gifwidth, giftime, gifcompression, gifnumber])
-                        AnothermyThread.start()
+                    cameraname = dev.states['optionValue']
+                    if not cameraname:
+                        self.logger.error(f"WebP action: camera device {dev.name} has no BI short name; skipping.")
+                        continue
+                    if self.debuggif:
                         self.logger.debug(
-                            u'Webp: Action New Thread For Camera:' + str(cameraname) + u' & Number of Active Threads:' + str(
-                                threading.activeCount()))
-                        self.sleep(0.05)
+                            u'Action Webp: Cameraname:' + str(cameraname)
+                            + u' gifwidth:' + str(gifwidth)
+                            + u' giftime:' + str(giftime)
+                            + u' gifquality:' + str(gifcompression)
+                            + f" gifnumber={gifnumber} useStream={use_stream}"
+                        )
+                    AnothermyThread = threading.Thread(
+                        target=self.animateWebp,
+                        name=f"webp-{cameraname}",
+                        args=[cameraname, gifwidth, giftime, gifcompression, gifnumber, use_stream],
+                    )
+                    AnothermyThread.start()
+                    self.logger.debug(
+                        u'Webp: Action New Thread For Camera:' + str(cameraname)
+                        + u' & Number of Active Threads:' + str(threading.active_count())
+                    )
+                    self.sleep(0.05)
             return
-        except:
-            self.logger.exception(u'Caught Exception in Create Anim Gifs')
+        except Exception:
+            self.logger.exception(u'Caught Exception in Create Anim WebP')
             return
 
     def actionCreateAnimGif(self, valuesDict):
@@ -2899,97 +2963,276 @@ color: #ff3300;
                     self.logger.info(u"{0:<12s} {1:<12s} {2:<12s}".format("Camera :"+cameraname, 'Shadows:', cameraconfigdata['setmotion']['shadows'])   )
 
 ################## Animated Gifs
-    def animateWebp(self, cameraname, width, time, gifcompression, gifnumber):
-        # file_names = sorted((fn for fn in os.listdir(folderLocation) ))
+    def _webp_snapshot_url(self, cameraname, width):
+        """Build a BI snapshot URL that requests a freshly-decoded, high-quality JPEG."""
+        base = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/image/' + cameraname
+        params = ['q=95', 'decode=1']
+        if width and int(width) > 0:
+            params.append('w=' + str(int(width)))
+        return base + '?' + '&'.join(params)
+
+    def _webp_capture_via_stream(self, cameraname, width, duration_secs, gifnumber, tmp_dir):
+        """Capture <gifnumber> JPEG frames evenly spaced over <duration_secs> from the
+        BI MJPEG stream.  Returns the list of file paths actually written, or None on
+        failure (caller should fall back to snapshot polling)."""
+        stream_url = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/mjpg/' + cameraname + '/video.mjpg'
+        if width and int(width) > 0:
+            stream_url += '?w=' + str(int(width))
+        written = []
+        try:
+            interval = float(duration_secs) / float(gifnumber)
+            deadline = t.time() + float(duration_secs) + max(5.0, float(self.ServerTimeout))
+            next_grab = t.time()
+            with requests.get(
+                stream_url,
+                auth=(str(self.serverusername), str(self.serverpassword)),
+                stream=True,
+                timeout=self.ServerTimeout,
+            ) as r:
+                if r.status_code != 200:
+                    self.logger.debug(f"WebP stream: status {r.status_code} from {stream_url}; falling back to snapshots.")
+                    return None
+                buf = b''
+                idx = 100
+                target = 100 + int(gifnumber)
+                # Walk the byte stream looking for JPEG SOI/EOI markers.  This is
+                # tolerant of any MJPEG multipart boundary BI happens to use.
+                for chunk in r.iter_content(chunk_size=8192):
+                    if not chunk:
+                        if t.time() > deadline:
+                            break
+                        continue
+                    buf += chunk
+                    while True:
+                        soi = buf.find(b'\xff\xd8')
+                        if soi < 0:
+                            buf = buf[-1:]
+                            break
+                        eoi = buf.find(b'\xff\xd9', soi + 2)
+                        if eoi < 0:
+                            if soi > 0:
+                                buf = buf[soi:]
+                            break
+                        frame = buf[soi:eoi + 2]
+                        buf = buf[eoi + 2:]
+                        now = t.time()
+                        if now < next_grab:
+                            continue
+                        path = tmp_dir + str(idx) + '.jpg'
+                        try:
+                            with open(path, 'wb') as f:
+                                f.write(frame)
+                            written.append(path)
+                            if self.debuggif:
+                                self.logger.debug(f"WebP stream: wrote {path} ({len(frame)} bytes)")
+                            idx += 1
+                            next_grab = now + interval
+                        except OSError:
+                            self.logger.exception(u'WebP stream: error writing frame to disk')
+                        if idx >= target:
+                            break
+                    if idx >= target or t.time() > deadline:
+                        break
+            if not written:
+                return None
+            return written
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            self.logger.debug(f"WebP stream: connection error ({e}); falling back to snapshots.")
+            return None
+        except Exception:
+            self.logger.exception(u'WebP stream: unexpected error; falling back to snapshots.')
+            return None
+
+    def _webp_capture_via_snapshots(self, cameraname, width, duration_secs, gifnumber, tmp_dir):
+        """Original snapshot-polling capture path.  Returns list of files written."""
+        theUrl = self._webp_snapshot_url(cameraname, width)
+        written = []
+        x = 100
+        target = 100 + int(gifnumber)
+        per_frame = float(duration_secs) / float(gifnumber)
+        while x < target:
+            start = t.time()
+            path = tmp_dir + str(x) + '.jpg'
+            download_time = 0.0
+            try:
+                with requests.get(
+                    theUrl,
+                    auth=(str(self.serverusername), str(self.serverpassword)),
+                    stream=True,
+                    timeout=self.ServerTimeout,
+                ) as r:
+                    if self.debuggif:
+                        self.logger.debug(u'URL Called:' + str(theUrl))
+                        self.logger.debug(u'Time ' + str(t.time()) + u' Path/Name in Order:' + str(path))
+                    if r.status_code == 200:
+                        aborted = False
+                        with open(path, 'wb') as f:
+                            for chunk in r.iter_content(1024):
+                                f.write(chunk)
+                                if t.time() > (start + self.ImageTimeout):
+                                    self.logger.error(u'WebP - Download Image Taking to long.  Aborted.')
+                                    aborted = True
+                                    break
+                        download_time = t.time() - start
+                        if aborted:
+                            try:
+                                os.remove(path)
+                            except OSError:
+                                pass
+                        else:
+                            written.append(path)
+                            if self.debuggif:
+                                self.logger.debug(u'WebP: Image Download Attempt for: ' + str(path)
+                                                  + u' in [seconds]:' + str(download_time))
+                    else:
+                        self.logger.debug(u'Issue with BI connection. No image downloaded. Status code:'
+                                          + str(r.status_code) + ' Error:' + str(r.text))
+                        t.sleep(2)
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+                self.logger.debug(f"WebP snapshot request error: {e}")
+                t.sleep(1)
+
+            x += 1
+            interval = per_frame - download_time
+            if self.debuggif:
+                self.logger.debug(u'Wait Interval: ' + str(interval))
+            if interval > 0:
+                t.sleep(interval)
+            else:
+                self.logger.debug(f"Seems BI can't download images fast enough.  Skipping any delay")
+        return written
+
+    def animateWebp(self, cameraname, width, duration_secs, gifcompression, gifnumber, use_stream=True):
         try:
             if self.debuggif:
                 self.logger.debug(u'AnimateWebp Called: In a New thread:')
-                self.logger.debug(u'animateWebp: camera:'+str(cameraname)+u' width:'+str(width)+u' time:'+str(time)+u' gifcompression:'+str(gifcompression) +f" and {gifnumber=}")
-            # MAChome = os.path.expanduser("~") + "/"
-            # folderLocation = MAChome + "Documents/Indigo-BlueIris/"+str(cameraname)+'/'
+                self.logger.debug(u'animateWebp: camera:' + str(cameraname)
+                                  + u' width:' + str(width)
+                                  + u' time:' + str(duration_secs)
+                                  + u' quality:' + str(gifcompression)
+                                  + f" gifnumber={gifnumber} use_stream={use_stream}")
 
             try:
                 gifnumber = int(gifnumber)
-            except:
+            except (TypeError, ValueError):
                 self.logger.debug(f"Error with gifnumber - likely need to open action group edit and save")
                 gifnumber = 15
+            if gifnumber < 1:
+                gifnumber = 1
 
             try:
-                if int(gifcompression) >= 100:
+                gifcompression = int(gifcompression)
+                if gifcompression >= 100:
                     gifcompression = 100
-                elif int(gifcompression) <= 1:
+                elif gifcompression <= 1:
                     gifcompression = 1
-            except:
+            except (TypeError, ValueError):
                 gifcompression = 80
 
-            folderLocation = self.saveDirectory+str(cameraname)+'/'
-
-            if width <= 0:
-                theUrl = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/image/' + cameraname
-            else:
-                theUrl = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/image/' + cameraname + '?w=' + str(width)
-
-            x=100
-            constant_interval = float(time) / int(gifnumber)
-            while x < ( 100+int(gifnumber) ):
-            #for x in range(100,115):
-                start = t.time()
-                path = folderLocation + 'tmp/' + str(x)+'.jpg'
-                r = requests.get(theUrl, auth=(str(self.serverusername), str(self.serverpassword)), stream=True, timeout=self.ServerTimeout)
-                if self.debuggif:
-                    self.logger.debug(u'URL Called:'+str(theUrl))
-                    self.logger.debug(u'Time '+str(t.time())+u' Path/Name in Order:'+str(path))
-                if r.status_code == 200:
-                    with open(path, 'wb') as f:
-                        for chunk in r.iter_content(1024):
-                            f.write(chunk)
-                            if t.time() > (start + self.ImageTimeout):
-                                self.logger.error(u'WebP - Download Image Taking to long.  Aborted.')
-                                break
-                    if self.debuggif:
-                        self.logger.debug(u'WebP: Image Download Attempt for: ' + str(path) + u' in [seconds]:' + str(t.time() - start))
-                    download_time = t.time()-start
-
-                    if self.debuggif:
-                        self.logger.debug(f"Took {download_time} secs to download, removing this from delay.")
-                else:
-                    self.logger.debug(u'Issue with BI connection. No image downloaded. Status code:'+str(r.status_code)+' Error:'+str(r.text))
-                    #not sure about below - might hang forever and lead to multiple threads versus missing image..
-                    #removing
-                    #x=x-1
-                    t.sleep(2)
-
-                Interval = float( (float(time) / int(gifnumber))  - download_time)
-                #change above
-                if self.debuggif:
-                    self.logger.debug(u'Wait Interval: '+str(Interval))
-                x=x+1
-                if Interval > 0:
-                    t.sleep(Interval)
-                else:
-                    self.logger.debug(f"Seems BI can't download images faster enough.  Skipping any delay")
-            #
-            #self.newThreadDownload( folderLocation, cameraname, width, time)
-            INPUT_DIR=Path(folderLocation+'tmp/')
-            input_frames = sorted(INPUT_DIR.glob("*.jpg"))
-            newfilename = folderLocation + 'Animated.webp'
-            OUTPUT_FILE = Path(newfilename)
-
-            delay_hundreds = constant_interval * 1000 ## should be 100 but seems some delays in display - using 500
-            if self.debuggif:
-                self.logger.debug(f"Using {delay_hundreds} for delay in webp, give 15 images over time: {time} == {time/15} per image given, &image numbers {gifnumber}")
+            try:
+                width = int(width)
+            except (TypeError, ValueError):
+                width = 0
 
             try:
-                frame_duration_ms = round(delay_hundreds)
-                frames = [Image.open(frame) for frame in input_frames]
-                frames[0].save(OUTPUT_FILE, "webp", append_images=frames[1:], duration=frame_duration_ms, save_all=True, lossless=False, quality=int(gifcompression) )
+                duration_secs = float(duration_secs)
+                if duration_secs <= 0:
+                    duration_secs = 1.0
+            except (TypeError, ValueError):
+                duration_secs = 10.0
 
-            except Exception as e:
+            folderLocation = self.saveDirectory + str(cameraname) + '/'
+            tmp_dir = folderLocation + 'tmp/'
+            try:
+                os.makedirs(tmp_dir, exist_ok=True)
+            except OSError:
+                self.logger.exception(u'WebP: unable to create tmp directory')
+                return
+
+            # Clear any leftover JPEGs from a previous run so stale frames don't
+            # leak into this WebP.
+            try:
+                for stale in os.listdir(tmp_dir):
+                    if stale.lower().endswith('.jpg'):
+                        try:
+                            os.remove(os.path.join(tmp_dir, stale))
+                        except OSError:
+                            pass
+            except OSError:
+                pass
+
+            written = None
+            if use_stream:
+                written = self._webp_capture_via_stream(cameraname, width, duration_secs, gifnumber, tmp_dir)
+            if not written:
+                written = self._webp_capture_via_snapshots(cameraname, width, duration_secs, gifnumber, tmp_dir)
+
+            if not written:
+                self.logger.error(u'WebP: no frames captured; aborting WebP creation.')
+                return
+
+            # Sort numerically by filename stem so 100..130 is stable regardless of
+            # digit count, and only consider files we actually wrote this run.
+            input_frames = sorted(
+                (Path(p) for p in written if os.path.exists(p)),
+                key=lambda p: int(p.stem) if p.stem.isdigit() else 0,
+            )
+            constant_interval = float(duration_secs) / float(gifnumber)
+            frame_duration_ms = max(1, int(round(constant_interval * 1000)))
+            if self.debuggif:
+                self.logger.debug(f"WebP: {len(input_frames)} frames, {frame_duration_ms}ms each, "
+                                  f"quality={gifcompression}, duration={duration_secs}s")
+
+            output_path = Path(folderLocation + 'Animated.webp')
+            tmp_output = output_path.with_suffix('.webp.tmp')
+            try:
+                frames = []
+                for frame_path in input_frames:
+                    try:
+                        img = Image.open(frame_path)
+                        img.load()  # force decode now so we can detect corrupt JPEGs
+                        frames.append(img)
+                    except Exception:
+                        self.logger.debug(f"WebP: skipping unreadable frame {frame_path}")
+                if not frames:
+                    self.logger.error(u'WebP: no decodable frames; aborting.')
+                    return
+                try:
+                    frames[0].save(
+                        tmp_output,
+                        "webp",
+                        append_images=frames[1:],
+                        duration=frame_duration_ms,
+                        save_all=True,
+                        loop=0,
+                        lossless=False,
+                        quality=int(gifcompression),
+                        method=6,
+                        minimize_size=True,
+                    )
+                finally:
+                    for img in frames:
+                        try:
+                            img.close()
+                        except Exception:
+                            pass
+                os.replace(tmp_output, output_path)
+            except Exception:
                 self.logger.exception(u'Caught Exception within webP Image Pillow - newThread')
+                try:
+                    if tmp_output.exists():
+                        tmp_output.unlink()
+                except OSError:
+                    pass
+                return
 
-            self.createupdatevariable('lastwebP', f"{OUTPUT_FILE}")
-            self.logger.debug(f"Successfully Saved Webp Image to {OUTPUT_FILE}")
-            self.logger.debug(u'with Settings: camera:' + str(cameraname) + u' Width:' + str(width) + u'(pixels) length seconds:' + str(time) + u'(secs) Webp Quality:' + str(gifcompression) + f" and Number Images :{gifnumber}")
+            self.createupdatevariable('lastwebP', f"{output_path}")
+            self.logger.debug(f"Successfully Saved Webp Image to {output_path}")
+            self.logger.debug(u'with Settings: camera:' + str(cameraname)
+                              + u' Width:' + str(width)
+                              + u'(pixels) length seconds:' + str(duration_secs)
+                              + u'(secs) Webp Quality:' + str(gifcompression)
+                              + f" and Number Images :{gifnumber}")
 
         except requests.exceptions.Timeout:
             self.logger.debug(u'Anim WebP requests has timed out and cannot connect to BI Server.')
@@ -2999,12 +3242,11 @@ color: #ff3300;
             self.logger.debug(u'Anim WebP requests has timed out/Connection Error and cannot connect to BI Server.')
             pass
 
-
         except self.StopThread:
             self.logger.info(u'Restarting/or error. Stopping thread.')
-            pass
+            raise
 
-        except:
+        except Exception:
             self.logger.exception(u'Caught Error in Anim WebP Thread')
 ################## Run the create gifs in a seperate thread as will take a few seconds we can't afford
 

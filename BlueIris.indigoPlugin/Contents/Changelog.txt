@@ -1,5 +1,16 @@
 ChangeLog
 
+v1.3.29
+Simplify the macro-number / macro-text substitution validation in
+`actionChangeMacro` to match Indigo's actual `self.substitute(s,
+validateOnly=True)` contract observed at runtime: it returns the
+input string when valid and only returns a `(False, errorMessage)`
+tuple when invalid.  The previous helper tried to handle a `(bool,
+str)` tuple in both branches and tripped `ValueError: not enough
+values to unpack` on the valid path.  The check now treats a tuple
+result with a falsy first element as the sole failure signal, skips
+empty inputs, and otherwise lets the action proceed.
+
 v1.3.28
 Fix `ValueError: not enough values to unpack (expected 2, got 1)` in
 `actionChangeMacro`.  The validation added in v1.3.25 assumed

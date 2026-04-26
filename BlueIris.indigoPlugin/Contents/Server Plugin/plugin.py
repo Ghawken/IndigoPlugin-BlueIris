@@ -2581,37 +2581,23 @@ color: #ff3300;
                 raw_number = valuesDict.props.get('macroNumber', '')
                 raw_text = valuesDict.props.get('macroText', '')
 
-                def _validate_substitution(raw):
-                    """Wrapper around ``self.substitute(s, validateOnly=True)``.
-
-                    The documented Indigo API returns ``(success, errorString)``
-                    but some Indigo builds return only a single value (e.g. a
-                    bool, or just the substituted string for empty input).
-                    Normalise that into a ``(bool, str)`` tuple so we never
-                    blow up with ``ValueError: not enough values to unpack``.
-                    """
+                # ``self.substitute(s, validateOnly=True)`` in this Indigo
+                # build returns the input string when valid and only returns
+                # a ``(False, errorMessage)`` tuple when invalid, so a tuple
+                # result is the sole failure signal.
+                def _check(raw, label):
                     if not raw:
-                        return True, u''
-                    try:
-                        result = self.substitute(raw, validateOnly=True)
-                    except Exception as ex:
-                        return False, u'%s' % ex
-                    if isinstance(result, tuple):
-                        if len(result) >= 2:
-                            return bool(result[0]), u'%s' % (result[1],)
-                        if len(result) == 1:
-                            return bool(result[0]), u''
-                        return True, u''
-                    # Single value returned: treat truthy as valid.
-                    return bool(result), u''
+                        return True
+                    result = self.substitute(raw, validateOnly=True)
+                    if isinstance(result, tuple) and not result[0]:
+                        err = result[1] if len(result) > 1 else u''
+                        self.logger.error(u'Change Macro: %s contains an invalid substitution token (%s): %s' % (label, err, raw))
+                        return False
+                    return True
 
-                valid_n, err_n = _validate_substitution(raw_number)
-                if not valid_n:
-                    self.logger.error(u'Change Macro: macro number contains an invalid substitution token (%s): %s' % (err_n, raw_number))
+                if not _check(raw_number, u'macro number'):
                     return
-                valid_t, err_t = _validate_substitution(raw_text)
-                if not valid_t:
-                    self.logger.error(u'Change Macro: macro text contains an invalid substitution token (%s): %s' % (err_t, raw_text))
+                if not _check(raw_text, u'macro text'):
                     return
                 macronumber = self.substitute(raw_number)
                 macrotext = self.substitute(raw_text)

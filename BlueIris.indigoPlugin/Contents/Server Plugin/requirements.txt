@@ -1,1 +1,2 @@
 plugin_gifsicle>=0.0.3
+homekitlink_ffmpeg>=0.0.30

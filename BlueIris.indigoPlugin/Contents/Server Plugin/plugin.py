@@ -2166,6 +2166,9 @@ class Plugin(indigo.PluginBase):
             use_stream = bool(props.get('useStream', True))
             if isinstance(use_stream, str):
                 use_stream = use_stream.lower() in ('true', 'yes', '1')
+            use_ffmpeg = bool(props.get('useFfmpeg', False))
+            if isinstance(use_ffmpeg, str):
+                use_ffmpeg = use_ffmpeg.lower() in ('true', 'yes', '1')
 
             for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
                 if str(dev.id) in cameras and dev.enabled:
@@ -2179,12 +2182,12 @@ class Plugin(indigo.PluginBase):
                             + u' gifwidth:' + str(gifwidth)
                             + u' giftime:' + str(giftime)
                             + u' gifquality:' + str(gifcompression)
-                            + f" gifnumber={gifnumber} useStream={use_stream}"
+                            + f" gifnumber={gifnumber} useStream={use_stream} useFfmpeg={use_ffmpeg}"
                         )
                     AnothermyThread = threading.Thread(
                         target=self.animateWebp,
                         name=f"webp-{cameraname}",
-                        args=[cameraname, gifwidth, giftime, gifcompression, gifnumber, use_stream],
+                        args=[cameraname, gifwidth, giftime, gifcompression, gifnumber, use_stream, use_ffmpeg],
                     )
                     AnothermyThread.start()
                     self.logger.debug(
@@ -3102,7 +3105,133 @@ color: #ff3300;
                 self.logger.debug(f"Seems BI can't download images fast enough.  Skipping any delay")
         return written
 
-    def animateWebp(self, cameraname, width, duration_secs, gifcompression, gifnumber, use_stream=True):
+    def _webp_make_via_ffmpeg(self, cameraname, width, duration_secs, gifnumber,
+                              gifcompression, output_path):
+        """Encode the animated WebP directly with the bundled ffmpeg binary, reading
+        the BI MJPEG stream as input.  Returns True on success, False on any failure
+        (caller should fall back to the Pillow capture/encode path)."""
+        try:
+            from homekitlink_ffmpeg import get_ffmpeg_binary
+        except Exception:
+            self.logger.debug(u'WebP ffmpeg: homekitlink_ffmpeg not importable; skipping ffmpeg path.')
+            return False
+        try:
+            binary = get_ffmpeg_binary()
+        except Exception:
+            self.logger.exception(u'WebP ffmpeg: get_ffmpeg_binary() raised; skipping ffmpeg path.')
+            return False
+        if not binary or not os.path.exists(binary):
+            self.logger.debug(f"WebP ffmpeg: binary not found at {binary!r}; skipping ffmpeg path.")
+            return False
+
+        try:
+            duration = float(duration_secs)
+            if duration <= 0:
+                duration = 1.0
+            nframes = max(1, int(gifnumber))
+            quality = max(1, min(100, int(gifcompression)))
+            fps = max(0.1, float(nframes) / duration)
+        except (TypeError, ValueError):
+            self.logger.exception(u'WebP ffmpeg: bad numeric input; skipping ffmpeg path.')
+            return False
+
+        # Build MJPEG stream URL with credentials embedded for ffmpeg auth.
+        user = urllib.parse.quote(str(self.serverusername), safe='')
+        pwd = urllib.parse.quote(str(self.serverpassword), safe='')
+        host_port = f"{self.serverip}:{self.serverport}"
+        stream_path = f"/mjpg/{cameraname}/video.mjpg"
+        if width and int(width) > 0:
+            stream_path += f"?w={int(width)}"
+        stream_url = f"http://{user}:{pwd}@{host_port}{stream_path}"
+        # Safe URL for logging — never include password.
+        safe_url = f"http://{user}:***@{host_port}{stream_path}"
+
+        # fps filter forces a constant rate from the variable-rate MJPEG input,
+        # which gives evenly-spaced frames in the output WebP.
+        vf = f"fps={fps:.4f}"
+        if width and int(width) > 0:
+            vf = f"scale={int(width)}:-2,{vf}"
+
+        tmp_output = output_path.with_suffix('.webp.tmp')
+        try:
+            if tmp_output.exists():
+                tmp_output.unlink()
+        except OSError:
+            pass
+
+        cmd = [
+            binary,
+            "-y",
+            "-loglevel", "error",
+            "-nostdin",
+            "-rw_timeout", "10000000",  # 10s read timeout in microseconds
+            "-f", "mjpeg",
+            "-i", stream_url,
+            "-an",
+            "-t", f"{duration:.3f}",
+            "-frames:v", str(nframes),
+            "-vf", vf,
+            "-c:v", "libwebp",
+            "-loop", "0",
+            "-lossless", "0",
+            "-quality", str(quality),
+            "-compression_level", "4",
+            "-preset", "picture",
+            str(tmp_output),
+        ]
+
+        if self.debuggif:
+            self.logger.debug(
+                u'WebP ffmpeg: running ' + ' '.join(c if c != stream_url else safe_url for c in cmd)
+            )
+
+        # Generous wall-clock cap: capture window + encode headroom.
+        timeout = max(30.0, duration + 30.0)
+        try:
+            result = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=timeout,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            self.logger.error(u'WebP ffmpeg: timed out; falling back to Pillow path.')
+            try:
+                if tmp_output.exists():
+                    tmp_output.unlink()
+            except OSError:
+                pass
+            return False
+        except Exception:
+            self.logger.exception(u'WebP ffmpeg: subprocess failed; falling back to Pillow path.')
+            return False
+
+        if result.returncode != 0 or not tmp_output.exists() or tmp_output.stat().st_size == 0:
+            stderr_text = (result.stderr or b'').decode('utf-8', errors='replace').strip()
+            # Strip the stream URL out of stderr just in case ffmpeg echoed it back.
+            if stream_url in stderr_text:
+                stderr_text = stderr_text.replace(stream_url, safe_url)
+            self.logger.error(
+                f"WebP ffmpeg: encode failed (rc={result.returncode}); "
+                f"falling back to Pillow path. stderr: {stderr_text}"
+            )
+            try:
+                if tmp_output.exists():
+                    tmp_output.unlink()
+            except OSError:
+                pass
+            return False
+
+        try:
+            os.replace(tmp_output, output_path)
+        except OSError:
+            self.logger.exception(u'WebP ffmpeg: unable to move tmp output into place.')
+            return False
+        return True
+
+    def animateWebp(self, cameraname, width, duration_secs, gifcompression, gifnumber,
+                    use_stream=True, use_ffmpeg=False):
         try:
             if self.debuggif:
                 self.logger.debug(u'AnimateWebp Called: In a New thread:')
@@ -3142,6 +3271,28 @@ color: #ff3300;
                 duration_secs = 10.0
 
             folderLocation = self.saveDirectory + str(cameraname) + '/'
+            try:
+                os.makedirs(folderLocation, exist_ok=True)
+            except OSError:
+                self.logger.exception(u'WebP: unable to create camera output directory')
+                return
+
+            output_path = Path(folderLocation + 'Animated.webp')
+
+            # Fast path: encode straight from the BI MJPEG stream with ffmpeg.
+            if use_ffmpeg:
+                if self._webp_make_via_ffmpeg(cameraname, width, duration_secs,
+                                              gifnumber, gifcompression, output_path):
+                    self.createupdatevariable('lastwebP', f"{output_path}")
+                    self.logger.debug(f"Successfully Saved Webp Image to {output_path} (ffmpeg)")
+                    self.logger.debug(u'with Settings: camera:' + str(cameraname)
+                                      + u' Width:' + str(width)
+                                      + u'(pixels) length seconds:' + str(duration_secs)
+                                      + u'(secs) Webp Quality:' + str(gifcompression)
+                                      + f" and Number Images :{gifnumber} (encoder=ffmpeg)")
+                    return
+                self.logger.debug(u'WebP: ffmpeg path failed; falling back to Pillow capture/encode.')
+
             tmp_dir = folderLocation + 'tmp/'
             try:
                 os.makedirs(tmp_dir, exist_ok=True)
@@ -3183,7 +3334,7 @@ color: #ff3300;
                 self.logger.debug(f"WebP: {len(input_frames)} frames, {frame_duration_ms}ms each, "
                                   f"quality={gifcompression}, duration={duration_secs}s")
 
-            output_path = Path(folderLocation + 'Animated.webp')
+            # output_path was assigned earlier (so the ffmpeg fast path could use it).
             tmp_output = output_path.with_suffix('.webp.tmp')
             try:
                 frames = []

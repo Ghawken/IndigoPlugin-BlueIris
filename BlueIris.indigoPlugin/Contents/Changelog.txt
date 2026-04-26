@@ -1,5 +1,28 @@
 ChangeLog
 
+v1.3.22
+Bug fix pass against BlueIris HTTP Interface Manual review:
+  - updateBIServerdevice: tolerate missing status fields (mem/memfree/cpu/etc.)
+    so a single missing key no longer hides the whole update behind the
+    bare except and marks the server Offline.
+  - Fixed memFree/memfree typo when falling back to the v4-style mem field.
+  - Status 'signal' is now stored as a label (red/green/yellow) rather than
+    the raw int.
+  - updateUsers / updateDevices: validate the BI response is actually a list
+    before iterating (BI returns {"result":"fail"} on session expiry/non-admin).
+  - updateDevices: stopped comparing str to bytes (encode('utf-8')) so
+    geofence/mobile-device matching works under Python 3.
+  - changeProfile: guard against an empty profiles_list and unknown profile
+    names instead of raising and aborting the action mid-way.
+  - sendccommand now reuses the existing BI session instead of running a full
+    two-step login on every JSON command, and only re-logs in when the server
+    replies result:fail.
+  - shutdown() sends a logout command so BI no longer accumulates ghost
+    sessions across plugin restarts.
+  - checkCamDevices matches cameras by their BI optionValue (short name)
+    instead of by the Indigo device name, so renaming the Indigo device no
+    longer breaks subsequent state updates.
+
 v1.2.1
 Python3 Support
 

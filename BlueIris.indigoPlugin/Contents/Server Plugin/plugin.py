@@ -79,6 +79,7 @@ class Plugin(indigo.PluginBase):
         self.oldlistenPort = 4556
         self.systemdata = None
         self.session =''
+        self.response = ''
 
         self.ImageTimeout =10
         self.ServerTimeout = 5
@@ -866,29 +867,37 @@ class Plugin(indigo.PluginBase):
             #dev = indigo.devices[devId]
 
             # add checks from memfree versus mem - which is a v4 and v5 difference
-            memFree = '_';
-            if 'mem' in statusresults:
-                memFree = statusresults['mem']
-            elif 'memfree' in statusresults:
-                memFree = statusresults['memFree']
+            # Use .get() throughout so a single missing field doesn't blow up the
+            # whole state update (and silently mark the server Offline).
+            memFree = statusresults.get('mem', statusresults.get('memfree', '_'))
+
+            # BI returns signal as an int (0=red, 1=green, 2=yellow).  Persist the
+            # label rather than the raw int so users can write triggers/control
+            # pages against a meaningful value.
+            signal_raw = statusresults.get('signal')
+            signal_map = {0: 'red', 1: 'green', 2: 'yellow'}
+            try:
+                signal_value = signal_map.get(int(signal_raw), str(signal_raw))
+            except (TypeError, ValueError):
+                signal_value = str(signal_raw) if signal_raw is not None else ''
 
             stateList = [
-                                 {'key': 'cxns', 'value': statusresults['cxns']},
-                                 {'key': 'profile', 'value': statusresults['profile']},
-                                 {'key': 'uptime', 'value': statusresults['uptime']},
-                                 {'key': 'schedule', 'value': statusresults['schedule']},
+                                 {'key': 'cxns', 'value': statusresults.get('cxns', '')},
+                                 {'key': 'profile', 'value': statusresults.get('profile', '')},
+                                 {'key': 'uptime', 'value': statusresults.get('uptime', '')},
+                                 {'key': 'schedule', 'value': statusresults.get('schedule', '')},
                                  {'key': 'mem', 'value': memFree},
-                                 {'key': 'lock', 'value': statusresults['lock']},
-                                 {'key': 'signal', 'value': statusresults['signal']},
-                                 {'key': 'alerts', 'value': statusresults['alerts']},
-                                 {'key': 'tzone', 'value': statusresults['tzone']},
+                                 {'key': 'lock', 'value': statusresults.get('lock', '')},
+                                 {'key': 'signal', 'value': signal_value},
+                                 {'key': 'alerts', 'value': statusresults.get('alerts', '')},
+                                 {'key': 'tzone', 'value': statusresults.get('tzone', '')},
                                 # {'key': 'clips', 'value': statusresults['clips']},
                 ## remove above clips here is the info about clips, not level of access
-                                 {'key': 'memload', 'value': statusresults['memload']},
-                                 {'key': 'memfree', 'value': statusresults['mem']},
-                                 {'key': 'warnings', 'value': statusresults['warnings']},
-                                 {'key': 'cpu', 'value': statusresults['cpu']},
-                                 {'key': 'clipsInfo', 'value': str(statusresults['clips'])},
+                                 {'key': 'memload', 'value': statusresults.get('memload', '')},
+                                 {'key': 'memfree', 'value': memFree},
+                                 {'key': 'warnings', 'value': statusresults.get('warnings', '')},
+                                 {'key': 'cpu', 'value': statusresults.get('cpu', '')},
+                                 {'key': 'clipsInfo', 'value': str(statusresults.get('clips', ''))},
                                  {'key': 'disktotal', 'value': disktotal},
                                  {'key': 'diskallocated', 'value': diskallocated},
                                  {'key': 'diskname', 'value': diskname},
@@ -899,7 +908,7 @@ class Plugin(indigo.PluginBase):
             update_time = t.strftime('%c')
 
 
-            deviceState = str('Cpu :')+str(statusresults['cpu'])+'% MemFree :'+str(memFree)
+            deviceState = str('Cpu :')+str(statusresults.get('cpu', ''))+'% MemFree :'+str(memFree)
 
             dev.updateStateOnServer('deviceLastUpdated', value=str(update_time))
             dev.updateStateOnServer('deviceTimestamp', value=str(t.time()))
@@ -1077,9 +1086,19 @@ class Plugin(indigo.PluginBase):
                 x = 1
                 for i in range(len(camlist)):
                      deviceName = 'BlueIris Camera '+str(camlist[i][0]['optionDisplay'])
+                     # Match the BI camera to an Indigo device by its
+                     # optionValue (the BI short name).  Previously this
+                     # matched on dev.name, which silently broke every
+                     # subsequent state update if the user renamed the
+                     # Indigo device.
+                     cam_short = camlist[i][0].get('optionValue')
                      FoundDevice = False
                      for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
-                         if dev.name == deviceName:
+                         if dev.states.get('optionValue', '') == cam_short and cam_short:
+                             match = True
+                         else:
+                             match = (dev.name == deviceName)
+                         if match:
                              if self.debugextra:
                                 self.logger.debug(u'Found BlueIris Camera Device Matching:')
                              FoundDevice = True
@@ -1152,12 +1171,20 @@ class Plugin(indigo.PluginBase):
             if self.debugextra:
                 self.logger.debug(u'sendcommand called')
                 self.logger.debug(u'cmd ='+str(cmd)+' params='+str(params))
-            if self.connectServer():  #this commands updates session key before command called
-                if self.debugextra:
-                    self.logger.debug(u'Connection to Server Complete')
-            else:
-                self.logger.debug(u'Failed connection to server.')
-                return
+
+            # Re-use the existing BI session if we already have one.  Only
+            # establish/refresh a session when we don't have credentials yet.
+            # This avoids running the full two-step login on every command,
+            # which used to flood the BI log and double the latency of every
+            # call.  If a command later returns ``result:fail`` we invalidate
+            # the session and retry once below.
+            if not getattr(self, 'session', '') or not getattr(self, 'response', ''):
+                if self.connectServer():
+                    if self.debugextra:
+                        self.logger.debug(u'Connection to Server Complete')
+                else:
+                    self.logger.debug(u'Failed connection to server.')
+                    return
 
             if len(self.session)==0:
                 self.logger.debug(u'No self.session cannot run command')
@@ -1189,9 +1216,31 @@ class Plugin(indigo.PluginBase):
                 self.logger.debug(u'sendcommand r.json result:')# + str(r.json()  )   )
 
             try:
-                return r.json()["data"]
+                payload = r.json()
             except:
-                return r.json()
+                payload = None
+
+            # If BI says the session is no longer valid, drop it and retry the
+            # command once with a fresh login.
+            if isinstance(payload, dict) and payload.get('result') == 'fail' and cmd != 'login':
+                if self.debugextra:
+                    self.logger.debug(u'sendcommand: BI returned result:fail, refreshing session and retrying once.')
+                self.session = ''
+                self.response = ''
+                if self.connectServer():
+                    args['session'] = self.session
+                    if 'response' in args:
+                        args['response'] = self.response
+                    r = requests.post(self.url, data=json.dumps(args), timeout=self.ServerTimeout)
+                    if r.status_code == 200:
+                        try:
+                            payload = r.json()
+                        except:
+                            payload = None
+
+            if isinstance(payload, dict) and 'data' in payload:
+                return payload['data']
+            return payload
 
         except requests.exceptions.Timeout:
             self.logger.debug(u'sendCommand has timed out and cannot connect to BI Server.')
@@ -1287,11 +1336,22 @@ class Plugin(indigo.PluginBase):
         try:
             if self.currentuseradmin:
                 listusers = self.sendccommand('devices', '')
-                if listusers != None:
-                    for dev in indigo.devices.itervalues('self.BlueIrisDevice'):
-                        for users in listusers:
-                            if dev.enabled:
-                                if str(dev.pluginProps.get('devicename', 0)) == users['name'].encode('utf-8'):
+                # BI returns a dict (e.g. {"result":"fail",...}) rather than the
+                # documented array on session expiry / non-admin.  Make sure we
+                # actually got the list before iterating.
+                if not isinstance(listusers, list):
+                    if self.debugextra:
+                        self.logger.debug(u'updateDevices: server did not return a device list (got %s); skipping.' % type(listusers).__name__)
+                    return
+                for dev in indigo.devices.itervalues('self.BlueIrisDevice'):
+                    for users in listusers:
+                        if dev.enabled:
+                            # Compare strings to strings - the previous
+                            # ``users['name'].encode('utf-8')`` returned bytes
+                            # under Python 3, so this comparison was always
+                            # False unless the name was pure ASCII and the
+                            # bytes/str coercion happened to line up.
+                            if str(dev.pluginProps.get('devicename', 0)) == str(users.get('name', '')):
                                     # Matching username found for device created and enabled
                                     count = 0
                                     oldinside = dev.states['inside']
@@ -1331,6 +1391,13 @@ class Plugin(indigo.PluginBase):
         try:
             if self.currentuseradmin:
                 listusers = self.sendccommand('users','')
+                # BI returns a dict like {"result":"fail",...} on session
+                # expiry / non-admin.  Only iterate when we actually got the
+                # documented list of user objects back.
+                if not isinstance(listusers, list):
+                    if self.debugextra:
+                        self.logger.debug(u'updateUsers: server did not return a user list (got %s); skipping.' % type(listusers).__name__)
+                    return
                 for dev in indigo.devices.itervalues('self.BlueIrisUser'):
                     for users in listusers:
                         if dev.enabled:
@@ -1594,6 +1661,18 @@ class Plugin(indigo.PluginBase):
     def shutdown(self):
 
         self.logger.debug(u"shutdown() method called.")
+        # Best-effort cleanup of the BI session so we don't leave a ghost
+        # connection on the server (BI never times these out aggressively).
+        try:
+            if getattr(self, 'session', '') and getattr(self, 'serverip', ''):
+                url = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/json'
+                requests.post(url,
+                              data=json.dumps({"cmd": "logout", "session": self.session}),
+                              timeout=self.ServerTimeout)
+        except:
+            self.logger.debug(u'shutdown: best-effort logout failed; ignoring.')
+        self.session = ''
+        self.response = ''
         self.pluginIsShuttingDown = True
         self.prefsUpdated = True
         indigo.server.broadcastToSubscribers(u"broadcasterShutdown")
@@ -2225,11 +2304,26 @@ color: #ff3300;
 
         self.logger.debug(str(valuesDict))
         profileselected = str(valuesDict.props['targetProfile'])
+        profile_id = None
         try:
-            profile_id = self.profiles_list.index(profileselected)
+            # Make sure we actually have a profile list to look up against -
+            # the user may invoke this action before the first poll has
+            # populated ``self.profiles_list``.
+            profiles = getattr(self, 'profiles_list', None)
+            if not profiles:
+                if self.connectServer():
+                    profiles = getattr(self, 'profiles_list', None)
+            if not profiles:
+                self.logger.info(u'Cannot change BlueIris profile: profile list unavailable (check server login).')
+                return
+            if profileselected not in profiles:
+                self.logger.info(u'Could not find Profile with that name: %s' % profileselected)
+                return
+            profile_id = profiles.index(profileselected)
             self.logger.debug(u'Selected Profile ID Equals:'+str(profile_id))
         except:
-            self.logger.info(u'Could not find Profile with that name')
+            self.logger.exception(u'Could not find Profile with that name')
+            return
         self.logger.info(u'Setting BlueIris active Profile to: %s  (id: %d)' % (profileselected, profile_id))
         self.sendccommand("status", {"profile": profile_id})
         return

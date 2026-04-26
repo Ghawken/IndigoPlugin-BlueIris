@@ -300,19 +300,6 @@
     </Label>
                </Field>
 
-           <Field id="useFfmpeg" type="checkbox" defaultValue="false" tooltip="Use bundled ffmpeg binary to read the BI MJPEG stream directly and encode the animated WebP. Much faster than the Pillow encoder.">
-               <Label>Use ffmpeg (fast encode):</Label>
-               <Description>Encode WebP with the bundled ffmpeg binary for speed</Description>
-           </Field>
-
-               <Field id="ffmpeglabel" type="label" fontSize="small" fontColor="black">
-    <Label>When enabled, ffmpeg reads the MJPEG stream directly and encodes the
-        animated WebP in one pass — significantly faster than the Pillow
-        encoder.  If the bundled ffmpeg binary is unavailable or fails, the
-        action falls back to the standard capture + Pillow encode path.
-    </Label>
-               </Field>
-
         </ConfigUI>
     </Action>
 

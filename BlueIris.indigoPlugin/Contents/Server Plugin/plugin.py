@@ -3186,12 +3186,6 @@ color: #ff3300;
             output_path = Path(folderLocation + 'Animated.webp')
             tmp_output = output_path.with_suffix('.webp.tmp')
             try:
-                # Decode every frame, then normalise them all to a single size and
-                # mode.  libwebp's animated encoder rejects frames whose width or
-                # height differ from the first frame ("Invalid frame dimensions"),
-                # which can happen when BI's MJPEG stream and snapshot endpoint
-                # return different resolutions, or when the camera changes
-                # resolution mid-capture.
                 frames = []
                 for frame_path in input_frames:
                     try:
@@ -3203,64 +3197,19 @@ color: #ff3300;
                 if not frames:
                     self.logger.error(u'WebP: no decodable frames; aborting.')
                     return
-
-                # Pick the most common (mode, size) so we don't get tripped up by
-                # one odd frame at the wrong resolution.
-                from collections import Counter
-                size_counts = Counter((f.size for f in frames))
-                target_size, _ = size_counts.most_common(1)[0]
-                # If a width was explicitly requested, prefer that width and scale
-                # height proportionally from the dominant frame.
-                if width and int(width) > 0 and target_size[0] != int(width):
-                    src_w, src_h = target_size
-                    if src_w > 0:
-                        new_w = int(width)
-                        new_h = max(1, int(round(src_h * (new_w / src_w))))
-                        # libwebp also requires even dimensions for some configs;
-                        # round to nearest even to be safe.
-                        if new_h % 2:
-                            new_h += 1
-                        if new_w % 2:
-                            new_w += 1
-                        target_size = (new_w, new_h)
-
-                if self.debuggif:
-                    self.logger.debug(f"WebP: normalising all frames to {target_size} (RGB)")
-
-                normalised = []
                 try:
-                    for img in frames:
-                        try:
-                            converted = img.convert('RGB') if img.mode != 'RGB' else img.copy()
-                            if converted.size != target_size:
-                                converted = converted.resize(target_size, Image.LANCZOS)
-                            normalised.append(converted)
-                        except Exception:
-                            self.logger.debug(f"WebP: skipping frame that could not be normalised: {img}")
-
-                    if not normalised:
-                        self.logger.error(u'WebP: no frames after normalisation; aborting.')
-                        return
-
-                    try:
-                        normalised[0].save(
-                            tmp_output,
-                            "webp",
-                            append_images=normalised[1:],
-                            duration=frame_duration_ms,
-                            save_all=True,
-                            loop=0,
-                            lossless=False,
-                            quality=int(gifcompression),
-                            method=6,
-                            minimize_size=True,
-                        )
-                    finally:
-                        for img in normalised:
-                            try:
-                                img.close()
-                            except Exception:
-                                pass
+                    frames[0].save(
+                        tmp_output,
+                        "webp",
+                        append_images=frames[1:],
+                        duration=frame_duration_ms,
+                        save_all=True,
+                        loop=0,
+                        lossless=False,
+                        quality=int(gifcompression),
+                        method=6,
+                        minimize_size=True,
+                    )
                 finally:
                     for img in frames:
                         try:

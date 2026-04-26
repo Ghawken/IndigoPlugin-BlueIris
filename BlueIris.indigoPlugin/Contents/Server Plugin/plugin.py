@@ -2992,29 +2992,43 @@ color: #ff3300;
                 if r.status_code != 200:
                     self.logger.debug(f"WebP stream: status {r.status_code} from {stream_url}; falling back to snapshots.")
                     return None
-                buf = b''
+                buf = bytearray()
+                # Index into `buf` from which to resume scanning; avoids
+                # rescanning bytes we already know don't contain a SOI marker.
+                search_from = 0
                 idx = 100
                 target = 100 + int(gifnumber)
                 # Walk the byte stream looking for JPEG SOI/EOI markers.  This is
                 # tolerant of any MJPEG multipart boundary BI happens to use.
-                for chunk in r.iter_content(chunk_size=8192):
+                # bytearray + del-slice keeps this O(n); naive bytes concat is
+                # O(n^2) and dominates capture time on multi-MB streams.
+                for chunk in r.iter_content(chunk_size=65536):
                     if not chunk:
                         if t.time() > deadline:
                             break
                         continue
-                    buf += chunk
+                    buf.extend(chunk)
                     while True:
-                        soi = buf.find(b'\xff\xd8')
+                        soi = buf.find(b'\xff\xd8', search_from)
                         if soi < 0:
-                            buf = buf[-1:]
+                            # No SOI yet; keep just the trailing byte in case a
+                            # marker straddles the chunk boundary, and reset
+                            # the scan offset.
+                            if len(buf) > 1:
+                                del buf[:-1]
+                            search_from = 0
                             break
                         eoi = buf.find(b'\xff\xd9', soi + 2)
                         if eoi < 0:
                             if soi > 0:
-                                buf = buf[soi:]
+                                del buf[:soi]
+                            # Resume scanning just before the trailing byte so
+                            # a split EOI marker is still detectable.
+                            search_from = max(0, len(buf) - 1)
                             break
-                        frame = buf[soi:eoi + 2]
-                        buf = buf[eoi + 2:]
+                        frame = bytes(buf[soi:eoi + 2])
+                        del buf[:eoi + 2]
+                        search_from = 0
                         now = t.time()
                         if now < next_grab:
                             continue
@@ -3207,8 +3221,10 @@ color: #ff3300;
                         loop=0,
                         lossless=False,
                         quality=int(gifcompression),
-                        method=6,
-                        minimize_size=True,
+                        # method=4 is Pillow's default-ish balance.  method=6
+                        # is the slowest/best and was costing seconds per WebP
+                        # for marginal (<10%) size gains on short anims.
+                        method=4,
                     )
                 finally:
                     for img in frames:

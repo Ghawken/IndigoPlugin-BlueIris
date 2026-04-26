@@ -5,3 +5,6 @@
 /BlueIris.indigoPlugin/Contents/Packages/plugin_gifsicle-0.0.3.dist-info/
 /BlueIris.indigoPlugin/Contents/Packages/
 /BlueIris.indigoPlugin/Contents/Server Plugin/gifsicle/
+
+__pycache__/
+*.pyc

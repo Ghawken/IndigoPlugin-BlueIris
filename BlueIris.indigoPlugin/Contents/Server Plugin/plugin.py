@@ -3124,39 +3124,6 @@ color: #ff3300;
             self.logger.debug(f"WebP ffmpeg: binary not found at {binary!r}; skipping ffmpeg path.")
             return False
 
-        # Probe (and cache) whether this ffmpeg build actually has the libwebp
-        # encoder.  The bundled homekitlink_ffmpeg binaries are not guaranteed to
-        # ship with libwebp, in which case ffmpeg fails with
-        #   Unknown encoder 'libwebp'
-        # after we've already opened the MJPEG stream.  Detecting this up front
-        # lets us skip straight to the Pillow path without the noisy fetch+fail.
-        cache_key = '_webp_ffmpeg_libwebp_ok'
-        cached = getattr(self, cache_key, None)
-        if cached is False:
-            return False
-        if cached is None:
-            has_libwebp = False
-            try:
-                probe = subprocess.run(
-                    [binary, "-hide_banner", "-loglevel", "error", "-encoders"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    timeout=10,
-                    check=False,
-                )
-                probe_out = (probe.stdout or b'') + (probe.stderr or b'')
-                has_libwebp = b' libwebp ' in probe_out
-            except Exception:
-                self.logger.exception(u'WebP ffmpeg: encoder probe failed; skipping ffmpeg path.')
-                has_libwebp = False
-            setattr(self, cache_key, has_libwebp)
-            if not has_libwebp:
-                self.logger.warning(
-                    u"WebP ffmpeg: bundled ffmpeg has no 'libwebp' encoder; "
-                    u"using Pillow path for animated WebP."
-                )
-                return False
-
         try:
             duration = float(duration_secs)
             if duration <= 0:
@@ -3250,11 +3217,6 @@ color: #ff3300;
                 f"WebP ffmpeg: encode failed (rc={result.returncode}); "
                 f"falling back to Pillow path. stderr: {stderr_text}"
             )
-            # If the failure is due to a missing libwebp encoder (e.g. the
-            # probe was bypassed or returned a false positive), cache the
-            # negative result so we don't try again this plugin run.
-            if "Unknown encoder 'libwebp'" in stderr_text or 'libwebp' in stderr_text and 'Unknown encoder' in stderr_text:
-                setattr(self, '_webp_ffmpeg_libwebp_ok', False)
             try:
                 if tmp_output.exists():
                     tmp_output.unlink()

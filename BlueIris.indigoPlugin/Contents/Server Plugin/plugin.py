@@ -3015,9 +3015,16 @@ color: #ff3300;
                     )
                     return None
                 buf = bytearray()
-                # Index into `buf` from which to resume scanning; avoids
-                # rescanning bytes we already know don't contain a SOI marker.
-                search_from = 0
+                # Once we've located a SOI we keep the frame at buf[0:] and
+                # remember how far we've already scanned for the matching EOI,
+                # so each new chunk only re-scans its trailing byte (in case a
+                # 2-byte EOI marker straddled the chunk boundary).  Mixing the
+                # SOI- and EOI-search offsets into a single variable was buggy:
+                # after trimming SOI to position 0, a non-zero search_from
+                # caused the next iteration's SOI lookup to skip past it and
+                # then discard the in-progress frame.
+                in_frame = False  # True once SOI is at buf[0]
+                eoi_search_from = 2
                 idx = 100
                 target = 100 + int(gifnumber)
                 # Walk the byte stream looking for JPEG SOI/EOI markers.  This is
@@ -3031,26 +3038,28 @@ color: #ff3300;
                         continue
                     buf.extend(chunk)
                     while True:
-                        soi = buf.find(b'\xff\xd8', search_from)
-                        if soi < 0:
-                            # No SOI yet; keep just the trailing byte in case a
-                            # marker straddles the chunk boundary, and reset
-                            # the scan offset.
-                            if len(buf) > 1:
-                                del buf[:-1]
-                            search_from = 0
-                            break
-                        eoi = buf.find(b'\xff\xd9', soi + 2)
-                        if eoi < 0:
+                        if not in_frame:
+                            soi = buf.find(b'\xff\xd8')
+                            if soi < 0:
+                                # No SOI yet; keep just the trailing byte in
+                                # case a marker straddles the chunk boundary.
+                                if len(buf) > 1:
+                                    del buf[:-1]
+                                break
                             if soi > 0:
                                 del buf[:soi]
-                            # Resume scanning just before the trailing byte so
-                            # a split EOI marker is still detectable.
-                            search_from = max(0, len(buf) - 1)
+                            in_frame = True
+                            eoi_search_from = 2
+                        eoi = buf.find(b'\xff\xd9', eoi_search_from)
+                        if eoi < 0:
+                            # Need more data.  Resume EOI scanning just before
+                            # the trailing byte so a split EOI is still found.
+                            eoi_search_from = max(2, len(buf) - 1)
                             break
-                        frame = bytes(buf[soi:eoi + 2])
+                        frame = bytes(buf[:eoi + 2])
                         del buf[:eoi + 2]
-                        search_from = 0
+                        in_frame = False
+                        eoi_search_from = 2
                         now = t.time()
                         if now < next_grab:
                             continue

@@ -174,7 +174,7 @@ class Plugin(indigo.PluginBase):
         system_version, product_version, longer_name = self.get_macos_version()
         self.logger.info("{0:=^130}".format(f" 🚀 Initializing New Plugin Session for Plugin: {pluginDisplayName} "))
         self.logger.info("{0:<30} {1}".format("🔌 Plugin name:", pluginDisplayName))
-        self.logger.info("{0:<30} {1}".format("🏷  Plugin version:", pluginVersion))
+        self.logger.info("{0:<30} {1}".format("🏷 Plugin version:", pluginVersion))
         self.logger.info("{0:<30} {1}".format("🆔 Plugin ID:", pluginId))
         self.logger.info("{0:<30} {1}".format("🏠 Indigo version:", indigo.server.version))
         for label, value in self.get_indigo_server_info():
@@ -185,7 +185,7 @@ class Plugin(indigo.PluginBase):
         self.logger.info("{0:<30} {1}".format("🐍 Python version:", sys.version.replace('\n', '')))
         self.logger.info("{0:<30} {1}".format("📂 Python Directory:", sys.prefix.replace('\n', '')))
         self.logger.info("{0:<30} {1}".format("📁 Install Path:", self.pathtoPlugin.replace('\n', '')))
-        self.logger.info("{0:<30} {1}".format("🎞  Path to Gifsicle:", self.pathtoGifsicle.replace('\n', '')))
+        self.logger.info("{0:<30} {1}".format("🎞 Path to Gifsicle:", self.pathtoGifsicle.replace('\n', '')))
         self.logger.info("{0:=^130}".format(" End Initializing New Plugin "))
 
         pfmt = logging.Formatter('%(asctime)s.%(msecs)03d\t[%(levelname)8s] %(name)20s.%(funcName)-25s%(msg)s',
@@ -404,15 +404,15 @@ class Plugin(indigo.PluginBase):
         # used (rather than precomputed values) so each probe is wrapped in
         # its own try/except below.
         probes = [
-            ("🌐 Web server URL:", lambda: indigo.server.getWebServerURL()),
-            ("🔁 Reflector URL:", lambda: indigo.server.getReflectorURL()),
-            ("🗄  Database name:", lambda: indigo.server.getDbName()),
-            ("💾 Database file path:", lambda: indigo.server.getDbFilePath()),
-            ("⏰ Server time:", lambda: indigo.server.getTime()),
-            ("🪪 License status:", lambda: indigo.server.getLicenseStatus()),
-            ("📥 Install folder:", lambda: indigo.server.getInstallFolderPath()),
-            ("🪵 Logs folder:", lambda: indigo.server.getLogsFolderPath()),
-            ("💽 Database folder:", lambda: indigo.server.getDbFolderPath()),
+          #  ("🌐 Web server URL:", lambda: indigo.server.getWebServerURL()),
+          #  ("🔁 Reflector URL:", lambda: indigo.server.getReflectorURL()),
+         #   ("🗄 Database name:", lambda: indigo.server.getDbName()),
+         #   ("💾 Database file path:", lambda: indigo.server.getDbFilePath()),
+            ("⏰ API Version:", lambda: indigo.server.apiVersion),
+            ("🪪 License status:", lambda: indigo.server.licenseStatus),
+         #   ("📥 Install folder:", lambda: indigo.server.getInstallFolderPath()),
+         #   ("🪵 Logs folder:", lambda: indigo.server.getLogsFolderPath()),
+        #    ("💽 Database folder:", lambda: indigo.server.getDbFolderPath()),
         ]
         for label, getter in probes:
             try:

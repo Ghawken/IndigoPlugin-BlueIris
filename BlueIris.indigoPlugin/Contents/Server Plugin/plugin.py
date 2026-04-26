@@ -2466,13 +2466,35 @@ color: #ff3300;
             if self.blueirisserverVersion >=5:
                 if self.debugother:
                     self.logger.debug(str(valuesDict))
-                macronumber = self.substitute(valuesDict.props['macroNumber'])
-                macrotext = self.substitute(valuesDict.props['macroText'])
+                # Validate Indigo substitution tokens (e.g. %%d:123:state%% or
+                # %%v:456%%) before using them.  An invalid token causes the
+                # Indigo host to log "Device id X or state id Y not found for
+                # substitution" and silently substitute garbage, which then
+                # produces an unhelpful failure later when sendccommand runs.
+                # Surface the bad field clearly and abort the action.
+                raw_number = valuesDict.props.get('macroNumber', '')
+                raw_text = valuesDict.props.get('macroText', '')
+                valid_n, err_n = self.substitute(raw_number, validateOnly=True)
+                if not valid_n:
+                    self.logger.error(u'Change Macro: macro number contains an invalid substitution token (%s): %s' % (err_n, raw_number))
+                    return
+                valid_t, err_t = self.substitute(raw_text, validateOnly=True)
+                if not valid_t:
+                    self.logger.error(u'Change Macro: macro text contains an invalid substitution token (%s): %s' % (err_t, raw_text))
+                    return
+                macronumber = self.substitute(raw_number)
+                macrotext = self.substitute(raw_text)
+
+                try:
+                    macro_int = int(macronumber)
+                except (TypeError, ValueError):
+                    self.logger.error(u'Change Macro: macro number must be an integer after substitution, got: %r' % (macronumber,))
+                    return
 
                 data = {
                     "macro": {
 
-                            "number": int(macronumber),
+                            "number": macro_int,
                             "value": str(macrotext)
 
                 }}
@@ -2483,7 +2505,7 @@ color: #ff3300;
                 self.logger.info('Only available to BlueIris v5 Users.  Suggest upgrading BlueIris software for full features.')
 
         except:
-            self.logger.debug(u'Caught Error within Change Macro - check details entered...')
+            self.logger.exception(u'Caught Error within Change Macro - check details entered...')
 
         return
 

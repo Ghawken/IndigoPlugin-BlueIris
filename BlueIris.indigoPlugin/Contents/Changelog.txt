@@ -1,5 +1,18 @@
 ChangeLog
 
+v1.3.25
+actionChangeMacro: validate Indigo substitution tokens in the macro
+number / macro text action fields before using them.  Previously, an
+invalid token (for example, a stale device id or a non-existent state
+such as ``%%d:1465684179:sensorValue.ui%%``) would cause Indigo to log
+"Device id X or state id Y not found for substitution" and silently
+substitute an empty value, and the action would then continue and send
+garbage to BlueIris.  We now call ``substitute(..., validateOnly=True)``
+first, log a clear error naming the offending field, and abort the
+action cleanly.  Also coerces the macro number safely (previously a
+non-integer substitution result would raise inside ``int()`` and only
+produce a debug message).
+
 v1.3.24
 logMessageTrigger: BI's log "level" field is a category enum, not a
 severity ladder.  Replaced the warn/error/any selector with the actual

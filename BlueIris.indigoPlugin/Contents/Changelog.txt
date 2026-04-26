@@ -1,5 +1,16 @@
 ChangeLog
 
+v1.3.27
+Fix TypeError in actionChangeMacro: ``self.blueirisserverVersion`` was
+initialised to the string ``'4.0.0.0'`` and only later replaced with an
+``int`` in ``updateSystemDevice``.  If the Change Macro action ran
+before the server version had been fetched (or login had failed), the
+comparison ``self.blueirisserverVersion >= 5`` raised
+``TypeError: '>=' not supported between instances of 'str' and 'int'``
+on Python 3.  The default value is now ``int(4)`` and the comparison
+site coerces defensively, so the action behaves consistently regardless
+of when it is triggered.
+
 v1.3.26
 Added a new IndigoLogHandler (mirrors the implementation used in
 appleTV-indigoPlugin and other Ghawken plugins).  The default Indigo

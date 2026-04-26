@@ -229,7 +229,12 @@ class Plugin(indigo.PluginBase):
 
         self.pathtoPlugin = indigo.server.getInstallFolderPath()
 
-        self.blueirisserverVersion = '4.0.0.0'
+        # Default to int 4 (not the previous string '4.0.0.0') so that
+        # numeric comparisons like ``self.blueirisserverVersion >= 5`` work
+        # before the real version has been fetched from the server.  The
+        # value is overwritten with ``int(self.systemdata['version'][0])``
+        # inside ``updateSystemDevice`` once login succeeds.
+        self.blueirisserverVersion = 4
 
         self.currentuseradmin = False
 
@@ -2554,7 +2559,17 @@ color: #ff3300;
     def actionChangeMacro(self, valuesDict):
 
         try:
-            if self.blueirisserverVersion >=5:
+            try:
+                bi_version = int(self.blueirisserverVersion)
+            except (TypeError, ValueError):
+                # Defensive: if something has assigned a non-numeric string
+                # (e.g. '4.0.0.0') treat it as the major version it starts
+                # with so we don't blow up with a TypeError on the compare.
+                try:
+                    bi_version = int(str(self.blueirisserverVersion).split('.')[0])
+                except (TypeError, ValueError, IndexError):
+                    bi_version = 0
+            if bi_version >= 5:
                 if self.debugother:
                     self.logger.debug(str(valuesDict))
                 # Validate Indigo substitution tokens (e.g. %%d:123:state%% or

@@ -108,6 +108,12 @@ class Plugin(indigo.PluginBase):
         self.indigo_log_handler.setLevel(self.logLevel)
         self.logger.debug(u"logLevel = " + str(self.logLevel))
         self.triggers = {}
+        # Edge-trigger memory for Phase 4 triggers.  Keys reset on plugin
+        # restart so the first poll after a restart will not re-fire stale
+        # transitions.
+        self._lastNoSignal = {}          # dev.id -> bool
+        self._lastDiskBelow = {}         # (dev.id, disk_name, threshold_gb) -> bool
+        self._lastSoftwareUpdate = {}    # dev.id -> str (last seen update string)
 
         self.pathtoPlugin = indigo.server.getInstallFolderPath()
 
@@ -887,6 +893,15 @@ class Plugin(indigo.PluginBase):
             except (TypeError, ValueError):
                 signal_value = str(signal_raw) if signal_raw is not None else ''
 
+            # BI status may include an 'update' field (string) when an
+            # available software update is detected.  Fire the
+            # softwareUpdateTrigger on the empty -> non-empty transition.
+            update_value = statusresults.get('update', '') or ''
+            try:
+                update_value = str(update_value).strip()
+            except Exception:
+                update_value = ''
+
             stateList = [
                                  {'key': 'cxns', 'value': statusresults.get('cxns', '')},
                                  {'key': 'profile', 'value': statusresults.get('profile', '')},
@@ -908,9 +923,67 @@ class Plugin(indigo.PluginBase):
                                  {'key': 'diskallocated', 'value': diskallocated},
                                  {'key': 'diskname', 'value': diskname},
                                  {'key': 'diskfree', 'value': diskfree},
-                                 {'key': 'diskused', 'value': diskused}
+                                 {'key': 'diskused', 'value': diskused},
+                                 {'key': 'softwareUpdate', 'value': update_value}
             ]
             dev.updateStatesOnServer(stateList)
+
+            # Phase 4 - softwareUpdate transition trigger
+            try:
+                prev_update = self._lastSoftwareUpdate.get(dev.id, None)
+                if prev_update is None:
+                    # Seed from the device state so we don't re-fire on every
+                    # plugin restart while the same update is still pending.
+                    prev_update = str(dev.states.get('softwareUpdate', '') or '')
+                if update_value and update_value != prev_update:
+                    self.triggerCheck(dev, update_value, 'softwareUpdate')
+                self._lastSoftwareUpdate[dev.id] = update_value
+            except:
+                if self.debugtriggers:
+                    self.logger.exception(u'softwareUpdate trigger transition check failed')
+
+            # Phase 4 - per-disk free-space threshold triggers.  BI reports
+            # disk free/total in MB; compare to the user threshold (GB).
+            try:
+                for disk in (statusresults.get('disks') or []):
+                    d_name = disk.get('disk', '')
+                    d_free_mb = disk.get('free')
+                    if d_free_mb is None:
+                        continue
+                    try:
+                        d_free_gb = float(d_free_mb) / 1024.0
+                    except (TypeError, ValueError):
+                        continue
+                    for trig in self.triggers.values():
+                        if trig.pluginTypeId != 'diskFreeBelowTrigger':
+                            continue
+                        try:
+                            threshold_gb = float(trig.pluginProps.get('thresholdGB', 0) or 0)
+                        except (TypeError, ValueError):
+                            continue
+                        if threshold_gb <= 0:
+                            continue
+                        wanted_disk = (trig.pluginProps.get('diskName', '') or '').strip()
+                        if wanted_disk and wanted_disk.lower() != str(d_name).lower():
+                            continue
+                        key = (dev.id, str(d_name), threshold_gb)
+                        now_below = d_free_gb < threshold_gb
+                        # Seed prev_below to the current observation the
+                        # first time we see this (disk, threshold) pair so
+                        # we don't fire the trigger on the first poll after
+                        # a plugin restart when disk space is already below
+                        # the threshold.  Subsequent polls fire only on the
+                        # above -> below transition.
+                        if key not in self._lastDiskBelow:
+                            self._lastDiskBelow[key] = now_below
+                        prev_below = self._lastDiskBelow[key]
+                        if now_below and not prev_below:
+                            self.triggerCheck(dev, str(d_name), 'diskFreeBelow')
+                        self._lastDiskBelow[key] = now_below
+            except:
+                if self.debugtriggers:
+                    self.logger.exception(u'diskFreeBelow trigger evaluation failed')
+
             update_time = t.strftime('%c')
 
 
@@ -1143,6 +1216,18 @@ class Plugin(indigo.PluginBase):
                                  {'key': 'audio', 'value': camlist[i][0]['audio']},
                                  {'key': 'nNoSignal', 'value': camlist[i][0]['nNoSignal']}
                              ]
+                             # Phase 4 - emit a noSignal trigger on the
+                             # transition from "has signal" to "no signal".
+                             try:
+                                 prev_no_signal = bool(self._lastNoSignal.get(dev.id, dev.states.get('isNoSignal', False)))
+                                 new_no_signal = bool(camlist[i][0].get('isNoSignal', False))
+                                 if new_no_signal and not prev_no_signal:
+                                     cam_name = camlist[i][0].get('optionValue', dev.name)
+                                     self.triggerCheck(dev, cam_name, 'noSignal')
+                                 self._lastNoSignal[dev.id] = new_no_signal
+                             except:
+                                 if self.debugtriggers:
+                                     self.logger.exception(u'noSignal trigger transition check failed')
                              dev.updateStatesOnServer(stateList)
                              if camlist[i][0]['isOnline'] == True and camlist[i][0]['isEnabled']:
                                  dev.updateStateOnServer('deviceIsOnline', value=True, uiValue="Online")
@@ -1562,6 +1647,16 @@ class Plugin(indigo.PluginBase):
         #    if ('Events' in item['msg']):
         #        self.parseEvent(item)
 
+            # Phase 4 - dispatch log-message and AI-tag triggers for every
+            # incoming log entry.  These triggers do not require a matching
+            # Indigo camera device, so we hand the raw log item through
+            # ``camera`` and let triggerCheck filter on severity / tag /
+            # camera selection.
+            try:
+                self.triggerCheck(None, item, 'logMessage')
+                self.triggerCheck(None, item, 'aiTag')
+            except:
+                self.logger.exception(u'Error dispatching Phase 4 log/AI triggers')
 
         except:
             self.logger.exception(u'Error in parseMsgReceived')
@@ -2459,7 +2554,12 @@ color: #ff3300;
                 self.logger.info(u'Trigger: Ignore as BlueIris Plugin Just started.')
                 return
 
-            if event != 'userLogin':  #userLogin trigger unrelated to device
+            # Phase 4 events do not require a matching enabled camera (or
+            # the camera may legitimately be Offline / no-signal), so skip
+            # the per-device guards for them.
+            non_device_events = ('userLogin', 'logMessage', 'aiTag',
+                                 'softwareUpdate', 'diskFreeBelow', 'noSignal')
+            if event not in non_device_events:
                 if "geofence" not in event:
                     if device.states['deviceIsOnline'] == False:
                         if self.debugtriggers:
@@ -2508,6 +2608,84 @@ color: #ff3300;
                             if self.debugtriggers:
                                 self.logger.debug(  "===== Executing GeoFence Inside Trigger %s (%d)" % (trigger.name, trigger.id))
                             indigo.trigger.execute(trigger)
+
+                # ---- Phase 4 triggers ------------------------------------
+                elif trigger.pluginTypeId == 'logMessageTrigger' and event == 'logMessage':
+                    # ``camera`` here is the raw log item dict produced by
+                    # parsemsgreceived().
+                    item = camera if isinstance(camera, dict) else {}
+                    try:
+                        level = int(item.get('level', 0))
+                    except (TypeError, ValueError):
+                        level = 0
+                    severity = trigger.pluginProps.get('severity', 'warn')
+                    if severity == 'error':
+                        if level < 2:
+                            continue
+                    elif severity == 'warn':
+                        if level < 1:
+                            continue
+                    # severity == 'any' -> no level filter
+                    text_filter = (trigger.pluginProps.get('textFilter', '') or '').strip().lower()
+                    if text_filter:
+                        haystack = (str(item.get('msg', '')) + ' ' + str(item.get('memo', ''))).lower()
+                        if text_filter not in haystack:
+                            continue
+                    if self.debugtriggers:
+                        self.logger.debug("===== Executing logMessage Trigger %s (%d) level=%s" % (trigger.name, trigger.id, level))
+                    indigo.trigger.execute(trigger)
+
+                elif trigger.pluginTypeId == 'aiTagTrigger' and event == 'aiTag':
+                    item = camera if isinstance(camera, dict) else {}
+                    tag = (trigger.pluginProps.get('tag', '') or '').strip().lower()
+                    if not tag:
+                        continue
+                    haystack = (str(item.get('msg', '')) + ' ' + str(item.get('memo', ''))).lower()
+                    if tag not in haystack:
+                        continue
+                    selected = trigger.pluginProps.get('deviceCamera') or []
+                    if selected:
+                        # Match the BI camera short-name in item['obj']
+                        # against the selected Indigo cam devices'
+                        # optionValue state.
+                        cam_short = str(item.get('obj', '')).strip()
+                        matched = False
+                        for sel_id in selected:
+                            try:
+                                sel_dev = indigo.devices[int(sel_id)]
+                            except Exception:
+                                continue
+                            if sel_dev.states.get('optionValue', '') == cam_short:
+                                matched = True
+                                break
+                        if not matched:
+                            continue
+                    if self.debugtriggers:
+                        self.logger.debug("===== Executing aiTag Trigger %s (%d) tag=%s" % (trigger.name, trigger.id, tag))
+                    indigo.trigger.execute(trigger)
+
+                elif trigger.pluginTypeId == 'cameraNoSignalTrigger' and event == 'noSignal':
+                    if device is None:
+                        continue
+                    selected = trigger.pluginProps.get('deviceCamera') or []
+                    if selected and str(device.id) not in selected:
+                        continue
+                    if self.debugtriggers:
+                        self.logger.debug("===== Executing cameraNoSignal Trigger %s (%d) cam=%s" % (trigger.name, trigger.id, camera))
+                    indigo.trigger.execute(trigger)
+
+                elif trigger.pluginTypeId == 'softwareUpdateTrigger' and event == 'softwareUpdate':
+                    if self.debugtriggers:
+                        self.logger.debug("===== Executing softwareUpdate Trigger %s (%d) update=%s" % (trigger.name, trigger.id, camera))
+                    indigo.trigger.execute(trigger)
+
+                elif trigger.pluginTypeId == 'diskFreeBelowTrigger' and event == 'diskFreeBelow':
+                    wanted_disk = (trigger.pluginProps.get('diskName', '') or '').strip().lower()
+                    if wanted_disk and wanted_disk != str(camera).lower():
+                        continue
+                    if self.debugtriggers:
+                        self.logger.debug("===== Executing diskFreeBelow Trigger %s (%d) disk=%s" % (trigger.name, trigger.id, camera))
+                    indigo.trigger.execute(trigger)
 
                 elif self.debugtriggers:
                         self.logger.debug("Not Run Trigger Type %s (%d), %s" % (trigger.name, trigger.id, trigger.pluginTypeId))

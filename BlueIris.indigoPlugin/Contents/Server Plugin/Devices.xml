@@ -175,6 +175,11 @@
                 <TriggerLabel>warnings</TriggerLabel>
                 <ControlPageLabel>warnings</ControlPageLabel>
             </State>
+            <State id="softwareUpdate">
+                <ValueType>String</ValueType>
+                <TriggerLabel>softwareUpdate</TriggerLabel>
+                <ControlPageLabel>softwareUpdate</ControlPageLabel>
+            </State>
 
 
      </States>

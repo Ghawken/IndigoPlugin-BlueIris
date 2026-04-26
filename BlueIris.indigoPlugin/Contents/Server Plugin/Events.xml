@@ -50,11 +50,11 @@
         <Name>Trigger on BI Log Warning/Error</Name>
         <ConfigUI>
             <Field id="severity" type="menu" defaultValue="warn">
-                <Label>Minimum severity:</Label>
+                <Label>Severity (matches BI log level enum):</Label>
                 <List>
-                    <Option value="warn">Warning or higher</Option>
-                    <Option value="error">Error only</Option>
-                    <Option value="any">Any (info, warning, error)</Option>
+                    <Option value="warn">Warning (level 2)</Option>
+                    <Option value="error">Error (level 3)</Option>
+                    <Option value="any">Warning or Error</Option>
                 </List>
             </Field>
             <Field id="textFilter" type="textfield" defaultValue="">

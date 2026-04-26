@@ -3,9 +3,12 @@ ChangeLog
 v1.3.23
 Phase 4 - new triggers / events:
   - logMessageTrigger: fires from BI server log polling on warning/error log
-    entries (configurable severity floor and optional substring filter).
-  - aiTagTrigger: fires when a BI log entry's text or memo contains an AI
-    tag keyword (person/vehicle/animal/plate/...). Optional camera filter.
+    entries.  Severity is now matched against BI's documented level enum
+    (warn=2, error=3, any=warn|error) instead of a >=N ladder, so routine
+    info / login / connect entries (levels 4 / 8 / 10) no longer fire.
+  - aiTagTrigger: restricted to AI/event log entries (level 8) before the
+    keyword match so generic log text containing the tag word does not
+    cause false positives.
   - cameraNoSignalTrigger: fires on the per-camera transition into
     isNoSignal = True.
   - softwareUpdateTrigger: fires when the BI server status first reports an

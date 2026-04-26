@@ -2613,19 +2613,36 @@ color: #ff3300;
                 elif trigger.pluginTypeId == 'logMessageTrigger' and event == 'logMessage':
                     # ``camera`` here is the raw log item dict produced by
                     # parsemsgreceived().
+                    #
+                    # BI's log ``level`` is an enumeration, NOT a monotonic
+                    # severity ladder, so we match against explicit sets.
+                    # Documented BI levels include (non-exhaustive):
+                    #   0  config / system
+                    #   2  warning
+                    #   3  error
+                    #   4  info / status (e.g. "Signal: restored")
+                    #   8  AI / event detection
+                    #   10 user activity (login, connect, ...)
+                    # Treating "warn" as ``level >= 1`` would fire on every
+                    # routine login/connect entry, which is the bug being
+                    # fixed here.
                     item = camera if isinstance(camera, dict) else {}
                     try:
-                        level = int(item.get('level', 0))
+                        level = int(item.get('level', -1))
                     except (TypeError, ValueError):
-                        level = 0
+                        level = -1
                     severity = trigger.pluginProps.get('severity', 'warn')
+                    WARN_LEVELS = {2}
+                    ERROR_LEVELS = {3}
                     if severity == 'error':
-                        if level < 2:
+                        if level not in ERROR_LEVELS:
                             continue
                     elif severity == 'warn':
-                        if level < 1:
+                        if level not in WARN_LEVELS:
                             continue
-                    # severity == 'any' -> no level filter
+                    elif severity == 'any':
+                        if level not in (WARN_LEVELS | ERROR_LEVELS):
+                            continue
                     text_filter = (trigger.pluginProps.get('textFilter', '') or '').strip().lower()
                     if text_filter:
                         haystack = (str(item.get('msg', '')) + ' ' + str(item.get('memo', ''))).lower()
@@ -2637,6 +2654,15 @@ color: #ff3300;
 
                 elif trigger.pluginTypeId == 'aiTagTrigger' and event == 'aiTag':
                     item = camera if isinstance(camera, dict) else {}
+                    # AI / object-detection entries are level 8 in BI logs;
+                    # restricting here prevents false positives from generic
+                    # log text that happens to contain the tag keyword.
+                    try:
+                        level = int(item.get('level', -1))
+                    except (TypeError, ValueError):
+                        level = -1
+                    if level != 8:
+                        continue
                     tag = (trigger.pluginProps.get('tag', '') or '').strip().lower()
                     if not tag:
                         continue

@@ -2981,16 +2981,38 @@ color: #ff3300;
         written = []
         try:
             interval = float(duration_secs) / float(gifnumber)
-            deadline = t.time() + float(duration_secs) + max(5.0, float(self.ServerTimeout))
+            # Per-socket-read timeout for the streaming response.  BI sometimes
+            # takes several seconds to start pushing MJPEG frames on a fresh
+            # connection; if the default ServerTimeout (often a few seconds) is
+            # used, iter_content() raises ReadTimeout before the first frame
+            # ever arrives and we silently fall back to snapshot polling.
+            try:
+                connect_timeout = float(self.ServerTimeout)
+            except (TypeError, ValueError):
+                connect_timeout = 10.0
+            read_timeout = max(connect_timeout, float(duration_secs) + 10.0, 15.0)
+            deadline = t.time() + float(duration_secs) + max(5.0, connect_timeout)
             next_grab = t.time()
             with requests.get(
                 stream_url,
                 auth=(str(self.serverusername), str(self.serverpassword)),
                 stream=True,
-                timeout=self.ServerTimeout,
+                timeout=(connect_timeout, read_timeout),
             ) as r:
                 if r.status_code != 200:
-                    self.logger.debug(f"WebP stream: status {r.status_code} from {stream_url}; falling back to snapshots.")
+                    self.logger.warning(f"WebP stream: status {r.status_code} from {stream_url}; falling back to snapshots.")
+                    return None
+                # BI's MJPEG endpoint should return multipart/x-mixed-replace.
+                # If we get text/html back, basic-auth was accepted at the HTTP
+                # layer but BI redirected us to a login/error page — bail
+                # straight away rather than scanning megabytes for SOI markers
+                # we'll never find.
+                content_type = (r.headers.get('Content-Type') or '').lower()
+                if content_type and 'multipart' not in content_type and 'image' not in content_type:
+                    self.logger.warning(
+                        f"WebP stream: unexpected Content-Type {content_type!r} from {stream_url}; "
+                        f"falling back to snapshots."
+                    )
                     return None
                 buf = bytearray()
                 # Index into `buf` from which to resume scanning; avoids
@@ -3048,10 +3070,14 @@ color: #ff3300;
                     if idx >= target or t.time() > deadline:
                         break
             if not written:
+                self.logger.warning(
+                    f"WebP stream: connected to {stream_url} but captured 0 frames; "
+                    f"falling back to snapshots."
+                )
                 return None
             return written
         except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
-            self.logger.debug(f"WebP stream: connection error ({e}); falling back to snapshots.")
+            self.logger.warning(f"WebP stream: connection error ({e}); falling back to snapshots.")
             return None
         except Exception:
             self.logger.exception(u'WebP stream: unexpected error; falling back to snapshots.')

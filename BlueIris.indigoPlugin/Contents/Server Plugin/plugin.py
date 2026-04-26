@@ -38,6 +38,13 @@ from plugin_gifsicle import get_gifsicle_binary
 import subprocess
 import threading
 
+# Blue Iris log "level" enum used by the /json log command.
+# Treated as a category, not a monotonic severity ladder.
+BI_LOG_WARN_LEVELS = frozenset({2})
+BI_LOG_ERROR_LEVELS = frozenset({3})
+BI_LOG_WARN_OR_ERROR_LEVELS = BI_LOG_WARN_LEVELS | BI_LOG_ERROR_LEVELS
+BI_LOG_AI_LEVEL = 8
+
 ## Role together own httpserver
 #import string,cgi
 
@@ -2632,16 +2639,14 @@ color: #ff3300;
                     except (TypeError, ValueError):
                         level = -1
                     severity = trigger.pluginProps.get('severity', 'warn')
-                    WARN_LEVELS = {2}
-                    ERROR_LEVELS = {3}
                     if severity == 'error':
-                        if level not in ERROR_LEVELS:
+                        if level not in BI_LOG_ERROR_LEVELS:
                             continue
                     elif severity == 'warn':
-                        if level not in WARN_LEVELS:
+                        if level not in BI_LOG_WARN_LEVELS:
                             continue
                     elif severity == 'any':
-                        if level not in (WARN_LEVELS | ERROR_LEVELS):
+                        if level not in BI_LOG_WARN_OR_ERROR_LEVELS:
                             continue
                     text_filter = (trigger.pluginProps.get('textFilter', '') or '').strip().lower()
                     if text_filter:
@@ -2661,7 +2666,7 @@ color: #ff3300;
                         level = int(item.get('level', -1))
                     except (TypeError, ValueError):
                         level = -1
-                    if level != 8:
+                    if level != BI_LOG_AI_LEVEL:
                         continue
                     tag = (trigger.pluginProps.get('tag', '') or '').strip().lower()
                     if not tag:

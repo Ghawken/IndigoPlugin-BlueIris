@@ -1,5 +1,16 @@
 ChangeLog
 
+v1.3.26
+Added a new IndigoLogHandler (mirrors the implementation used in
+appleTV-indigoPlugin and other Ghawken plugins).  The default Indigo
+log handler is removed at startup and replaced with this handler, which
+prepends file/function/line context to debug and error messages and
+prints a full traceback when an exception is logged.  Also adds a
+separate "Plugin File Log Level" preference (``showDebugFileLevel``) so
+the rotating on-disk log can be more or less verbose than the Indigo
+Event Log.  Both levels are applied at startup, when the plugin config
+dialog is saved, and when debug logging is toggled from the menu.
+
 v1.3.25
 actionChangeMacro: validate Indigo substitution tokens in the macro
 number / macro text action fields before using them.  Previously, an

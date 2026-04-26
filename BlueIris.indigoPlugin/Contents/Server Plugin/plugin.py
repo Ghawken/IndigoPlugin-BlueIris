@@ -19,11 +19,13 @@ import requests
 import json
 import hashlib
 import datetime
+import traceback
 
 import time as t
 import urllib
 import os
 import shutil
+from os import path
 
 from urllib.parse import urlparse, urlencode
 from urllib.request import urlopen, Request
@@ -80,6 +82,56 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from socketserver import ThreadingMixIn
 
 
+################################################################################
+# New Indigo Log Handler - mirrors the handler used in other Ghawken plugins
+# (e.g. appleTV-indigoPlugin).  Adds file/function/line context to debug and
+# error/exception messages and forwards traceback details on exceptions.
+################################################################################
+class IndigoLogHandler(logging.Handler):
+    def __init__(self, display_name, level=logging.NOTSET):
+        super().__init__(level)
+        self.displayName = display_name
+
+    def emit(self, record):
+        """ not used by this class; must be called independently by indigo """
+        logmessage = ""
+        is_error = False
+        levelno = logging.NOTSET
+        try:
+            levelno = int(record.levelno)
+            is_exception = False
+            if self.level <= levelno:  ## should display this..
+                if record.exc_info is not None:
+                    is_exception = True
+                if levelno == 5:  # 5
+                    logmessage = '({}:{}:{}): {}'.format(path.basename(record.pathname), record.funcName, record.lineno, record.getMessage())
+                elif levelno == logging.DEBUG:  # 10
+                    logmessage = '({}:{}:{}): {}'.format(path.basename(record.pathname), record.funcName, record.lineno, record.getMessage())
+                elif levelno == logging.INFO:  # 20
+                    logmessage = record.getMessage()
+                elif levelno == logging.WARNING:  # 30
+                    logmessage = record.getMessage()
+                elif levelno == logging.ERROR:  # 40
+                    logmessage = '({}: Function: {}  line: {}):    Error :  Message : {}'.format(path.basename(record.pathname), record.funcName, record.lineno, record.getMessage())
+                    is_error = True
+                if is_exception:
+                    logmessage = '({}: Function: {}  line: {}):    Exception :  Message : {}'.format(path.basename(record.pathname), record.funcName, record.lineno, record.getMessage())
+                    indigo.server.log(message=logmessage, type=self.displayName, isError=is_error, level=levelno)
+                    if record.exc_info is not None:
+                        etype, value, tb = record.exc_info
+                        tb_string = "".join(traceback.format_tb(tb))
+                        indigo.server.log(f"Traceback:\n{tb_string}", type=self.displayName, isError=is_error, level=levelno)
+                        indigo.server.log(f"Error in plugin execution:\n\n{traceback.format_exc(30)}", type=self.displayName, isError=is_error, level=levelno)
+                    indigo.server.log(f"\nExc_info: {record.exc_info} \nExc_Text: {record.exc_text} \nStack_info: {record.stack_info}", type=self.displayName, isError=is_error, level=levelno)
+                    return
+                indigo.server.log(message=logmessage, type=self.displayName, isError=is_error, level=levelno)
+        except Exception as ex:
+            try:
+                indigo.server.log(f"Error in Logging: {ex}", type=self.displayName, isError=is_error, level=levelno)
+            except Exception:
+                pass
+
+
 # Establish default plugin prefs; create them if they don't already exist.
 kDefaultPluginPrefs = {
     u'configMenuPollInterval': "300",  # Frequency of refreshes.
@@ -89,6 +141,7 @@ kDefaultPluginPrefs = {
     u'configUpdaterForceUpdate': False,
     u'configUpdaterInterval': 24,
     u'showDebugLevel': "1",  # Low, Medium or High debug output.
+    u'showDebugFileLevel': "10",  # File log level (separate from Indigo log).
     u'updaterEmail': "",  # Email to notify of plugin updates.
     u'updaterEmailsEnabled': False,  # Notification of plugin updates wanted.
     u'ServerTimeout': 5,
@@ -136,8 +189,36 @@ class Plugin(indigo.PluginBase):
         except:
             self.logLevel = logging.INFO
 
+        try:
+            self.fileloglevel = int(self.pluginPrefs[u"showDebugFileLevel"])
+        except:
+            self.fileloglevel = logging.DEBUG
+
+        # Replace the default Indigo log handler with our richer
+        # IndigoLogHandler (file/function/line context, traceback dump on
+        # exceptions).  Mirrors the pattern used by other Ghawken plugins
+        # such as appleTV-indigoPlugin.
+        self.logger.setLevel(logging.DEBUG)
+        try:
+            self.logger.removeHandler(self.indigo_log_handler)
+        except Exception:
+            pass
+        self.indigo_log_handler = IndigoLogHandler(pluginDisplayName, logging.INFO)
+        ifmt = logging.Formatter("%(message)s")
+        self.indigo_log_handler.setFormatter(ifmt)
         self.indigo_log_handler.setLevel(self.logLevel)
+        self.logger.addHandler(self.indigo_log_handler)
+
+        # Apply the (separately configurable) file log level to the rotating
+        # plugin_file_handler so the on-disk log can be more or less verbose
+        # than what's shown in the Indigo Event Log.
+        try:
+            self.plugin_file_handler.setLevel(self.fileloglevel)
+        except Exception:
+            pass
+
         self.logger.debug(u"logLevel = " + str(self.logLevel))
+        self.logger.debug(u"fileloglevel = " + str(self.fileloglevel))
         self.triggers = {}
         # Edge-trigger memory for Phase 4 triggers.  Keys reset on plugin
         # restart so the first poll after a restart will not re-fire stale
@@ -257,8 +338,18 @@ class Plugin(indigo.PluginBase):
             except:
                 self.logLevel = logging.INFO
 
+            try:
+                self.fileloglevel = int(valuesDict[u"showDebugFileLevel"])
+            except:
+                self.fileloglevel = logging.DEBUG
+
             self.indigo_log_handler.setLevel(self.logLevel)
+            try:
+                self.plugin_file_handler.setLevel(self.fileloglevel)
+            except Exception:
+                pass
             self.logger.debug(u"logLevel = " + str(self.logLevel))
+            self.logger.debug(u"fileloglevel = " + str(self.fileloglevel))
             self.logger.debug(u"User prefs saved.")
             self.logger.debug(u"Debugging on (Level: {0})".format(self.debugLevel))
 

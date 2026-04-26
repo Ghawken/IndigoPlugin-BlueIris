@@ -189,9 +189,21 @@
         <Label/>
         <Description>Debug Other</Description>
     </Field>
-    <Field id="showDebugLevel" type="menu" defaultValue="20" tooltip="Controls the amount of debug information written to the log.">
-        <Label>Debug level:</Label>
+    <Field id="showDebugLevel" type="menu" defaultValue="20" tooltip="Controls the amount of debug information written to the Indigo Event Log.">
+        <Label>Indigo Log Level:</Label>
         <Description>Level of Debug information to show in Indigo</Description>
+        <List>
+            <Option value="5">Detailed Debugging Messages</Option>
+            <Option value="10">Debugging Messages</Option>
+            <Option value="20">Informational Messages</Option>
+            <Option value="30">Warning Messages</Option>
+            <Option value="40">Error Messages</Option>
+            <Option value="50">Critical Errors Only</Option>
+        </List>
+    </Field>
+    <Field id="showDebugFileLevel" type="menu" defaultValue="10" tooltip="Controls the amount of debug information written to the rotating plugin log file on disk.">
+        <Label>Plugin File Log Level:</Label>
+        <Description>Level of Debug information to write to the plugin log file</Description>
         <List>
             <Option value="5">Detailed Debugging Messages</Option>
             <Option value="10">Debugging Messages</Option>

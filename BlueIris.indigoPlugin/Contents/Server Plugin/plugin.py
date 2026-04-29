@@ -3327,11 +3327,17 @@ color: #ff3300;
                 (Path(p) for p in written if os.path.exists(p)),
                 key=lambda p: int(p.stem) if p.stem.isdigit() else 0,
             )
-            constant_interval = float(duration_secs) / float(gifnumber)
+            actual_frame_count = len(input_frames)
+            constant_interval = float(duration_secs) / float(actual_frame_count)
             frame_duration_ms = max(1, int(round(constant_interval * 1000)))
+
             if self.debuggif:
-                self.logger.debug(f"WebP: {len(input_frames)} frames, {frame_duration_ms}ms each, "
-                                  f"quality={gifcompression}, duration={duration_secs}s")
+                self.logger.debug(
+                    f"WebP: {actual_frame_count}/{gifnumber} frames captured, "
+                    f"{frame_duration_ms}ms each (target was "
+                    f"{int(round(duration_secs / gifnumber * 1000))}ms), "
+                    f"quality={gifcompression}, duration={duration_secs}s"
+                )
 
             output_path = Path(folderLocation + 'Animated.webp')
             tmp_output = output_path.with_suffix('.webp.tmp')

@@ -3074,8 +3074,11 @@ color: #ff3300;
 
     def _webp_capture_via_stream(self, cameraname, width, duration_secs, gifnumber, tmp_dir):
         """Capture <gifnumber> JPEG frames evenly spaced over <duration_secs> from the
-        BI MJPEG stream.  Returns the list of file paths actually written, or None on
-        failure (caller should fall back to snapshot polling)."""
+        BI MJPEG stream.  Returns a list of (path, capture_monotonic_ts) tuples for
+        the frames actually written, or None on failure (caller should fall back to
+        snapshot polling).  Recording the real capture timestamp lets the encoder
+        reproduce the actual elapsed time of the captured action even when BI delivers
+        MJPEG frames slower than the requested cadence."""
         stream_url = "http://" + str(self.serverip) + ':' + str(self.serverport) + '/mjpg/' + cameraname + '/video.mjpg'
         if width and int(width) > 0:
             stream_url += '?w=' + str(int(width))
@@ -3168,7 +3171,7 @@ color: #ff3300;
                         try:
                             with open(path, 'wb') as f:
                                 f.write(frame)
-                            written.append(path)
+                            written.append((path, now))
                             if self.debuggif:
                                 self.logger.debug(f"WebP stream: wrote {path} ({len(frame)} bytes)")
                             idx += 1
@@ -3194,7 +3197,10 @@ color: #ff3300;
             return None
 
     def _webp_capture_via_snapshots(self, cameraname, width, duration_secs, gifnumber, tmp_dir):
-        """Original snapshot-polling capture path.  Returns list of files written."""
+        """Original snapshot-polling capture path.  Returns a list of
+        (path, capture_monotonic_ts) tuples, matching _webp_capture_via_stream so
+        the encoder can derive per-frame display durations from the real elapsed
+        time between captures."""
         theUrl = self._webp_snapshot_url(cameraname, width)
         written = []
         x = 100
@@ -3230,7 +3236,7 @@ color: #ff3300;
                             except OSError:
                                 pass
                         else:
-                            written.append(path)
+                            written.append((path, start))
                             if self.debuggif:
                                 self.logger.debug(u'WebP: Image Download Attempt for: ' + str(path)
                                                   + u' in [seconds]:' + str(download_time))
@@ -3311,6 +3317,25 @@ color: #ff3300;
             except OSError:
                 pass
 
+            # Sweep orphan WebP temp files from prior crashed runs.  Each call
+            # now writes to a unique .webp.<pid>.<tid>.tmp; old leftovers in the
+            # camera output dir would otherwise accumulate forever.  Only purge
+            # files older than an hour so a sibling animateWebp thread's
+            # in-flight tmp isn't deleted out from under it.
+            try:
+                cutoff = t.time() - 3600
+                for stale in os.listdir(folderLocation):
+                    name_lower = stale.lower()
+                    if name_lower.startswith('animated.webp.') and name_lower.endswith('.tmp'):
+                        stale_path = os.path.join(folderLocation, stale)
+                        try:
+                            if os.path.getmtime(stale_path) < cutoff:
+                                os.remove(stale_path)
+                        except OSError:
+                            pass
+            except OSError:
+                pass
+
             written = None
             if use_stream:
                 written = self._webp_capture_via_stream(cameraname, width, duration_secs, gifnumber, tmp_dir)
@@ -3321,26 +3346,61 @@ color: #ff3300;
                 self.logger.error(u'WebP: no frames captured; aborting WebP creation.')
                 return
 
-            # Sort numerically by filename stem so 100..130 is stable regardless of
-            # digit count, and only consider files we actually wrote this run.
-            input_frames = sorted(
-                (Path(p) for p in written if os.path.exists(p)),
-                key=lambda p: int(p.stem) if p.stem.isdigit() else 0,
+            # Sort by capture timestamp so frames are encoded in the order BI
+            # delivered them.  written entries are (path, capture_ts) tuples
+            # produced by both the stream and snapshot capture paths.
+            ordered = sorted(
+                ((Path(p), float(ts)) for p, ts in written if os.path.exists(p)),
+                key=lambda item: item[1],
             )
+            input_frames = [p for p, _ts in ordered]
+            capture_times = [ts for _p, ts in ordered]
             actual_frame_count = len(input_frames)
-            constant_interval = float(duration_secs) / float(actual_frame_count)
-            frame_duration_ms = max(1, int(round(constant_interval * 1000)))
+            if actual_frame_count == 0:
+                self.logger.error(u'WebP: no frames remain after sort; aborting.')
+                return
+
+            # Derive per-frame display durations from the *real* elapsed time
+            # between captures.  Encoding every frame at duration_secs/gifnumber
+            # ms (the previous behaviour) made playback faster than real time
+            # whenever BI delivered MJPEG/snapshot frames slower than the
+            # requested cadence — the captured action could span 20s but the
+            # encoded WebP would still claim to be 10s long.  The last frame
+            # mirrors the previous interval (or the requested cadence when only
+            # a single frame was captured).
+            target_interval_ms = max(1, int(round(float(duration_secs) / float(gifnumber) * 1000)))
+            if actual_frame_count == 1:
+                per_frame_durations = [target_interval_ms]
+            else:
+                per_frame_durations = []
+                for i in range(actual_frame_count - 1):
+                    delta_ms = int(round((capture_times[i + 1] - capture_times[i]) * 1000))
+                    per_frame_durations.append(max(1, delta_ms))
+                # Last frame: repeat the previous gap so the final image is
+                # visible for a sensible amount of time rather than 0ms.
+                per_frame_durations.append(per_frame_durations[-1])
+
+            total_playback_ms = sum(per_frame_durations)
+            captured_span_ms = int(round((capture_times[-1] - capture_times[0]) * 1000)) if actual_frame_count > 1 else 0
 
             if self.debuggif:
                 self.logger.debug(
-                    f"WebP: {actual_frame_count}/{gifnumber} frames captured, "
-                    f"{frame_duration_ms}ms each (target was "
-                    f"{int(round(duration_secs / gifnumber * 1000))}ms), "
-                    f"quality={gifcompression}, duration={duration_secs}s"
+                    f"WebP: {actual_frame_count}/{gifnumber} frames captured over "
+                    f"{captured_span_ms}ms real time; encoding playback "
+                    f"{total_playback_ms}ms (target was {int(duration_secs * 1000)}ms, "
+                    f"target per-frame {target_interval_ms}ms), "
+                    f"quality={gifcompression}"
                 )
 
             output_path = Path(folderLocation + 'Animated.webp')
-            tmp_output = output_path.with_suffix('.webp.tmp')
+            # Per-call unique tmp filename so concurrent animateWebp threads for
+            # the same camera (e.g. quick-repeat triggers) can't race on the
+            # rename.  Previously both threads wrote the same .webp.tmp and the
+            # second os.replace() raised FileNotFoundError after the first had
+            # already moved the temp file into place.
+            tmp_output = output_path.with_suffix(
+                f'.webp.{os.getpid()}.{threading.get_ident()}.tmp'
+            )
             try:
                 frames = []
                 for frame_path in input_frames:
@@ -3353,12 +3413,23 @@ color: #ff3300;
                 if not frames:
                     self.logger.error(u'WebP: no decodable frames; aborting.')
                     return
+                # Pillow accepts a per-frame list for `duration`; pass exactly
+                # one entry per encoded frame so dropped/unreadable frames
+                # don't desync the timing list.
+                if len(frames) != len(per_frame_durations):
+                    # Re-derive defensively: even spacing across whatever was
+                    # actually decodable, scaled to the captured span.
+                    if captured_span_ms > 0:
+                        per = max(1, captured_span_ms // len(frames))
+                    else:
+                        per = target_interval_ms
+                    per_frame_durations = [per] * len(frames)
                 try:
                     frames[0].save(
                         tmp_output,
                         "webp",
                         append_images=frames[1:],
-                        duration=frame_duration_ms,
+                        duration=per_frame_durations,
                         save_all=True,
                         loop=0,
                         lossless=False,

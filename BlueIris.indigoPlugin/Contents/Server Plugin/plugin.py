@@ -4071,7 +4071,10 @@ color: #ff3300;
                 argv += shlex.split(str(extra_args))
             except ValueError:
                 self.logger.error(f'MP4: cannot parse extraArgs={extra_args!r}, ignoring.')
-        argv += ['-y', str(tmp_output)]
+        # Force the MP4 muxer.  We write to a `.tmp` suffix so ffmpeg can't
+        # infer the container from the extension and bails with
+        # "Unable to find a suitable output format for ...".
+        argv += ['-f', 'mp4', '-y', str(tmp_output)]
 
         # Build a scrubbed copy of argv for logging (mask creds in any URL).
         log_argv = list(argv)

@@ -303,6 +303,66 @@
         </ConfigUI>
     </Action>
 
+    <Action id="makeHeif">
+    <Name>Create Animated HEIC Image</Name>
+    <CallbackMethod>actionCreateHeif</CallbackMethod>
+        <ConfigUI>
+            <Field id="deviceCamera" type="list" rows="14">
+                <Label>Select Camera(s)</Label>
+                <List class="indigo.devices" filter="self.BlueIrisCamera"/>
+            </Field>
+             <Field id="gifwidth" type="textfield" tooltip="Width of Image." defaultValue="800">
+            <Label>Width in Pixels of Image:</Label>
+        <Description>Width of Image Saved</Description>
+    </Field>
+                <Field id="label2222" type="label" fontSize="small" fontColor="black">
+    <Label>Width of Animated HEIC Created bigger = bigger file size
+    </Label>  </Field>
+
+        <Field id="giftime" type="textfield" tooltip="Time of Image." defaultValue="10">
+            <Label>Time of Saved Images in Seconds</Label>
+        <Description>Time of Image</Description>
+    </Field>
+        <Field id="label222" type="label" fontSize="small" fontColor="black">
+    <Label>Time over which images are saved and displayed eg. 5 seconds or 15 seconds.
+    </Label>
+        </Field>
+        <Field id="gifnumber" type="textfield" tooltip="Number of Images." defaultValue="15">
+            <Label>Number of Images</Label>
+        <Description>Number of Image</Description>
+    </Field>
+        <Field id="numberlabel222" type="label" fontSize="small" fontColor="black">
+    <Label>Number of captured images.  Defaults to 15.  More == bigger file size.
+    </Label>
+        </Field>
+
+           <Field id="gifcompression" type="textfield" tooltip="HEIC quality 1-100 (higher = better quality, larger file)." defaultValue="60">
+            <Label>HEIC Quality (1-100):</Label>
+        <Description>Quality from 1-100 for saved HEIC - higher means better quality and larger file</Description>
+    </Field>
+
+               <Field id="label11222" type="label" fontSize="small" fontColor="black">
+    <Label>HEIC Quality from 1 to 100.  HIGHER = better quality (and larger file).
+        Recommended approx 60.  HEIC compresses much harder than WebP so values
+        ~50-70 typically look great.
+    </Label>
+               </Field>
+
+           <Field id="useStream" type="checkbox" defaultValue="true" tooltip="Capture frames from the BI MJPEG stream rather than polling /image. Produces sharper, time-aligned frames.">
+               <Label>Capture from MJPEG stream:</Label>
+               <Description>Use MJPEG stream for sharper frames (recommended)</Description>
+           </Field>
+
+               <Field id="streamlabel" type="label" fontSize="small" fontColor="black">
+    <Label>When enabled, frames are read from the BI MJPEG stream which avoids
+        duplicate/blurry frames from the snapshot endpoint.  If the stream
+        cannot be reached the action falls back to snapshot polling.
+    </Label>
+               </Field>
+
+        </ConfigUI>
+    </Action>
+
     <Action id="makeAnim">
     <Name>Create Animated Gif</Name>
     <CallbackMethod>actionCreateAnimGif</CallbackMethod>

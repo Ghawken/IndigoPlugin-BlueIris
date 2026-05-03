@@ -3474,6 +3474,263 @@ color: #ff3300;
 
         except Exception:
             self.logger.exception(u'Caught Error in Anim WebP Thread')
+
+    def actionCreateHeif(self, valuesDict):
+        self.logger.debug(u'action Create Heif for Cameras/s ')
+        try:
+            if self.debuggif:
+                self.logger.debug(str(valuesDict))
+            props = valuesDict.props
+            cameras = props.get('deviceCamera', [])
+            gifwidth = self._webp_int_prop(props, 'gifwidth', 800)
+            giftime = self._webp_int_prop(props, 'giftime', 10)
+            gifcompression = self._webp_int_prop(props, 'gifcompression', 60)
+            gifnumber = self._webp_int_prop(props, 'gifnumber', 15)
+            # Clamp to sensible ranges so the worker thread always gets safe values.
+            if gifnumber < 1:
+                gifnumber = 1
+            if giftime < 1:
+                giftime = 1
+            if gifcompression < 1:
+                gifcompression = 1
+            elif gifcompression > 100:
+                gifcompression = 100
+            use_stream = bool(props.get('useStream', True))
+            if isinstance(use_stream, str):
+                use_stream = use_stream.lower() in ('true', 'yes', '1')
+
+            for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
+                if str(dev.id) in cameras and dev.enabled:
+                    cameraname = dev.states['optionValue']
+                    if not cameraname:
+                        self.logger.error(f"HEIC action: camera device {dev.name} has no BI short name; skipping.")
+                        continue
+                    if self.debuggif:
+                        self.logger.debug(
+                            u'Action Heif: Cameraname:' + str(cameraname)
+                            + u' gifwidth:' + str(gifwidth)
+                            + u' giftime:' + str(giftime)
+                            + u' gifquality:' + str(gifcompression)
+                            + f" gifnumber={gifnumber} useStream={use_stream}"
+                        )
+                    AnothermyThread = threading.Thread(
+                        target=self.animateHeif,
+                        name=f"heif-{cameraname}",
+                        args=[cameraname, gifwidth, giftime, gifcompression, gifnumber, use_stream],
+                    )
+                    AnothermyThread.start()
+                    self.logger.debug(
+                        u'Heif: Action New Thread For Camera:' + str(cameraname)
+                        + u' & Number of Active Threads:' + str(threading.active_count())
+                    )
+                    self.sleep(0.05)
+            return
+        except Exception:
+            self.logger.exception(u'Caught Exception in Create Anim HEIC')
+            return
+
+    def animateHeif(self, cameraname, width, duration_secs, gifcompression, gifnumber, use_stream=True):
+        try:
+            if self.debuggif:
+                self.logger.debug(u'AnimateHeif Called: In a New thread:')
+                self.logger.debug(u'animateHeif: camera:' + str(cameraname)
+                                  + u' width:' + str(width)
+                                  + u' time:' + str(duration_secs)
+                                  + u' quality:' + str(gifcompression)
+                                  + f" gifnumber={gifnumber} use_stream={use_stream}")
+
+            # Lazy import so a missing pillow-heif install only breaks this
+            # action rather than the whole plugin at startup.
+            try:
+                import pillow_heif
+                pillow_heif.register_heif_opener()
+            except ImportError:
+                self.logger.error(
+                    u'HEIC: pillow-heif is not installed.  Install it (pip3 install '
+                    u'pillow-heif) or rely on the plugin requirements.txt to '
+                    u'pull it in, then retry.'
+                )
+                return
+
+            try:
+                gifnumber = int(gifnumber)
+            except (TypeError, ValueError):
+                self.logger.debug(f"Error with gifnumber - likely need to open action group edit and save")
+                gifnumber = 15
+            if gifnumber < 1:
+                gifnumber = 1
+
+            try:
+                gifcompression = int(gifcompression)
+                if gifcompression >= 100:
+                    gifcompression = 100
+                elif gifcompression <= 1:
+                    gifcompression = 1
+            except (TypeError, ValueError):
+                gifcompression = 60
+
+            try:
+                width = int(width)
+            except (TypeError, ValueError):
+                width = 0
+
+            try:
+                duration_secs = float(duration_secs)
+                if duration_secs <= 0:
+                    duration_secs = 1.0
+            except (TypeError, ValueError):
+                duration_secs = 10.0
+
+            folderLocation = self.saveDirectory + str(cameraname) + '/'
+            tmp_dir = folderLocation + 'tmp/'
+            try:
+                os.makedirs(tmp_dir, exist_ok=True)
+            except OSError:
+                self.logger.exception(u'HEIC: unable to create tmp directory')
+                return
+
+            # Clear any leftover JPEGs from a previous run so stale frames don't
+            # leak into this HEIC.
+            try:
+                for stale in os.listdir(tmp_dir):
+                    if stale.lower().endswith('.jpg'):
+                        try:
+                            os.remove(os.path.join(tmp_dir, stale))
+                        except OSError:
+                            pass
+            except OSError:
+                pass
+
+            # Sweep orphan HEIC temp files from prior crashed runs (>1h old).
+            try:
+                cutoff = t.time() - 3600
+                for stale in os.listdir(folderLocation):
+                    name_lower = stale.lower()
+                    if name_lower.startswith('animated.heic.') and name_lower.endswith('.tmp'):
+                        stale_path = os.path.join(folderLocation, stale)
+                        try:
+                            if os.path.getmtime(stale_path) < cutoff:
+                                os.remove(stale_path)
+                        except OSError:
+                            pass
+            except OSError:
+                pass
+
+            # Reuse the WebP capture pipeline verbatim — same MJPEG-stream and
+            # snapshot fallbacks, same per-frame timestamp recording.
+            written = None
+            if use_stream:
+                written = self._webp_capture_via_stream(cameraname, width, duration_secs, gifnumber, tmp_dir)
+            if not written:
+                written = self._webp_capture_via_snapshots(cameraname, width, duration_secs, gifnumber, tmp_dir)
+
+            if not written:
+                self.logger.error(u'HEIC: no frames captured; aborting HEIC creation.')
+                return
+
+            ordered = sorted(
+                ((Path(p), float(ts)) for p, ts in written if os.path.exists(p)),
+                key=lambda item: item[1],
+            )
+            input_frames = [p for p, _ts in ordered]
+            capture_times = [ts for _p, ts in ordered]
+            actual_frame_count = len(input_frames)
+            if actual_frame_count == 0:
+                self.logger.error(u'HEIC: no frames remain after sort; aborting.')
+                return
+
+            # Same uniform per-frame duration logic as animateWebp — most HEIF
+            # viewers (Preview, Quick Look, iMessage) honour a single uniform
+            # frame duration far better than per-frame metadata.
+            target_interval_ms = max(1, int(round(float(duration_secs) / float(gifnumber) * 1000)))
+            captured_span_ms = int(round((capture_times[-1] - capture_times[0]) * 1000)) if actual_frame_count > 1 else 0
+            if actual_frame_count > 1 and captured_span_ms > 0:
+                mean_interval_ms = int(round(captured_span_ms / max(1, actual_frame_count - 1)))
+            else:
+                mean_interval_ms = target_interval_ms
+            per_frame_duration_ms = max(40, mean_interval_ms)
+            total_playback_ms = per_frame_duration_ms * actual_frame_count
+
+            if self.debuggif:
+                self.logger.debug(
+                    f"HEIC: {actual_frame_count}/{gifnumber} frames captured over "
+                    f"{captured_span_ms}ms real time; encoding uniform "
+                    f"{per_frame_duration_ms}ms/frame (~{total_playback_ms}ms total, "
+                    f"target was {int(duration_secs * 1000)}ms, "
+                    f"target per-frame {target_interval_ms}ms), "
+                    f"quality={gifcompression}"
+                )
+
+            output_path = Path(folderLocation + 'Animated.heic')
+            # Per-call unique tmp filename — same race-avoidance pattern as the
+            # WebP path, so concurrent animateHeif threads for the same camera
+            # don't collide on os.replace().
+            tmp_output = output_path.with_suffix(
+                f'.heic.{os.getpid()}.{threading.get_ident()}.tmp'
+            )
+            try:
+                frames = []
+                for frame_path in input_frames:
+                    try:
+                        img = Image.open(frame_path)
+                        img.load()  # force decode now so we can detect corrupt JPEGs
+                        # pillow-heif's HEIF encoder requires RGB(A); JPEGs come
+                        # in as RGB already, but be defensive against grayscale.
+                        if img.mode not in ('RGB', 'RGBA'):
+                            img = img.convert('RGB')
+                        frames.append(img)
+                    except Exception:
+                        self.logger.debug(f"HEIC: skipping unreadable frame {frame_path}")
+                if not frames:
+                    self.logger.error(u'HEIC: no decodable frames; aborting.')
+                    return
+                try:
+                    frames[0].save(
+                        tmp_output,
+                        format="HEIF",
+                        append_images=frames[1:],
+                        duration=per_frame_duration_ms,
+                        save_all=True,
+                        quality=int(gifcompression),
+                    )
+                finally:
+                    for img in frames:
+                        try:
+                            img.close()
+                        except Exception:
+                            pass
+                os.replace(tmp_output, output_path)
+            except Exception:
+                self.logger.exception(u'Caught Exception within HEIC Image Pillow - newThread')
+                try:
+                    if tmp_output.exists():
+                        tmp_output.unlink()
+                except OSError:
+                    pass
+                return
+
+            self.createupdatevariable('lastheic', f"{output_path}")
+            self.logger.debug(f"Successfully Saved HEIC Image to {output_path}")
+            self.logger.debug(u'with Settings: camera:' + str(cameraname)
+                              + u' Width:' + str(width)
+                              + u'(pixels) length seconds:' + str(duration_secs)
+                              + u'(secs) HEIC Quality:' + str(gifcompression)
+                              + f" and Number Images :{gifnumber}")
+
+        except requests.exceptions.Timeout:
+            self.logger.debug(u'Anim HEIC requests has timed out and cannot connect to BI Server.')
+            pass
+
+        except requests.exceptions.ConnectionError:
+            self.logger.debug(u'Anim HEIC requests has timed out/Connection Error and cannot connect to BI Server.')
+            pass
+
+        except self.StopThread:
+            self.logger.info(u'Restarting/or error. Stopping thread.')
+            raise
+
+        except Exception:
+            self.logger.exception(u'Caught Error in Anim HEIC Thread')
 ################## Run the create gifs in a seperate thread as will take a few seconds we can't afford
 
     def animateGif(self, cameraname, width, time, gifcompression, gifnumber):

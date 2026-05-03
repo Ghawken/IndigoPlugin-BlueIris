@@ -3361,35 +3361,39 @@ color: #ff3300;
                 self.logger.error(u'WebP: no frames remain after sort; aborting.')
                 return
 
-            # Derive per-frame display durations from the *real* elapsed time
-            # between captures.  Encoding every frame at duration_secs/gifnumber
-            # ms (the previous behaviour) made playback faster than real time
-            # whenever BI delivered MJPEG/snapshot frames slower than the
-            # requested cadence — the captured action could span 20s but the
-            # encoded WebP would still claim to be 10s long.  The last frame
-            # mirrors the previous interval (or the requested cadence when only
-            # a single frame was captured).
-            target_interval_ms = max(1, int(round(float(duration_secs) / float(gifnumber) * 1000)))
-            if actual_frame_count == 1:
-                per_frame_durations = [target_interval_ms]
-            else:
-                per_frame_durations = []
-                for i in range(actual_frame_count - 1):
-                    delta_ms = int(round((capture_times[i + 1] - capture_times[i]) * 1000))
-                    per_frame_durations.append(max(1, delta_ms))
-                # Last frame: repeat the previous gap so the final image is
-                # visible for a sensible amount of time rather than 0ms.
-                per_frame_durations.append(per_frame_durations[-1])
 
-            total_playback_ms = sum(per_frame_durations)
-            captured_span_ms = int(
-                round((capture_times[-1] - capture_times[0]) * 1000)) if actual_frame_count > 1 else 0
+            # Derive a *single uniform* per-frame display duration from the real
+            # elapsed capture span.  We previously emitted a per-frame duration
+            # list so playback matched real capture time exactly, but Apple's
+            # Messages inline animated-WebP renderer ignores per-frame ANMF
+            # durations and plays at a fixed default cadence — slow captures
+            # then looked 10–30× sped-up in iMessage bubbles.  Using one
+            # uniform duration (the mean of the captured intervals, clamped to
+            # >=40ms which is roughly Messages' assumed minimum) keeps total
+            # playback ~= real elapsed time while giving the dumb decoder the
+            # constant cadence it expects.  Compliant viewers (full-size
+            # QuickLook, browsers) honour the same single value just fine.
+            target_interval_ms = max(1, int(round(float(duration_secs) / float(gifnumber) * 1000)))
+            captured_span_ms = int(round((capture_times[-1] - capture_times[0]) * 1000)) if actual_frame_count > 1 else 0
+            if actual_frame_count > 1 and captured_span_ms > 0:
+                # Mean interval across the captured span.  Divide by
+                # (frames - 1) gaps, not frames, so the encoded length matches
+                # the captured span when we replay frame N for the same gap as
+                # the preceding one (the standard "hold last frame" trick).
+                mean_interval_ms = int(round(captured_span_ms / max(1, actual_frame_count - 1)))
+            else:
+                mean_interval_ms = target_interval_ms
+            # 40ms (~25fps) is the lower bound below which the iMessage
+            # renderer reportedly speeds up further; clamp here.
+            per_frame_duration_ms = max(40, mean_interval_ms)
+            total_playback_ms = per_frame_duration_ms * actual_frame_count
 
             if self.debuggif:
                 self.logger.debug(
                     f"WebP: {actual_frame_count}/{gifnumber} frames captured over "
-                    f"{captured_span_ms}ms real time; encoding playback "
-                    f"{total_playback_ms}ms (target was {int(duration_secs * 1000)}ms, "
+                    f"{captured_span_ms}ms real time; encoding uniform "
+                    f"{per_frame_duration_ms}ms/frame (~{total_playback_ms}ms total, "
+                    f"target was {int(duration_secs * 1000)}ms, "
                     f"target per-frame {target_interval_ms}ms), "
                     f"quality={gifcompression}"
                 )
@@ -3415,23 +3419,16 @@ color: #ff3300;
                 if not frames:
                     self.logger.error(u'WebP: no decodable frames; aborting.')
                     return
-                # Pillow accepts a per-frame list for `duration`; pass exactly
-                # one entry per encoded frame so dropped/unreadable frames
-                # don't desync the timing list.
-                if len(frames) != len(per_frame_durations):
-                    # Re-derive defensively: even spacing across whatever was
-                    # actually decodable, scaled to the captured span.
-                    if captured_span_ms > 0:
-                        per = max(1, captured_span_ms // len(frames))
-                    else:
-                        per = target_interval_ms
-                    per_frame_durations = [per] * len(frames)
+                # Pillow accepts either an int or a per-frame list for
+                # `duration`.  We pass a single int now (see comment above
+                # about the iMessage renderer).  No per-frame desync check is
+                # needed because the value is uniform.
                 try:
                     frames[0].save(
                         tmp_output,
                         "webp",
                         append_images=frames[1:],
-                        duration=per_frame_durations,
+                        duration=per_frame_duration_ms,
                         save_all=True,
                         loop=0,
                         lossless=False,
@@ -3480,7 +3477,8 @@ color: #ff3300;
         except Exception:
             self.logger.exception(u'Caught Error in Anim WebP Thread')
 
-################## Run the create gifs in a seperate thread as will take a few seconds we can't afford
+        ################## Run the create gifs in a seperate thread as will take a few seconds we can't afford
+
 
     def animateGif(self, cameraname, width, time, gifcompression, gifnumber):
         # file_names = sorted((fn for fn in os.listdir(folderLocation) ))
@@ -3681,6 +3679,7 @@ color: #ff3300;
             pass
         except:
             self.logger.exception(u'Caught Exception in ListenHttp')
+
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     """Handle requests in a separate thread."""

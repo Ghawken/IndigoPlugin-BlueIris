@@ -288,6 +288,7 @@ class Plugin(indigo.PluginBase):
 
         self.serverip = self.pluginPrefs.get('serverip', '')
         self.serverport = int(self.pluginPrefs.get('serverport', '80'))
+        self.rtspport = str(self.pluginPrefs.get('rtspport', '') or '').strip()
         self.serverusername = self.pluginPrefs.get('serverusername', '')
         self.serverpassword = self.pluginPrefs.get('serverpassword', '')
         self.Broadcast = self.pluginPrefs.get('Broadcast',False)
@@ -463,6 +464,7 @@ class Plugin(indigo.PluginBase):
 
             self.serverip = valuesDict.get('serverip', False)
             self.serverport = int(valuesDict.get('serverport', '80'))
+            self.rtspport = str(valuesDict.get('rtspport', '') or '').strip()
             self.serverusername = valuesDict.get('serverusername', '')
             self.serverpassword = valuesDict.get('serverpassword','')
 
@@ -4002,10 +4004,16 @@ color: #ff3300;
 
     def _mp4_run_ffmpeg(self, source_url, source_type, output_path,
                        duration, width, fps, crf, preset, profile, level,
-                       extra_args):
-        """Run ffmpeg synchronously: pull <source_url>, encode to MP4 at
+                       extra_args, stream_copy):
+        """Run ffmpeg synchronously: pull <source_url>, write MP4 to
         <output_path>.  Returns True on success, False on any failure.
-        Atomic rename via per-call unique tmp file."""
+        Atomic rename via per-call unique tmp file.
+
+        For RTSP sources we mirror the proven HomeKitLink-Siri arg recipe:
+            -rtsp_transport tcp -probesize 32 -analyzeduration 0 -stimeout <us>
+        and default to -c:v copy (no re-encode).  This avoids the hangs seen
+        with the HTTP /h264/<cam>/temp.h264 endpoint, which never sends EOF
+        and tripped the duration+15s timeout."""
         ffmpeg_path = self._mp4_locate_ffmpeg()
         if not ffmpeg_path:
             self.logger.error(u'MP4: bundled homekitlink_ffmpeg binary not available; aborting.')
@@ -4024,22 +4032,37 @@ color: #ff3300;
             f'.mp4.{os.getpid()}.{threading.get_ident()}.tmp'
         )
 
+        is_rtsp = str(source_url).lower().startswith('rtsp://')
+
         argv = [ffmpeg_path, '-hide_banner', '-loglevel', 'warning', '-nostdin']
-        # The -f h264 hint avoids ffmpeg probe-time stalls on raw NAL streams.
-        # MJPEG is auto-detected fine, no need for -f.
-        if source_type == 'h264':
-            argv += ['-f', 'h264']
-        argv += ['-i', source_url,
-                 '-t', str(duration),
-                 '-vf', f'scale={int(width)}:-2,fps={int(fps)}',
-                 '-c:v', 'libx264',
-                 '-preset', str(preset),
-                 '-crf', str(crf),
-                 '-profile:v', str(profile),
-                 '-level', str(level),
-                 '-pix_fmt', 'yuv420p',
-                 '-movflags', '+faststart',
-                 '-an']
+        if is_rtsp:
+            # HomeKitLink-Siri's known-good RTSP input options.  -stimeout is in
+            # microseconds; cap TCP connect/read at 10s so we fail fast instead
+            # of hanging until the outer Python timeout fires.
+            argv += ['-rtsp_transport', 'tcp',
+                     '-probesize', '32',
+                     '-analyzeduration', '0',
+                     '-stimeout', '10000000']
+        argv += ['-i', source_url, '-t', str(duration)]
+
+        if stream_copy:
+            # No re-encode: cheapest, fastest, most reliable.  BI's substream
+            # is already H.264 so we just remux into MP4.  -bsf:v
+            # h264_mp4toannexb is implicit on container change but harmless.
+            argv += ['-map', '0:0',
+                     '-c:v', 'copy',
+                     '-an',
+                     '-movflags', '+faststart']
+        else:
+            argv += ['-vf', f'scale={int(width)}:-2,fps={int(fps)}',
+                     '-c:v', 'libx264',
+                     '-preset', str(preset),
+                     '-crf', str(crf),
+                     '-profile:v', str(profile),
+                     '-level', str(level),
+                     '-pix_fmt', 'yuv420p',
+                     '-movflags', '+faststart',
+                     '-an']
         if extra_args:
             try:
                 argv += shlex.split(str(extra_args))
@@ -4047,20 +4070,20 @@ color: #ff3300;
                 self.logger.error(f'MP4: cannot parse extraArgs={extra_args!r}, ignoring.')
         argv += ['-y', str(tmp_output)]
 
-        # Build a scrubbed copy of argv for logging (strip user=/pw= from URL).
+        # Build a scrubbed copy of argv for logging (mask creds in any URL).
         log_argv = list(argv)
         for i, a in enumerate(log_argv):
-            if isinstance(a, str) and ('user=' in a or 'pw=' in a):
+            if isinstance(a, str) and ('user=' in a or 'pw=' in a or '://' in a):
                 log_argv[i] = self._mp4_scrub_url(a)
         self.logger.debug(u'MP4: running ffmpeg: ' + ' '.join(log_argv))
 
         try:
             proc = subprocess.run(
                 argv, capture_output=True, text=True,
-                timeout=float(duration) + 15.0,
+                timeout=float(duration) + 20.0,
             )
         except subprocess.TimeoutExpired:
-            self.logger.error(f'MP4: ffmpeg timed out after duration+15s for {output_path}')
+            self.logger.error(f'MP4: ffmpeg timed out after duration+20s for {output_path}')
             try:
                 if tmp_output.exists():
                     tmp_output.unlink()
@@ -4109,25 +4132,41 @@ color: #ff3300;
 
     def _mp4_worker(self, cameraname, output_path, source_type,
                    duration, width, fps, crf, preset, profile, level,
-                   extra_args):
-        """Background worker: build the BI source URL, encode, update var."""
+                   extra_args, stream_copy):
+        """Background worker: build the BI source URL, encode, update var.
+
+        For source_type='h264' we use BI's RTSP endpoint (mirrors the proven
+        HomeKitLink-Siri arg recipe); for 'mjpeg' we keep the HTTP MJPEG
+        endpoint as a fallback for cameras without a clean h264 substream."""
         try:
             user = str(self.serverusername or '')
             pw = str(self.serverpassword or '')
-            qs = ''
-            if user or pw:
-                qs = f'?user={urllib.parse.quote(user, safe="")}&pw={urllib.parse.quote(pw, safe="")}'
+
             if source_type == 'h264':
-                # Blue Iris's raw Annex-B h264 substream endpoint.
-                source_url = (f'http://{self.serverip}:{self.serverport}'
-                              f'/h264/{cameraname}/temp.h264{qs}')
+                # BI RTSP URL — mirrors HomeKitLink-Siri's known-good shape
+                # 'rtsp://user:pw@ip:rtspport/<short>&stream=2'.  &stream=2
+                # asks BI for the substream which is ideal for clip export.
+                rtsp_port = (str(self.rtspport).strip()
+                             if getattr(self, 'rtspport', None)
+                             else '') or str(self.serverport)
+                cred = ''
+                if user or pw:
+                    cred = (f'{urllib.parse.quote(user, safe="")}:'
+                            f'{urllib.parse.quote(pw, safe="")}@')
+                source_url = (f'rtsp://{cred}{self.serverip}:{rtsp_port}'
+                              f'/{cameraname}&stream=2')
             else:
-                # MJPEG fallback.
+                # MJPEG HTTP fallback (unchanged).
+                qs = ''
+                if user or pw:
+                    qs = (f'?user={urllib.parse.quote(user, safe="")}'
+                          f'&pw={urllib.parse.quote(pw, safe="")}')
                 source_url = (f'http://{self.serverip}:{self.serverport}'
                               f'/mjpg/{cameraname}/video.mjpg{qs}')
 
             self.logger.debug(
                 f'MP4: camera={cameraname} source={source_type} '
+                f'streamCopy={stream_copy} '
                 f'url={self._mp4_scrub_url(source_url)} '
                 f'output={output_path} duration={duration} width={width} fps={fps} '
                 f'crf={crf} preset={preset} profile={profile} level={level}'
@@ -4137,7 +4176,7 @@ color: #ff3300;
                 source_url=source_url, source_type=source_type,
                 output_path=output_path, duration=duration, width=width,
                 fps=fps, crf=crf, preset=preset, profile=profile, level=level,
-                extra_args=extra_args,
+                extra_args=extra_args, stream_copy=stream_copy,
             )
             if ok:
                 self.createupdatevariable('lastmp4', f"{output_path}")
@@ -4181,6 +4220,16 @@ color: #ff3300;
             profile = str(props.get('profile', 'main') or 'main').strip()
             level = str(props.get('level', '3.1') or '3.1').strip()
             extra_args = str(props.get('extraArgs', '') or '').strip()
+            # Stream-copy mode (default on): no re-encode, just remux RTSP h264
+            # into MP4.  Mirrors the HomeKitLink-Siri "-c:v copy" path.  MJPEG
+            # source can never be copied into MP4 cleanly — force re-encode.
+            stream_copy_raw = props.get('streamCopy', True)
+            if isinstance(stream_copy_raw, str):
+                stream_copy = stream_copy_raw.strip().lower() in ('true', 'yes', '1')
+            else:
+                stream_copy = bool(stream_copy_raw)
+            if source_type == 'mjpeg':
+                stream_copy = False
 
             # Optional outputfile prop, supports Indigo substitution.
             outputfile_template = str(props.get('outputfile', '') or '').strip()
@@ -4207,7 +4256,7 @@ color: #ff3300;
                         name=f'mp4-{cameraname}',
                         args=[cameraname, output_path, source_type,
                               duration, width, fps, crf, preset, profile, level,
-                              extra_args],
+                              extra_args, stream_copy],
                     )
                     th.start()
                     self.logger.debug(

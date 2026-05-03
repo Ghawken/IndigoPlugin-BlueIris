@@ -400,14 +400,19 @@
             <Field id="sourceType" type="menu" defaultValue="h264">
                 <Label>Source Stream:</Label>
                 <List>
-                    <Option value="h264">h264 substream (preferred - best quality)</Option>
+                    <Option value="h264">h264 RTSP substream (preferred)</Option>
                     <Option value="mjpeg">MJPEG (fallback for older cameras)</Option>
                 </List>
             </Field>
             <Field id="sourcelabel" type="label" fontSize="small" fontColor="black">
-                <Label>h264 pulls Blue Iris's native h264 substream - higher quality, lower bandwidth.
-                    MJPEG is an escape hatch for cameras that don't expose a clean h264 substream.
+                <Label>h264 pulls Blue Iris's RTSP substream (rtsp://...:rtspport/&lt;cam&gt;&amp;stream=2) - higher quality, lower bandwidth.
+                    MJPEG is an HTTP escape hatch for cameras that don't expose a clean h264 substream (forces re-encode).
                 </Label>
+            </Field>
+
+            <Field id="streamCopy" type="checkbox" defaultValue="true" tooltip="Stream copy: no re-encode (fastest, just remux RTSP h264 into MP4). Disable to force libx264 re-encode using the settings below.">
+                <Label>Stream copy (no re-encode):</Label>
+                <Description>Recommended for h264 RTSP source. Ignores width/fps/CRF/preset/profile/level below.</Description>
             </Field>
 
             <Field id="crf" type="textfield" tooltip="x264 CRF quality (0-51, lower is better quality / larger file). 18-28 is the sane range." defaultValue="23">

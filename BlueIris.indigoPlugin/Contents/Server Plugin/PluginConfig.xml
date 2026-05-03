@@ -29,6 +29,13 @@
 				   secure = "False">
 				<Label>Enter your Port:</Label>
 			</Field>
+			<Field id="rtspport"
+				   type="textfield"
+				   tooltip="Optional - BlueIris RTSP port (used for the MP4 action). Leave blank to reuse the HTTP port above."
+				   default=""
+				   secure = "False">
+				<Label>RTSP Port (optional):</Label>
+			</Field>
 			<Field id="serverusername"
 				   type="textfield"
 				   tooltip="Enter the BlueIris Server Username.  Must be admin for Trigger events"

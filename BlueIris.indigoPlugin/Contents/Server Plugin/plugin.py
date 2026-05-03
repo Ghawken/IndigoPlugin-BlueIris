@@ -3560,6 +3560,15 @@ color: #ff3300;
             if gifnumber < 1:
                 gifnumber = 1
 
+            # Apple Messages / ImageIO hang on multi-image HEIF collections
+            # (mif1 brand, no track/timing) — confirmed via `sips -g all` showing
+            # `format: heic` only and a 4.6s `com.apple.MobileSMS` watchdog hang
+            # on import.  pillow-heif has no path to write a real animated HEIC
+            # sequence (msf1 + HEVC track), so emit a single still HEIC instead.
+            # Capture just one frame to avoid wasted MJPEG work.
+            requested_gifnumber = gifnumber
+            gifnumber = 1
+
             try:
                 gifcompression = int(gifcompression)
                 if gifcompression >= 100:
@@ -3639,26 +3648,14 @@ color: #ff3300;
                 self.logger.error(u'HEIC: no frames remain after sort; aborting.')
                 return
 
-            # Same uniform per-frame duration logic as animateWebp — most HEIF
-            # viewers (Preview, Quick Look, iMessage) honour a single uniform
-            # frame duration far better than per-frame metadata.
-            target_interval_ms = max(1, int(round(float(duration_secs) / float(gifnumber) * 1000)))
-            captured_span_ms = int(round((capture_times[-1] - capture_times[0]) * 1000)) if actual_frame_count > 1 else 0
-            if actual_frame_count > 1 and captured_span_ms > 0:
-                mean_interval_ms = int(round(captured_span_ms / max(1, actual_frame_count - 1)))
-            else:
-                mean_interval_ms = target_interval_ms
-            per_frame_duration_ms = max(40, mean_interval_ms)
-            total_playback_ms = per_frame_duration_ms * actual_frame_count
-
+            # Single still HEIC — frame-timing logic from the prior animated
+            # path is intentionally omitted (Apple Messages hangs on multi-image
+            # HEIF collections; see comment near top of animateHeif).
             if self.debuggif:
                 self.logger.debug(
-                    f"HEIC: {actual_frame_count}/{gifnumber} frames captured over "
-                    f"{captured_span_ms}ms real time; encoding uniform "
-                    f"{per_frame_duration_ms}ms/frame (~{total_playback_ms}ms total, "
-                    f"target was {int(duration_secs * 1000)}ms, "
-                    f"target per-frame {target_interval_ms}ms), "
-                    f"quality={gifcompression}"
+                    f"HEIC: capturing 1 still frame (action requested "
+                    f"{requested_gifnumber}; animated HEIC dropped — Messages "
+                    f"importer hangs on multi-image HEIF), quality={gifcompression}"
                 )
 
             output_path = Path(folderLocation + 'Animated.heic')
@@ -3685,12 +3682,12 @@ color: #ff3300;
                     self.logger.error(u'HEIC: no decodable frames; aborting.')
                     return
                 try:
+                    # Single still HEIC — multi-image HEIF collections (mif1)
+                    # produced by save_all=True hang Apple Messages' importer;
+                    # see comment near the top of animateHeif().
                     frames[0].save(
                         tmp_output,
                         format="HEIF",
-                        append_images=frames[1:],
-                        duration=per_frame_duration_ms,
-                        save_all=True,
                         quality=int(gifcompression),
                     )
                 finally:

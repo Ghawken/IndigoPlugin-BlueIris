@@ -304,7 +304,7 @@
     </Action>
 
     <Action id="makeHeif">
-    <Name>Create Animated HEIC Image</Name>
+    <Name>Create HEIC Image (still)</Name>
     <CallbackMethod>actionCreateHeif</CallbackMethod>
         <ConfigUI>
             <Field id="deviceCamera" type="list" rows="14">
@@ -316,7 +316,7 @@
         <Description>Width of Image Saved</Description>
     </Field>
                 <Field id="label2222" type="label" fontSize="small" fontColor="black">
-    <Label>Width of Animated HEIC Created bigger = bigger file size
+    <Label>Width of still HEIC created — bigger = bigger file size.
     </Label>  </Field>
 
         <Field id="giftime" type="textfield" tooltip="Time of Image." defaultValue="10">
@@ -324,15 +324,15 @@
         <Description>Time of Image</Description>
     </Field>
         <Field id="label222" type="label" fontSize="small" fontColor="black">
-    <Label>Time over which images are saved and displayed eg. 5 seconds or 15 seconds.
+    <Label>Capture window in seconds — only the first frame is saved (animated HEIC dropped: Apple Messages hangs on multi-image HEIF).
     </Label>
         </Field>
-        <Field id="gifnumber" type="textfield" tooltip="Number of Images." defaultValue="15">
-            <Label>Number of Images</Label>
+        <Field id="gifnumber" type="textfield" tooltip="Number of Images (currently unused — only one frame is saved)." defaultValue="1">
+            <Label>Number of Images (unused)</Label>
         <Description>Number of Image</Description>
     </Field>
         <Field id="numberlabel222" type="label" fontSize="small" fontColor="black">
-    <Label>Number of captured images.  Defaults to 15.  More == bigger file size.
+    <Label>Currently unused — only one still frame is captured.  Animated HEIC was removed because Apple Messages hangs on multi-image HEIF.
     </Label>
         </Field>
 

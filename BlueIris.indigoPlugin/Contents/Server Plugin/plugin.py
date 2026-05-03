@@ -4048,24 +4048,32 @@ color: #ff3300;
                      '-timeout', '10000000']
         argv += ['-i', source_url, '-t', str(duration)]
 
+        # Map first video track always; audio is optional (`?`) so cameras
+        # without audio still produce a valid MP4.  HomeKit-style minimal
+        # audio: AAC-LC mono @ 24 kbps, 16 kHz — adds only a few KB to a
+        # 15s clip but keeps Messages/Mail playback with sound.
         if stream_copy:
-            # No re-encode: cheapest, fastest, most reliable.  BI's substream
-            # is already H.264 so we just remux into MP4.  -bsf:v
-            # h264_mp4toannexb is implicit on container change but harmless.
-            argv += ['-map', '0:0',
+            # No video re-encode: BI's substream is already H.264 so we
+            # remux into MP4.  Audio is always re-encoded to AAC because
+            # BI may publish PCM/G.711/etc. which MP4 won't accept via
+            # `-c:a copy`.
+            argv += ['-map', '0:v:0',
+                     '-map', '0:a:0?',
                      '-c:v', 'copy',
-                     '-an',
+                     '-c:a', 'aac', '-b:a', '24k', '-ac', '1', '-ar', '16000',
                      '-movflags', '+faststart']
         else:
-            argv += ['-vf', f'scale={int(width)}:-2,fps={int(fps)}',
+            argv += ['-map', '0:v:0',
+                     '-map', '0:a:0?',
+                     '-vf', f'scale={int(width)}:-2,fps={int(fps)}',
                      '-c:v', 'libx264',
                      '-preset', str(preset),
                      '-crf', str(crf),
                      '-profile:v', str(profile),
                      '-level', str(level),
                      '-pix_fmt', 'yuv420p',
-                     '-movflags', '+faststart',
-                     '-an']
+                     '-c:a', 'aac', '-b:a', '24k', '-ac', '1', '-ar', '16000',
+                     '-movflags', '+faststart']
         if extra_args:
             try:
                 argv += shlex.split(str(extra_args))
@@ -4173,6 +4181,7 @@ color: #ff3300;
             self.logger.debug(
                 f'MP4: camera={cameraname} source={source_type} '
                 f'streamCopy={stream_copy} '
+                f'thread={threading.current_thread().name} '
                 f'url={self._mp4_scrub_url(source_url)} '
                 f'output={output_path} duration={duration} width={width} fps={fps} '
                 f'crf={crf} preset={preset} profile={profile} level={level}'
@@ -4226,10 +4235,12 @@ color: #ff3300;
             profile = str(props.get('profile', 'main') or 'main').strip()
             level = str(props.get('level', '3.1') or '3.1').strip()
             extra_args = str(props.get('extraArgs', '') or '').strip()
-            # Stream-copy mode (default on): no re-encode, just remux RTSP h264
-            # into MP4.  Mirrors the HomeKitLink-Siri "-c:v copy" path.  MJPEG
-            # source can never be copied into MP4 cleanly — force re-encode.
-            stream_copy_raw = props.get('streamCopy', True)
+            # Stream-copy mode (default OFF): when enabled we just remux RTSP
+            # h264 into MP4 at native resolution/fps (ignores width/fps/CRF).
+            # Default-off so the user's width/fps/CRF settings are actually
+            # honoured and clips are sensibly sized.  MJPEG source can never
+            # be copied into MP4 cleanly — force re-encode.
+            stream_copy_raw = props.get('streamCopy', False)
             if isinstance(stream_copy_raw, str):
                 stream_copy = stream_copy_raw.strip().lower() in ('true', 'yes', '1')
             else:

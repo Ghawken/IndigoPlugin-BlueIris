@@ -303,6 +303,165 @@
         </ConfigUI>
     </Action>
 
+    <Action id="makeHeif">
+    <Name>Create HEIC Image (still)</Name>
+    <CallbackMethod>actionCreateHeif</CallbackMethod>
+        <ConfigUI>
+            <Field id="deviceCamera" type="list" rows="14">
+                <Label>Select Camera(s)</Label>
+                <List class="indigo.devices" filter="self.BlueIrisCamera"/>
+            </Field>
+             <Field id="gifwidth" type="textfield" tooltip="Width of Image." defaultValue="800">
+            <Label>Width in Pixels of Image:</Label>
+        <Description>Width of Image Saved</Description>
+    </Field>
+                <Field id="label2222" type="label" fontSize="small" fontColor="black">
+    <Label>Width of still HEIC created — bigger = bigger file size.
+    </Label>  </Field>
+
+        <Field id="giftime" type="textfield" tooltip="Time of Image." defaultValue="10">
+            <Label>Time of Saved Images in Seconds</Label>
+        <Description>Time of Image</Description>
+    </Field>
+        <Field id="label222" type="label" fontSize="small" fontColor="black">
+    <Label>Capture window in seconds — only the first frame is saved (animated HEIC dropped: Apple Messages hangs on multi-image HEIF).
+    </Label>
+        </Field>
+        <Field id="gifnumber" type="textfield" tooltip="Number of Images (currently unused — only one frame is saved)." defaultValue="1">
+            <Label>Number of Images (unused)</Label>
+        <Description>Number of Image</Description>
+    </Field>
+        <Field id="numberlabel222" type="label" fontSize="small" fontColor="black">
+    <Label>Currently unused — only one still frame is captured.  Animated HEIC was removed because Apple Messages hangs on multi-image HEIF.
+    </Label>
+        </Field>
+
+           <Field id="gifcompression" type="textfield" tooltip="HEIC quality 1-100 (higher = better quality, larger file)." defaultValue="60">
+            <Label>HEIC Quality (1-100):</Label>
+        <Description>Quality from 1-100 for saved HEIC - higher means better quality and larger file</Description>
+    </Field>
+
+               <Field id="label11222" type="label" fontSize="small" fontColor="black">
+    <Label>HEIC Quality from 1 to 100.  HIGHER = better quality (and larger file).
+        Recommended approx 60.  HEIC compresses much harder than WebP so values
+        ~50-70 typically look great.
+    </Label>
+               </Field>
+
+           <Field id="useStream" type="checkbox" defaultValue="true" tooltip="Capture frames from the BI MJPEG stream rather than polling /image. Produces sharper, time-aligned frames.">
+               <Label>Capture from MJPEG stream:</Label>
+               <Description>Use MJPEG stream for sharper frames (recommended)</Description>
+           </Field>
+
+               <Field id="streamlabel" type="label" fontSize="small" fontColor="black">
+    <Label>When enabled, frames are read from the BI MJPEG stream which avoids
+        duplicate/blurry frames from the snapshot endpoint.  If the stream
+        cannot be reached the action falls back to snapshot polling.
+    </Label>
+               </Field>
+
+        </ConfigUI>
+    </Action>
+
+    <Action id="animateMp4">
+    <Name>Create MP4 Video (ffmpeg, h264 preferred)</Name>
+    <CallbackMethod>animateMp4</CallbackMethod>
+        <ConfigUI>
+            <Field id="deviceCamera" type="list" rows="14">
+                <Label>Select Camera(s)</Label>
+                <List class="indigo.devices" filter="self.BlueIrisCamera"/>
+            </Field>
+
+            <Field id="outputfile" type="textfield" tooltip="Optional full path to output .mp4 file. Supports Indigo substitution. Leave blank to use the plugin's default save folder.">
+                <Label>Output File (optional):</Label>
+                <Description>Full path to .mp4 output - blank uses default save folder</Description>
+            </Field>
+            <Field id="outputlabel" type="label" fontSize="small" fontColor="black">
+                <Label>Optional - leave blank to write to the plugin save folder as
+                    &lt;saveDir&gt;/&lt;camera&gt;/Animated.mp4.  Indigo %%v:NNN%% / %%d:NNN:state%% substitutions are applied.
+                </Label>
+            </Field>
+
+            <Field id="duration" type="textfield" tooltip="Capture duration in seconds (1-60)." defaultValue="5">
+                <Label>Duration (seconds):</Label>
+                <Description>How many seconds of video to capture (1-60)</Description>
+            </Field>
+
+            <Field id="width" type="textfield" tooltip="Output width in pixels (160-1920). Height is auto to keep aspect ratio." defaultValue="720">
+                <Label>Output Width (px):</Label>
+                <Description>Width in pixels - height is auto to preserve aspect ratio</Description>
+            </Field>
+
+            <Field id="fps" type="textfield" tooltip="Output frame rate (1-60)." defaultValue="15">
+                <Label>Frame Rate (fps):</Label>
+                <Description>Constant output frame rate; ffmpeg drops/dups source frames as needed</Description>
+            </Field>
+
+            <Field id="sourceType" type="menu" defaultValue="h264">
+                <Label>Source Stream:</Label>
+                <List>
+                    <Option value="h264">h264 RTSP substream (preferred)</Option>
+                    <Option value="mjpeg">MJPEG (fallback for older cameras)</Option>
+                </List>
+            </Field>
+            <Field id="sourcelabel" type="label" fontSize="small" fontColor="black">
+                <Label>h264 pulls Blue Iris's RTSP substream (rtsp://...:rtspport/&lt;cam&gt;&amp;stream=2) - higher quality, lower bandwidth.
+                    MJPEG is an HTTP escape hatch for cameras that don't expose a clean h264 substream (forces re-encode).
+                </Label>
+            </Field>
+
+            <Field id="streamCopy" type="checkbox" defaultValue="false" tooltip="Stream copy: no re-encode (fastest, just remux RTSP h264 into MP4 at native resolution/fps). Leave OFF to honour the width/fps/CRF/preset/profile/level below.">
+                <Label>Stream copy (no re-encode):</Label>
+                <Description>OFF (default): re-encode with libx264 using the settings below (resizes the clip). ON: remux only — ignores width/fps/CRF and produces a full-resolution clip.</Description>
+            </Field>
+
+            <Field id="crf" type="textfield" tooltip="x264 CRF quality (0-51, lower is better quality / larger file). 18-28 is the sane range." defaultValue="23">
+                <Label>x264 CRF (Quality):</Label>
+                <Description>0-51, lower = higher quality and larger file (18-28 typical)</Description>
+            </Field>
+
+            <Field id="preset" type="menu" defaultValue="veryfast">
+                <Label>x264 Preset:</Label>
+                <List>
+                    <Option value="ultrafast">ultrafast</Option>
+                    <Option value="superfast">superfast</Option>
+                    <Option value="veryfast">veryfast</Option>
+                    <Option value="faster">faster</Option>
+                    <Option value="fast">fast</Option>
+                    <Option value="medium">medium</Option>
+                    <Option value="slow">slow</Option>
+                </List>
+            </Field>
+
+            <Field id="profile" type="menu" defaultValue="main">
+                <Label>x264 Profile:</Label>
+                <List>
+                    <Option value="baseline">baseline</Option>
+                    <Option value="main">main</Option>
+                    <Option value="high">high</Option>
+                </List>
+            </Field>
+
+            <Field id="level" type="textfield" tooltip="x264 level (e.g. 3.0, 3.1, 4.0)." defaultValue="3.1">
+                <Label>x264 Level:</Label>
+                <Description>e.g. 3.0, 3.1, 4.0 - controls decoder compatibility</Description>
+            </Field>
+
+            <Field id="extraArgs" type="textfield" tooltip="Optional extra ffmpeg args appended verbatim (shlex-split). Power-user only.">
+                <Label>Extra ffmpeg args (optional):</Label>
+                <Description>Additional ffmpeg args appended verbatim - shlex-split</Description>
+            </Field>
+
+            <Field id="extralabel" type="label" fontSize="small" fontColor="black">
+                <Label>Standalone ffmpeg-based MP4 encoder.  Pulls h264 (or MJPEG) directly from Blue Iris and encodes
+                    a single MP4 file via libx264.  Output is yuv420p with +faststart for iOS / Messages / browser playback.
+                    No audio is captured.  Variable 'lastmp4' is set on success.
+                </Label>
+            </Field>
+
+        </ConfigUI>
+    </Action>
+
     <Action id="makeAnim">
     <Name>Create Animated Gif</Name>
     <CallbackMethod>actionCreateAnimGif</CallbackMethod>

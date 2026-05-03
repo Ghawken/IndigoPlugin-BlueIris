@@ -40,6 +40,8 @@ from plugin_gifsicle import get_gifsicle_binary
 import subprocess
 import threading
 import platform
+import shlex
+import re
 
 # Blue Iris log "level" enum used by the /json log command.
 # Treated as a category, not a monotonic severity ladder.  Values
@@ -286,6 +288,7 @@ class Plugin(indigo.PluginBase):
 
         self.serverip = self.pluginPrefs.get('serverip', '')
         self.serverport = int(self.pluginPrefs.get('serverport', '80'))
+        self.rtspport = str(self.pluginPrefs.get('rtspport', '') or '').strip()
         self.serverusername = self.pluginPrefs.get('serverusername', '')
         self.serverpassword = self.pluginPrefs.get('serverpassword', '')
         self.Broadcast = self.pluginPrefs.get('Broadcast',False)
@@ -461,6 +464,7 @@ class Plugin(indigo.PluginBase):
 
             self.serverip = valuesDict.get('serverip', False)
             self.serverport = int(valuesDict.get('serverport', '80'))
+            self.rtspport = str(valuesDict.get('rtspport', '') or '').strip()
             self.serverusername = valuesDict.get('serverusername', '')
             self.serverpassword = valuesDict.get('serverpassword','')
 
@@ -2242,6 +2246,56 @@ class Plugin(indigo.PluginBase):
             if errorDict:
                 return (False, valuesDict, errorDict)
             return (True, valuesDict)
+        if typeId == 'animateMp4':
+            cameras = valuesDict.get('deviceCamera', [])
+            if not cameras:
+                errorDict['deviceCamera'] = 'Select at least one camera.'
+            for key, label, lo, hi, default in (
+                ('duration', 'Duration', 1, 60, '5'),
+                ('width', 'Width', 160, 1920, '720'),
+                ('fps', 'Frame rate', 1, 60, '15'),
+                ('crf', 'CRF', 0, 51, '23'),
+            ):
+                raw = valuesDict.get(key, '')
+                if raw is None or str(raw).strip() == '':
+                    valuesDict[key] = default
+                    continue
+                try:
+                    val = int(raw)
+                except (TypeError, ValueError):
+                    errorDict[key] = f'{label} must be a whole number.'
+                    continue
+                if val < lo or val > hi:
+                    errorDict[key] = f'{label} must be between {lo} and {hi}.'
+            # Level can be a float ('3.1'), don't force int.
+            level_raw = str(valuesDict.get('level', '') or '').strip()
+            if level_raw:
+                try:
+                    float(level_raw)
+                except (TypeError, ValueError):
+                    errorDict['level'] = 'Level must be a number (e.g. 3.0, 3.1, 4.0).'
+            # extraArgs must shlex-split cleanly.
+            extra_raw = str(valuesDict.get('extraArgs', '') or '').strip()
+            if extra_raw:
+                try:
+                    shlex.split(extra_raw)
+                except ValueError as exc:
+                    errorDict['extraArgs'] = f'Cannot parse extra args: {exc}'
+            # Output file - if provided, exercise Indigo substitution.  Use the
+            # documented validateOnly=True contract but tolerate the
+            # tuple-on-error shape that some Indigo builds return.
+            outfile_raw = str(valuesDict.get('outputfile', '') or '').strip()
+            if outfile_raw:
+                try:
+                    sub_result = self.substitute(outfile_raw, validateOnly=True)
+                except Exception as exc:
+                    errorDict['outputfile'] = f'Substitution error: {exc}'
+                else:
+                    if isinstance(sub_result, tuple) and not sub_result[0]:
+                        errorDict['outputfile'] = f'Substitution error: {sub_result[1]}'
+            if errorDict:
+                return (False, valuesDict, errorDict)
+            return (True, valuesDict)
         return (True, valuesDict)
 
     def actionCreateWebp(self, valuesDict):
@@ -3664,6 +3718,323 @@ color: #ff3300;
     #     except:
     #         self.logger.exception(u'Exception in new Thread Download Camera Images')
     #         return
+
+################## MP4 (h264-source, ffmpeg-driven) — standalone action
+#
+# Self-contained: does NOT touch animateWebp / animateHeif / shared capture
+# helpers.  If this action breaks, the breakage is contained here.
+#
+    # Cached path to the bundled ffmpeg binary.  homekitlink_ffmpeg is a vendored
+    # build that ships with libx264 (and libx264rgb / h264_videotoolbox / libx265),
+    # so no runtime encoder probing is needed — we control the binary.
+    _mp4_ffmpeg_path = None
+
+    @staticmethod
+    def _mp4_scrub_url(url):
+        """Strip user= and pw= query params from a URL for safe logging."""
+        try:
+            scrubbed = re.sub(r'([?&])(user|pw)=[^&]*', r'\1\2=***', str(url))
+            return scrubbed
+        except Exception:
+            return '<url-scrub-failed>'
+
+    def _mp4_locate_ffmpeg(self):
+        """Return the bundled homekitlink_ffmpeg binary path.  Cached on success."""
+        if self._mp4_ffmpeg_path:
+            return self._mp4_ffmpeg_path
+        try:
+            import homekitlink_ffmpeg  # type: ignore
+            cand = homekitlink_ffmpeg.get_ffmpeg_binary()
+            if cand and os.path.exists(cand):
+                self._mp4_ffmpeg_path = cand
+                return cand
+        except Exception:
+            self.logger.exception(u'MP4: homekitlink_ffmpeg.get_ffmpeg_binary() failed')
+        return None
+
+    def _mp4_run_ffmpeg(self, source_url, source_type, output_path,
+                       duration, width, fps, crf, preset, profile, level,
+                       extra_args, stream_copy):
+        """Run ffmpeg synchronously: pull <source_url>, write MP4 to
+        <output_path>.  Returns True on success, False on any failure.
+        Atomic rename via per-call unique tmp file.
+
+        For RTSP sources we mirror the proven HomeKitLink-Siri arg recipe:
+            -rtsp_transport tcp -probesize 32 -analyzeduration 0 -stimeout <us>
+        and default to -c:v copy (no re-encode).  This avoids the hangs seen
+        with the HTTP /h264/<cam>/temp.h264 endpoint, which never sends EOF
+        and tripped the duration+15s timeout."""
+        ffmpeg_path = self._mp4_locate_ffmpeg()
+        if not ffmpeg_path:
+            self.logger.error(u'MP4: bundled homekitlink_ffmpeg binary not available; aborting.')
+            return False
+
+        output_path = Path(output_path)
+        try:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            self.logger.exception(u'MP4: cannot create output directory')
+            return False
+
+        # Per-call unique tmp filename so concurrent animateMp4 threads for the
+        # same camera can't race on the os.replace (same pattern as animateWebp).
+        tmp_output = output_path.with_suffix(
+            f'.mp4.{os.getpid()}.{threading.get_ident()}.tmp'
+        )
+
+        is_rtsp = str(source_url).lower().startswith('rtsp://')
+
+        argv = [ffmpeg_path, '-hide_banner', '-loglevel', 'warning', '-nostdin']
+        if is_rtsp:
+            # HomeKitLink-Siri's known-good RTSP input options.  Modern ffmpeg
+            # renamed the RTSP demuxer's -stimeout to -timeout (microseconds);
+            # the bundled homekitlink_ffmpeg builds reject the old name with
+            # "Unrecognized option 'stimeout'".  Cap TCP connect/read at 10s
+            # so we fail fast instead of hanging until the outer Python
+            # timeout fires.
+            argv += ['-rtsp_transport', 'tcp',
+                     '-probesize', '32',
+                     '-analyzeduration', '0',
+                     '-timeout', '10000000']
+        argv += ['-i', source_url, '-t', str(duration)]
+
+        # Map first video track always; audio is optional (`?`) so cameras
+        # without audio still produce a valid MP4.  HomeKit-style minimal
+        # audio: AAC-LC mono @ 24 kbps, 16 kHz — adds only a few KB to a
+        # 15s clip but keeps Messages/Mail playback with sound.
+        if stream_copy:
+            # No video re-encode: BI's substream is already H.264 so we
+            # remux into MP4.  Audio is always re-encoded to AAC because
+            # BI may publish PCM/G.711/etc. which MP4 won't accept via
+            # `-c:a copy`.
+            argv += ['-map', '0:v:0',
+                     '-map', '0:a:0?',
+                     '-c:v', 'copy',
+                     '-c:a', 'aac', '-b:a', '24k', '-ac', '1', '-ar', '16000',
+                     '-movflags', '+faststart']
+        else:
+            argv += ['-map', '0:v:0',
+                     '-map', '0:a:0?',
+                     '-vf', f'scale={int(width)}:-2,fps={int(fps)}',
+                     '-c:v', 'libx264',
+                     '-preset', str(preset),
+                     '-crf', str(crf),
+                     '-profile:v', str(profile),
+                     '-level', str(level),
+                     '-pix_fmt', 'yuv420p',
+                     '-c:a', 'aac', '-b:a', '24k', '-ac', '1', '-ar', '16000',
+                     '-movflags', '+faststart']
+        if extra_args:
+            try:
+                argv += shlex.split(str(extra_args))
+            except ValueError:
+                self.logger.error(f'MP4: cannot parse extraArgs={extra_args!r}, ignoring.')
+        # Force the MP4 muxer.  We write to a `.tmp` suffix so ffmpeg can't
+        # infer the container from the extension and bails with
+        # "Unable to find a suitable output format for ...".
+        argv += ['-f', 'mp4', '-y', str(tmp_output)]
+
+        # Build a scrubbed copy of argv for logging (mask creds in any URL).
+        log_argv = list(argv)
+        for i, a in enumerate(log_argv):
+            if isinstance(a, str) and ('user=' in a or 'pw=' in a or '://' in a):
+                log_argv[i] = self._mp4_scrub_url(a)
+        self.logger.debug(u'MP4: running ffmpeg: ' + ' '.join(log_argv))
+
+        try:
+            proc = subprocess.run(
+                argv, capture_output=True, text=True,
+                timeout=float(duration) + 20.0,
+            )
+        except subprocess.TimeoutExpired:
+            self.logger.error(f'MP4: ffmpeg timed out after duration+20s for {output_path}')
+            try:
+                if tmp_output.exists():
+                    tmp_output.unlink()
+            except OSError:
+                pass
+            return False
+        except Exception:
+            self.logger.exception(u'MP4: ffmpeg invocation failed')
+            try:
+                if tmp_output.exists():
+                    tmp_output.unlink()
+            except OSError:
+                pass
+            return False
+
+        if proc.returncode != 0:
+            tail = '\n'.join((proc.stderr or '').splitlines()[-40:])
+            self.logger.error(f'MP4: ffmpeg exit={proc.returncode} for {output_path}\n{tail}')
+            try:
+                if tmp_output.exists():
+                    tmp_output.unlink()
+            except OSError:
+                pass
+            return False
+
+        if not tmp_output.exists() or tmp_output.stat().st_size == 0:
+            self.logger.error(f'MP4: ffmpeg produced no output for {output_path}')
+            try:
+                if tmp_output.exists():
+                    tmp_output.unlink()
+            except OSError:
+                pass
+            return False
+
+        try:
+            os.replace(tmp_output, output_path)
+        except OSError:
+            self.logger.exception(u'MP4: atomic rename failed')
+            try:
+                if tmp_output.exists():
+                    tmp_output.unlink()
+            except OSError:
+                pass
+            return False
+        return True
+
+    def _mp4_worker(self, cameraname, output_path, source_type,
+                   duration, width, fps, crf, preset, profile, level,
+                   extra_args, stream_copy):
+        """Background worker: build the BI source URL, encode, update var.
+
+        For source_type='h264' we use BI's RTSP endpoint (mirrors the proven
+        HomeKitLink-Siri arg recipe); for 'mjpeg' we keep the HTTP MJPEG
+        endpoint as a fallback for cameras without a clean h264 substream."""
+        try:
+            user = str(self.serverusername or '')
+            pw = str(self.serverpassword or '')
+
+            if source_type == 'h264':
+                # BI RTSP URL — mirrors HomeKitLink-Siri's known-good shape
+                # 'rtsp://user:pw@ip:rtspport/<short>&stream=2'.  &stream=2
+                # asks BI for the substream which is ideal for clip export.
+                rtsp_port = (str(self.rtspport).strip()
+                             if getattr(self, 'rtspport', None)
+                             else '') or str(self.serverport)
+                cred = ''
+                if user or pw:
+                    cred = (f'{urllib.parse.quote(user, safe="")}:'
+                            f'{urllib.parse.quote(pw, safe="")}@')
+                source_url = (f'rtsp://{cred}{self.serverip}:{rtsp_port}'
+                              f'/{cameraname}&stream=2')
+            else:
+                # MJPEG HTTP fallback (unchanged).
+                qs = ''
+                if user or pw:
+                    qs = (f'?user={urllib.parse.quote(user, safe="")}'
+                          f'&pw={urllib.parse.quote(pw, safe="")}')
+                source_url = (f'http://{self.serverip}:{self.serverport}'
+                              f'/mjpg/{cameraname}/video.mjpg{qs}')
+
+            self.logger.debug(
+                f'MP4: camera={cameraname} source={source_type} '
+                f'streamCopy={stream_copy} '
+                f'thread={threading.current_thread().name} '
+                f'url={self._mp4_scrub_url(source_url)} '
+                f'output={output_path} duration={duration} width={width} fps={fps} '
+                f'crf={crf} preset={preset} profile={profile} level={level}'
+            )
+
+            ok = self._mp4_run_ffmpeg(
+                source_url=source_url, source_type=source_type,
+                output_path=output_path, duration=duration, width=width,
+                fps=fps, crf=crf, preset=preset, profile=profile, level=level,
+                extra_args=extra_args, stream_copy=stream_copy,
+            )
+            if ok:
+                self.createupdatevariable('lastmp4', f"{output_path}")
+                self.logger.info(f'MP4: saved {output_path} (camera={cameraname})')
+            else:
+                self.logger.error(f'MP4: failed to produce {output_path} (camera={cameraname})')
+        except Exception:
+            self.logger.exception(u'MP4: worker exception')
+
+    def animateMp4(self, valuesDict):
+        """Action callback: spawn one background worker per selected camera to
+        produce an MP4 from the BI h264 (or MJPEG) stream via ffmpeg.
+
+        Standalone — does not call animateWebp / animateHeif or any shared
+        capture helper.  All failure modes stay inside this action."""
+        try:
+            props = valuesDict.props
+            cameras = props.get('deviceCamera', [])
+            if not cameras:
+                self.logger.error(u'MP4 action: no cameras selected.')
+                return
+
+            duration = self._webp_int_prop(props, 'duration', 5)
+            width = self._webp_int_prop(props, 'width', 720)
+            fps = self._webp_int_prop(props, 'fps', 15)
+            crf = self._webp_int_prop(props, 'crf', 23)
+            # Clamp defensively.
+            if duration < 1: duration = 1
+            if duration > 60: duration = 60
+            if width < 160: width = 160
+            if width > 1920: width = 1920
+            if fps < 1: fps = 1
+            if fps > 60: fps = 60
+            if crf < 0: crf = 0
+            if crf > 51: crf = 51
+
+            source_type = str(props.get('sourceType', 'h264') or 'h264').strip().lower()
+            if source_type not in ('h264', 'mjpeg'):
+                source_type = 'h264'
+            preset = str(props.get('preset', 'veryfast') or 'veryfast').strip()
+            profile = str(props.get('profile', 'main') or 'main').strip()
+            level = str(props.get('level', '3.1') or '3.1').strip()
+            extra_args = str(props.get('extraArgs', '') or '').strip()
+            # Stream-copy mode (default OFF): when enabled we just remux RTSP
+            # h264 into MP4 at native resolution/fps (ignores width/fps/CRF).
+            # Default-off so the user's width/fps/CRF settings are actually
+            # honoured and clips are sensibly sized.  MJPEG source can never
+            # be copied into MP4 cleanly — force re-encode.
+            stream_copy_raw = props.get('streamCopy', False)
+            if isinstance(stream_copy_raw, str):
+                stream_copy = stream_copy_raw.strip().lower() in ('true', 'yes', '1')
+            else:
+                stream_copy = bool(stream_copy_raw)
+            if source_type == 'mjpeg':
+                stream_copy = False
+
+            # Optional outputfile prop, supports Indigo substitution.
+            outputfile_template = str(props.get('outputfile', '') or '').strip()
+            outputfile_resolved = ''
+            if outputfile_template:
+                try:
+                    outputfile_resolved = self.substitute(outputfile_template)
+                except Exception:
+                    self.logger.exception(u'MP4: substitution failed for outputfile; using default path.')
+                    outputfile_resolved = ''
+
+            for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
+                if str(dev.id) in cameras and dev.enabled:
+                    cameraname = dev.states.get('optionValue', '')
+                    if not cameraname:
+                        self.logger.error(f'MP4 action: camera device {dev.name} has no BI short name; skipping.')
+                        continue
+                    if outputfile_resolved:
+                        output_path = outputfile_resolved
+                    else:
+                        output_path = self.saveDirectory + str(cameraname) + '/Animated.mp4'
+                    th = threading.Thread(
+                        target=self._mp4_worker,
+                        name=f'mp4-{cameraname}',
+                        args=[cameraname, output_path, source_type,
+                              duration, width, fps, crf, preset, profile, level,
+                              extra_args, stream_copy],
+                    )
+                    th.start()
+                    self.logger.debug(
+                        f'MP4: spawned worker for camera={cameraname} '
+                        f'(active threads={threading.active_count()})'
+                    )
+                    self.sleep(0.05)
+            return
+        except Exception:
+            self.logger.exception(u'MP4: caught exception in animateMp4 action')
+            return
 
 ###########  Add own Http Server, avoid dependency on subscribeVariable.  Remove Variables
 #

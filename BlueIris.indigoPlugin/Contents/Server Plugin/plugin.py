@@ -4036,13 +4036,16 @@ color: #ff3300;
 
         argv = [ffmpeg_path, '-hide_banner', '-loglevel', 'warning', '-nostdin']
         if is_rtsp:
-            # HomeKitLink-Siri's known-good RTSP input options.  -stimeout is in
-            # microseconds; cap TCP connect/read at 10s so we fail fast instead
-            # of hanging until the outer Python timeout fires.
+            # HomeKitLink-Siri's known-good RTSP input options.  Modern ffmpeg
+            # renamed the RTSP demuxer's -stimeout to -timeout (microseconds);
+            # the bundled homekitlink_ffmpeg builds reject the old name with
+            # "Unrecognized option 'stimeout'".  Cap TCP connect/read at 10s
+            # so we fail fast instead of hanging until the outer Python
+            # timeout fires.
             argv += ['-rtsp_transport', 'tcp',
                      '-probesize', '32',
                      '-analyzeduration', '0',
-                     '-stimeout', '10000000']
+                     '-timeout', '10000000']
         argv += ['-i', source_url, '-t', str(duration)]
 
         if stream_copy:

@@ -1,2 +1,3 @@
 plugin_gifsicle>=0.0.3
 pillow-heif>=0.16.0
+homekitlink-ffmpeg

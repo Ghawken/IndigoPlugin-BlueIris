@@ -40,6 +40,8 @@ from plugin_gifsicle import get_gifsicle_binary
 import subprocess
 import threading
 import platform
+import shlex
+import re
 
 # Blue Iris log "level" enum used by the /json log command.
 # Treated as a category, not a monotonic severity ladder.  Values
@@ -2242,6 +2244,56 @@ class Plugin(indigo.PluginBase):
             if errorDict:
                 return (False, valuesDict, errorDict)
             return (True, valuesDict)
+        if typeId == 'animateMp4':
+            cameras = valuesDict.get('deviceCamera', [])
+            if not cameras:
+                errorDict['deviceCamera'] = 'Select at least one camera.'
+            for key, label, lo, hi, default in (
+                ('duration', 'Duration', 1, 60, '5'),
+                ('width', 'Width', 160, 1920, '720'),
+                ('fps', 'Frame rate', 1, 60, '15'),
+                ('crf', 'CRF', 0, 51, '23'),
+            ):
+                raw = valuesDict.get(key, '')
+                if raw is None or str(raw).strip() == '':
+                    valuesDict[key] = default
+                    continue
+                try:
+                    val = int(raw)
+                except (TypeError, ValueError):
+                    errorDict[key] = f'{label} must be a whole number.'
+                    continue
+                if val < lo or val > hi:
+                    errorDict[key] = f'{label} must be between {lo} and {hi}.'
+            # Level can be a float ('3.1'), don't force int.
+            level_raw = str(valuesDict.get('level', '') or '').strip()
+            if level_raw:
+                try:
+                    float(level_raw)
+                except (TypeError, ValueError):
+                    errorDict['level'] = 'Level must be a number (e.g. 3.0, 3.1, 4.0).'
+            # extraArgs must shlex-split cleanly.
+            extra_raw = str(valuesDict.get('extraArgs', '') or '').strip()
+            if extra_raw:
+                try:
+                    shlex.split(extra_raw)
+                except ValueError as exc:
+                    errorDict['extraArgs'] = f'Cannot parse extra args: {exc}'
+            # Output file - if provided, exercise Indigo substitution.  Use the
+            # documented validateOnly=True contract but tolerate the
+            # tuple-on-error shape that some Indigo builds return.
+            outfile_raw = str(valuesDict.get('outputfile', '') or '').strip()
+            if outfile_raw:
+                try:
+                    sub_result = self.substitute(outfile_raw, validateOnly=True)
+                except Exception as exc:
+                    errorDict['outputfile'] = f'Substitution error: {exc}'
+                else:
+                    if isinstance(sub_result, tuple) and not sub_result[0]:
+                        errorDict['outputfile'] = f'Substitution error: {sub_result[1]}'
+            if errorDict:
+                return (False, valuesDict, errorDict)
+            return (True, valuesDict)
         return (True, valuesDict)
 
     def actionCreateWebp(self, valuesDict):
@@ -3914,6 +3966,292 @@ color: #ff3300;
     #     except:
     #         self.logger.exception(u'Exception in new Thread Download Camera Images')
     #         return
+
+################## MP4 (h264-source, ffmpeg-driven) — standalone action
+#
+# Self-contained: does NOT touch animateWebp / animateHeif / shared capture
+# helpers.  If this action breaks, the breakage is contained here.
+#
+    # Cached result of probing ffmpeg for libx264 support: None=not yet probed,
+    # True/False=cached outcome.  Lives on the instance so the probe runs once
+    # per plugin lifetime.
+    _mp4_libx264_probe = None
+    _mp4_ffmpeg_path = None
+
+    @staticmethod
+    def _mp4_scrub_url(url):
+        """Strip user= and pw= query params from a URL for safe logging."""
+        try:
+            scrubbed = re.sub(r'([?&])(user|pw)=[^&]*', r'\1\2=***', str(url))
+            return scrubbed
+        except Exception:
+            return '<url-scrub-failed>'
+
+    def _mp4_locate_ffmpeg(self):
+        """Find an ffmpeg binary.  Prefer the bundled homekitlink_ffmpeg helper
+        if present, otherwise fall back to PATH lookup.  Cached on success."""
+        if self._mp4_ffmpeg_path:
+            return self._mp4_ffmpeg_path
+        # Try the optional bundled helper first (matches the pattern referenced
+        # in repo memories for other ffmpeg-based actions).
+        try:
+            import homekitlink_ffmpeg  # type: ignore
+            cand = homekitlink_ffmpeg.get_ffmpeg_binary()
+            if cand and os.path.exists(cand):
+                self._mp4_ffmpeg_path = cand
+                return cand
+        except Exception:
+            pass
+        cand = shutil.which('ffmpeg')
+        if cand:
+            self._mp4_ffmpeg_path = cand
+            return cand
+        # Common macOS install locations as a last resort.
+        for cand in ('/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg'):
+            if os.path.exists(cand):
+                self._mp4_ffmpeg_path = cand
+                return cand
+        return None
+
+    def _mp4_probe_libx264(self, ffmpeg_path):
+        """Probe ffmpeg -encoders for libx264.  Cached on the instance."""
+        if self._mp4_libx264_probe is not None:
+            return self._mp4_libx264_probe
+        try:
+            proc = subprocess.run(
+                [ffmpeg_path, '-hide_banner', '-encoders'],
+                capture_output=True, text=True, timeout=10,
+            )
+            self._mp4_libx264_probe = bool(
+                re.search(r'^\s*V[\.A-Z]*\s+libx264\b', proc.stdout, re.MULTILINE)
+            )
+        except Exception:
+            self.logger.exception(u'MP4: ffmpeg -encoders probe failed')
+            self._mp4_libx264_probe = False
+        return self._mp4_libx264_probe
+
+    def _mp4_run_ffmpeg(self, source_url, source_type, output_path,
+                       duration, width, fps, crf, preset, profile, level,
+                       extra_args):
+        """Run ffmpeg synchronously: pull <source_url>, encode to MP4 at
+        <output_path>.  Returns True on success, False on any failure.
+        Atomic rename via per-call unique tmp file."""
+        ffmpeg_path = self._mp4_locate_ffmpeg()
+        if not ffmpeg_path:
+            self.logger.error(u'MP4: ffmpeg binary not found - install ffmpeg or the homekitlink_ffmpeg helper')
+            return False
+        if not self._mp4_probe_libx264(ffmpeg_path):
+            self.logger.error(f'MP4: ffmpeg at {ffmpeg_path} has no libx264 encoder; aborting (no fallback).')
+            return False
+
+        output_path = Path(output_path)
+        try:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            self.logger.exception(u'MP4: cannot create output directory')
+            return False
+
+        # Per-call unique tmp filename so concurrent animateMp4 threads for the
+        # same camera can't race on the os.replace (same pattern as animateWebp).
+        tmp_output = output_path.with_suffix(
+            f'.mp4.{os.getpid()}.{threading.get_ident()}.tmp'
+        )
+
+        argv = [ffmpeg_path, '-hide_banner', '-loglevel', 'warning', '-nostdin']
+        # The -f h264 hint avoids ffmpeg probe-time stalls on raw NAL streams.
+        # MJPEG is auto-detected fine, no need for -f.
+        if source_type == 'h264':
+            argv += ['-f', 'h264']
+        argv += ['-i', source_url,
+                 '-t', str(duration),
+                 '-vf', f'scale={int(width)}:-2,fps={int(fps)}',
+                 '-c:v', 'libx264',
+                 '-preset', str(preset),
+                 '-crf', str(crf),
+                 '-profile:v', str(profile),
+                 '-level', str(level),
+                 '-pix_fmt', 'yuv420p',
+                 '-movflags', '+faststart',
+                 '-an']
+        if extra_args:
+            try:
+                argv += shlex.split(str(extra_args))
+            except ValueError:
+                self.logger.error(f'MP4: cannot parse extraArgs={extra_args!r}, ignoring.')
+        argv += ['-y', str(tmp_output)]
+
+        # Build a scrubbed copy of argv for logging (strip user=/pw= from URL).
+        log_argv = list(argv)
+        for i, a in enumerate(log_argv):
+            if isinstance(a, str) and ('user=' in a or 'pw=' in a):
+                log_argv[i] = self._mp4_scrub_url(a)
+        self.logger.debug(u'MP4: running ffmpeg: ' + ' '.join(log_argv))
+
+        try:
+            proc = subprocess.run(
+                argv, capture_output=True, text=True,
+                timeout=float(duration) + 15.0,
+            )
+        except subprocess.TimeoutExpired:
+            self.logger.error(f'MP4: ffmpeg timed out after duration+15s for {output_path}')
+            try:
+                if tmp_output.exists():
+                    tmp_output.unlink()
+            except OSError:
+                pass
+            return False
+        except Exception:
+            self.logger.exception(u'MP4: ffmpeg invocation failed')
+            try:
+                if tmp_output.exists():
+                    tmp_output.unlink()
+            except OSError:
+                pass
+            return False
+
+        if proc.returncode != 0:
+            tail = '\n'.join((proc.stderr or '').splitlines()[-40:])
+            self.logger.error(f'MP4: ffmpeg exit={proc.returncode} for {output_path}\n{tail}')
+            try:
+                if tmp_output.exists():
+                    tmp_output.unlink()
+            except OSError:
+                pass
+            return False
+
+        if not tmp_output.exists() or tmp_output.stat().st_size == 0:
+            self.logger.error(f'MP4: ffmpeg produced no output for {output_path}')
+            try:
+                if tmp_output.exists():
+                    tmp_output.unlink()
+            except OSError:
+                pass
+            return False
+
+        try:
+            os.replace(tmp_output, output_path)
+        except OSError:
+            self.logger.exception(u'MP4: atomic rename failed')
+            try:
+                if tmp_output.exists():
+                    tmp_output.unlink()
+            except OSError:
+                pass
+            return False
+        return True
+
+    def _mp4_worker(self, cameraname, output_path, source_type,
+                   duration, width, fps, crf, preset, profile, level,
+                   extra_args):
+        """Background worker: build the BI source URL, encode, update var."""
+        try:
+            user = str(self.serverusername or '')
+            pw = str(self.serverpassword or '')
+            qs = ''
+            if user or pw:
+                qs = f'?user={urllib.parse.quote(user, safe="")}&pw={urllib.parse.quote(pw, safe="")}'
+            if source_type == 'h264':
+                # Blue Iris's raw Annex-B h264 substream endpoint.
+                source_url = (f'http://{self.serverip}:{self.serverport}'
+                              f'/h264/{cameraname}/temp.h264{qs}')
+            else:
+                # MJPEG fallback.
+                source_url = (f'http://{self.serverip}:{self.serverport}'
+                              f'/mjpg/{cameraname}/video.mjpg{qs}')
+
+            self.logger.debug(
+                f'MP4: camera={cameraname} source={source_type} '
+                f'url={self._mp4_scrub_url(source_url)} '
+                f'output={output_path} duration={duration} width={width} fps={fps} '
+                f'crf={crf} preset={preset} profile={profile} level={level}'
+            )
+
+            ok = self._mp4_run_ffmpeg(
+                source_url=source_url, source_type=source_type,
+                output_path=output_path, duration=duration, width=width,
+                fps=fps, crf=crf, preset=preset, profile=profile, level=level,
+                extra_args=extra_args,
+            )
+            if ok:
+                self.createupdatevariable('lastmp4', f"{output_path}")
+                self.logger.info(f'MP4: saved {output_path} (camera={cameraname})')
+            else:
+                self.logger.error(f'MP4: failed to produce {output_path} (camera={cameraname})')
+        except Exception:
+            self.logger.exception(u'MP4: worker exception')
+
+    def animateMp4(self, valuesDict):
+        """Action callback: spawn one background worker per selected camera to
+        produce an MP4 from the BI h264 (or MJPEG) stream via ffmpeg.
+
+        Standalone — does not call animateWebp / animateHeif or any shared
+        capture helper.  All failure modes stay inside this action."""
+        try:
+            props = valuesDict.props
+            cameras = props.get('deviceCamera', [])
+            if not cameras:
+                self.logger.error(u'MP4 action: no cameras selected.')
+                return
+
+            duration = self._webp_int_prop(props, 'duration', 5)
+            width = self._webp_int_prop(props, 'width', 720)
+            fps = self._webp_int_prop(props, 'fps', 15)
+            crf = self._webp_int_prop(props, 'crf', 23)
+            # Clamp defensively.
+            if duration < 1: duration = 1
+            if duration > 60: duration = 60
+            if width < 160: width = 160
+            if width > 1920: width = 1920
+            if fps < 1: fps = 1
+            if fps > 60: fps = 60
+            if crf < 0: crf = 0
+            if crf > 51: crf = 51
+
+            source_type = str(props.get('sourceType', 'h264') or 'h264').strip().lower()
+            if source_type not in ('h264', 'mjpeg'):
+                source_type = 'h264'
+            preset = str(props.get('preset', 'veryfast') or 'veryfast').strip()
+            profile = str(props.get('profile', 'main') or 'main').strip()
+            level = str(props.get('level', '3.1') or '3.1').strip()
+            extra_args = str(props.get('extraArgs', '') or '').strip()
+
+            # Optional outputfile prop, supports Indigo substitution.
+            outputfile_template = str(props.get('outputfile', '') or '').strip()
+            outputfile_resolved = ''
+            if outputfile_template:
+                try:
+                    outputfile_resolved = self.substitute(outputfile_template)
+                except Exception:
+                    self.logger.exception(u'MP4: substitution failed for outputfile; using default path.')
+                    outputfile_resolved = ''
+
+            for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
+                if str(dev.id) in cameras and dev.enabled:
+                    cameraname = dev.states.get('optionValue', '')
+                    if not cameraname:
+                        self.logger.error(f'MP4 action: camera device {dev.name} has no BI short name; skipping.')
+                        continue
+                    if outputfile_resolved:
+                        output_path = outputfile_resolved
+                    else:
+                        output_path = self.saveDirectory + str(cameraname) + '/Animated.mp4'
+                    th = threading.Thread(
+                        target=self._mp4_worker,
+                        name=f'mp4-{cameraname}',
+                        args=[cameraname, output_path, source_type,
+                              duration, width, fps, crf, preset, profile, level,
+                              extra_args],
+                    )
+                    th.start()
+                    self.logger.debug(
+                        f'MP4: spawned worker for camera={cameraname} '
+                        f'(active threads={threading.active_count()})'
+                    )
+                    self.sleep(0.05)
+            return
+        except Exception:
+            self.logger.exception(u'MP4: caught exception in animateMp4 action')
+            return
 
 ###########  Add own Http Server, avoid dependency on subscribeVariable.  Remove Variables
 #

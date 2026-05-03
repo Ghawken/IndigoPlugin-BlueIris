@@ -3972,10 +3972,9 @@ color: #ff3300;
 # Self-contained: does NOT touch animateWebp / animateHeif / shared capture
 # helpers.  If this action breaks, the breakage is contained here.
 #
-    # Cached result of probing ffmpeg for libx264 support: None=not yet probed,
-    # True/False=cached outcome.  Lives on the instance so the probe runs once
-    # per plugin lifetime.
-    _mp4_libx264_probe = None
+    # Cached path to the bundled ffmpeg binary.  homekitlink_ffmpeg is a vendored
+    # build that ships with libx264 (and libx264rgb / h264_videotoolbox / libx265),
+    # so no runtime encoder probing is needed — we control the binary.
     _mp4_ffmpeg_path = None
 
     @staticmethod
@@ -3988,12 +3987,9 @@ color: #ff3300;
             return '<url-scrub-failed>'
 
     def _mp4_locate_ffmpeg(self):
-        """Find an ffmpeg binary.  Prefer the bundled homekitlink_ffmpeg helper
-        if present, otherwise fall back to PATH lookup.  Cached on success."""
+        """Return the bundled homekitlink_ffmpeg binary path.  Cached on success."""
         if self._mp4_ffmpeg_path:
             return self._mp4_ffmpeg_path
-        # Try the optional bundled helper first (matches the pattern referenced
-        # in repo memories for other ffmpeg-based actions).
         try:
             import homekitlink_ffmpeg  # type: ignore
             cand = homekitlink_ffmpeg.get_ffmpeg_binary()
@@ -4001,34 +3997,8 @@ color: #ff3300;
                 self._mp4_ffmpeg_path = cand
                 return cand
         except Exception:
-            pass
-        cand = shutil.which('ffmpeg')
-        if cand:
-            self._mp4_ffmpeg_path = cand
-            return cand
-        # Common macOS install locations as a last resort.
-        for cand in ('/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/usr/bin/ffmpeg'):
-            if os.path.exists(cand):
-                self._mp4_ffmpeg_path = cand
-                return cand
+            self.logger.exception(u'MP4: homekitlink_ffmpeg.get_ffmpeg_binary() failed')
         return None
-
-    def _mp4_probe_libx264(self, ffmpeg_path):
-        """Probe ffmpeg -encoders for libx264.  Cached on the instance."""
-        if self._mp4_libx264_probe is not None:
-            return self._mp4_libx264_probe
-        try:
-            proc = subprocess.run(
-                [ffmpeg_path, '-hide_banner', '-encoders'],
-                capture_output=True, text=True, timeout=10,
-            )
-            self._mp4_libx264_probe = bool(
-                re.search(r'^\s*V[\.A-Z]*\s+libx264\b', proc.stdout, re.MULTILINE)
-            )
-        except Exception:
-            self.logger.exception(u'MP4: ffmpeg -encoders probe failed')
-            self._mp4_libx264_probe = False
-        return self._mp4_libx264_probe
 
     def _mp4_run_ffmpeg(self, source_url, source_type, output_path,
                        duration, width, fps, crf, preset, profile, level,
@@ -4038,10 +4008,7 @@ color: #ff3300;
         Atomic rename via per-call unique tmp file."""
         ffmpeg_path = self._mp4_locate_ffmpeg()
         if not ffmpeg_path:
-            self.logger.error(u'MP4: ffmpeg binary not found - install ffmpeg or the homekitlink_ffmpeg helper')
-            return False
-        if not self._mp4_probe_libx264(ffmpeg_path):
-            self.logger.error(f'MP4: ffmpeg at {ffmpeg_path} has no libx264 encoder; aborting (no fallback).')
+            self.logger.error(u'MP4: bundled homekitlink_ffmpeg binary not available; aborting.')
             return False
 
         output_path = Path(output_path)

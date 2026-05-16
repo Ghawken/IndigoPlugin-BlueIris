@@ -1,5 +1,19 @@
 ChangeLog
 
+v1.3.46
+Add License Plate (ALPR) trigger support driven by the BI OnAlert
+webhook.  A new optional 7th URL segment carries the alert memo:
+   /&CAM/&TYPE/&PROFILE/True/&ALERT_PATH/&MEMO
+When the memo contains a "plate:ABC123 95%" entry the plugin extracts
+the plate text and confidence, updates new ``lastPlate``,
+``lastPlateConfidence`` and ``lastPlateTime`` states on the matching
+camera device, and dispatches the new ``plateFound`` (any plate)
+and ``plateMatch`` (plate matches a user-supplied list) triggers.
+The ``plateMatch`` trigger supports exact / starts-with / contains
+matching with case- and dash/space-insensitive normalisation, plus
+optional camera filtering and a minimum-confidence filter.  The
+existing 5-segment OnAlert URL continues to work unchanged.
+
 v1.3.29
 Simplify the macro-number / macro-text substitution validation in
 `actionChangeMacro` to match Indigo's actual `self.substitute(s,

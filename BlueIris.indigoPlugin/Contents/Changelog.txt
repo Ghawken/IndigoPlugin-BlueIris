@@ -1,5 +1,15 @@
 ChangeLog
 
+v1.3.48
+License-plate (ALPR) triggers can now also fire from the Blue Iris log
+poll, not just from the OnAlert HTTP webhook's optional &MEMO segment.
+Each new BI log item is scanned for the same ``plate:XYZ NN%`` token
+the HTTP path already understood, and matching ``plateFound`` /
+``plateMatch`` triggers are dispatched the same way (with per-camera
+``lastPlate`` / ``lastPlateConfidence`` / ``lastPlateTime`` state
+updates).  A short de-dupe window suppresses double-firing when the
+same plate arrives via both paths within ~10 seconds.
+
 v1.3.47
 Fix ``KeyError: 'ptzcycle'`` (and the matching potential KeyErrors for
 ``motion`` / ``pause``) in ``updatecamConfig``.  Some Blue Iris server

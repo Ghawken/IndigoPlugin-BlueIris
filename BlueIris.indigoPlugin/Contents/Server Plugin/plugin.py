@@ -285,6 +285,10 @@ class Plugin(indigo.PluginBase):
             pass
 
         self.logMsgs = []
+        # Recent (camera, plate) -> last_seen_ts cache used to suppress
+        # double-firing when the same ALPR hit arrives via both the
+        # OnAlert HTTP webhook and the BI log poll within a short window.
+        self._recentPlates = {}
 
         self.serverip = self.pluginPrefs.get('serverip', '')
         self.serverport = int(self.pluginPrefs.get('serverport', '80'))
@@ -1890,8 +1894,111 @@ class Plugin(indigo.PluginBase):
             except:
                 self.logger.exception(u'Error dispatching Phase 4 log/AI triggers')
 
+            # License-plate detection via log parsing.  BI's ALPR engine
+            # writes a log entry (typically level 8 / AI Alerted) whose
+            # ``msg`` or ``memo`` contains a "plate:XYZ NN%" token.  This
+            # complements the OnAlert HTTP webhook path in do_POST: it
+            # lets plateFound / plateMatch triggers fire even when BI is
+            # configured without the &MEMO=&ALERT_MEMO segment in its
+            # OnAlert URL, and it catches plates reported by BI's
+            # background ALPR pipeline rather than only the per-alert
+            # notification.
+            try:
+                self._dispatchPlatesFromLog(item)
+            except Exception:
+                self.logger.exception(u'Error dispatching plate triggers from log')
+
         except:
             self.logger.exception(u'Error in parseMsgReceived')
+
+    def _recordPlateSeen(self, cameraname, plate_norm, window_seconds=10):
+        """De-duplicate plate dispatches across the HTTP webhook and the
+        BI log-poll paths.  Returns True if this (camera, plate) pair
+        has NOT been seen within ``window_seconds`` and should be
+        dispatched; False to suppress.  Always records the timestamp
+        of the current sighting on a True return.
+        """
+        try:
+            cam = str(cameraname or '').strip()
+            plate = str(plate_norm or '').strip().upper()
+            if not plate:
+                return False
+            key = (cam, plate)
+            now = t.time()
+            # Garbage-collect old entries opportunistically.
+            try:
+                stale = [k for k, ts in self._recentPlates.items()
+                         if (now - ts) > max(60, window_seconds * 6)]
+                for k in stale:
+                    self._recentPlates.pop(k, None)
+            except Exception:
+                pass
+            last = self._recentPlates.get(key)
+            if last is not None and (now - last) < window_seconds:
+                if self.debugtriggers:
+                    self.logger.debug(u'Plate suppressed (dedupe): cam=%s plate=%s within %ss'
+                                      % (cam, plate, window_seconds))
+                return False
+            self._recentPlates[key] = now
+            return True
+        except Exception:
+            self.logger.exception(u'Error in _recordPlateSeen')
+            return True
+
+    def _dispatchPlatesFromLog(self, item):
+        """Scan a single BI log item for ALPR plate tokens and dispatch
+        ``plateDetected`` for each unique hit.  Uses the same
+        ``_extract_plates`` regex as the OnAlert HTTP path so the two
+        sources behave consistently.  ``item['obj']`` is the BI camera
+        short-name; it is propagated as ``camera`` for trigger filters.
+        """
+        if not isinstance(item, dict):
+            return
+        msg = str(item.get('msg', '') or '')
+        memo = str(item.get('memo', '') or '')
+        haystack = (msg + ' ' + memo).strip()
+        if not haystack:
+            return
+        # Fast pre-check: avoid the regex pass on the vast majority of
+        # non-ALPR log lines (motion, login, web requests, etc.).
+        if 'plate' not in haystack.lower():
+            return
+        try:
+            hits = self._extract_plates(haystack)
+        except Exception:
+            self.logger.exception(u'Error parsing ALPR plates from log item')
+            return
+        if not hits:
+            return
+        cam_short = str(item.get('obj', '') or '').strip()
+        update_time = t.strftime('%c')
+        for plate_norm, conf in hits:
+            # Mirror the HTTP path's per-camera state update so the
+            # camera device's lastPlate / lastPlateConfidence /
+            # lastPlateTime states reflect log-sourced detections too.
+            if cam_short:
+                for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
+                    if dev.enabled and dev.states.get('optionValue', '') == cam_short:
+                        try:
+                            dev.updateStateOnServer('lastPlate', value=plate_norm)
+                            dev.updateStateOnServer('lastPlateConfidence', value=int(conf))
+                            dev.updateStateOnServer('lastPlateTime', value=str(update_time))
+                        except Exception:
+                            self.logger.exception(u'Error updating plate states from log')
+                        break
+            if not self._recordPlateSeen(cam_short, plate_norm):
+                continue
+            plate_item = {
+                'plate': plate_norm,
+                'confidence': int(conf),
+                'camera': cam_short,
+                'memo': memo or msg,
+                'source': 'log',
+            }
+            try:
+                self.triggerCheck(None, plate_item, 'plateDetected')
+            except Exception:
+                self.logger.exception(u'Error dispatching plateDetected trigger from log')
 
     def parseLogin(self, item):
         if self.debugmsg:
@@ -4307,9 +4414,11 @@ class httpHandler(BaseHTTPRequestHandler):
                         'confidence': int(conf),
                         'camera': cameraname,
                         'memo': memo_raw,
+                        'source': 'http',
                     }
                     try:
-                        self.plugin.triggerCheck(None, plate_item, 'plateDetected')
+                        if self.plugin._recordPlateSeen(cameraname, plate_norm):
+                            self.plugin.triggerCheck(None, plate_item, 'plateDetected')
                     except Exception:
                         self.plugin.logger.exception(u'Error dispatching plateDetected trigger')
 

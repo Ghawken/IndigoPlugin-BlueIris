@@ -83,7 +83,7 @@
         <Name>Trigger when License Plate Detected (any plate)</Name>
         <ConfigUI>
             <Field id="info" type="label">
-                <Label>Fires when the BI OnAlert webhook delivers an ALPR memo containing a license plate. Requires the optional &amp;MEMO segment on the OnAlert URL: /&amp;CAM/&amp;TYPE/&amp;PROFILE/True/&amp;ALERT_PATH/&amp;MEMO</Label>
+                <Label>Fires when a license plate is detected. Plates are sourced from either the BI OnAlert webhook (when its URL includes the optional &amp;MEMO segment: /&amp;CAM/&amp;TYPE/&amp;PROFILE/True/&amp;ALERT_PATH/&amp;MEMO) or from the BI server log poll (any ALPR log entry containing a "plate:XYZ NN%" token). Duplicate hits arriving via both sources within ~10s fire only once.</Label>
             </Field>
             <Field id="deviceCamera" type="list" rows="10">
                 <Label>Limit to Cameras (none selected = any camera):</Label>
@@ -98,7 +98,7 @@
         <Name>Trigger when License Plate Matches</Name>
         <ConfigUI>
             <Field id="info" type="label">
-                <Label>Fires when a detected plate matches one of the entries below. Requires the optional &amp;MEMO segment on the OnAlert URL: /&amp;CAM/&amp;TYPE/&amp;PROFILE/True/&amp;ALERT_PATH/&amp;MEMO</Label>
+                <Label>Fires when a detected plate matches one of the entries below. Plates are sourced from either the BI OnAlert webhook (when its URL includes the optional &amp;MEMO segment: /&amp;CAM/&amp;TYPE/&amp;PROFILE/True/&amp;ALERT_PATH/&amp;MEMO) or from the BI server log poll.</Label>
             </Field>
             <Field id="plates" type="textfield" defaultValue="">
                 <Label>Plate(s) to match (comma or space separated, case-insensitive, dashes/spaces ignored):</Label>

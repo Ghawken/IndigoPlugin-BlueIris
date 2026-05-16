@@ -3919,6 +3919,7 @@ color: #ff3300;
                             f'{urllib.parse.quote(pw, safe="")}@')
                 source_url = (f'rtsp://{cred}{self.serverip}:{rtsp_port}'
                               f'/{cameraname}&stream=2')
+
             else:
                 # MJPEG HTTP fallback (unchanged).
                 qs = ''

@@ -1,5 +1,38 @@
 ChangeLog
 
+v1.3.48
+License-plate (ALPR) triggers can now also fire from the Blue Iris log
+poll, not just from the OnAlert HTTP webhook's optional &MEMO segment.
+Each new BI log item is scanned for the same ``plate:XYZ NN%`` token
+the HTTP path already understood, and matching ``plateFound`` /
+``plateMatch`` triggers are dispatched the same way (with per-camera
+``lastPlate`` / ``lastPlateConfidence`` / ``lastPlateTime`` state
+updates).  A short de-dupe window suppresses double-firing when the
+same plate arrives via both paths within ~10 seconds.
+
+v1.3.47
+Fix ``KeyError: 'ptzcycle'`` (and the matching potential KeyErrors for
+``motion`` / ``pause``) in ``updatecamConfig``.  Some Blue Iris server
+responses to the ``camconfig`` call omit one or more of these keys
+(e.g. for cameras without PTZ); the unguarded ``cameraconfigdata[...]``
+lookups raised a KeyError that aborted the whole per-camera config
+update.  The lookups now use ``dict.get`` with sensible defaults so
+the available fields are still pushed to the device states.
+
+v1.3.46
+Add License Plate (ALPR) trigger support driven by the BI OnAlert
+webhook.  A new optional 7th URL segment carries the alert memo:
+   /&CAM/&TYPE/&PROFILE/True/&ALERT_PATH/&MEMO
+When the memo contains a "plate:ABC123 95%" entry the plugin extracts
+the plate text and confidence, updates new ``lastPlate``,
+``lastPlateConfidence`` and ``lastPlateTime`` states on the matching
+camera device, and dispatches the new ``plateFound`` (any plate)
+and ``plateMatch`` (plate matches a user-supplied list) triggers.
+The ``plateMatch`` trigger supports exact / starts-with / contains
+matching with case- and dash/space-insensitive normalisation, plus
+optional camera filtering and a minimum-confidence filter.  The
+existing 5-segment OnAlert URL continues to work unchanged.
+
 v1.3.29
 Simplify the macro-number / macro-text substitution validation in
 `actionChangeMacro` to match Indigo's actual `self.substitute(s,

@@ -285,6 +285,10 @@ class Plugin(indigo.PluginBase):
             pass
 
         self.logMsgs = []
+        # Recent (camera, plate) -> last_seen_ts cache used to suppress
+        # double-firing when the same ALPR hit arrives via both the
+        # OnAlert HTTP webhook and the BI log poll within a short window.
+        self._recentPlates = {}
 
         self.serverip = self.pluginPrefs.get('serverip', '')
         self.serverport = int(self.pluginPrefs.get('serverport', '80'))
@@ -1353,9 +1357,9 @@ class Plugin(indigo.PluginBase):
                             if 'motion' in cameraconfigdata:
                         #if cameraconfigdata is not None :
                                 stateList = [
-                                            {'key': 'MotionDetection', 'value': cameraconfigdata['motion'] },
-                                            {'key': 'PtzCycle', 'value': cameraconfigdata['ptzcycle']},
-                                            {'key': 'CameraPaused', 'value': cameraconfigdata['pause']}
+                                            {'key': 'MotionDetection', 'value': cameraconfigdata.get('motion', False) },
+                                            {'key': 'PtzCycle', 'value': cameraconfigdata.get('ptzcycle', False)},
+                                            {'key': 'CameraPaused', 'value': cameraconfigdata.get('pause', 0)}
                                             ]
                             if self.debugother:
                                 self.logger.debug(u'Updated Camera with new States:'+str(stateList))
@@ -1890,8 +1894,111 @@ class Plugin(indigo.PluginBase):
             except:
                 self.logger.exception(u'Error dispatching Phase 4 log/AI triggers')
 
+            # License-plate detection via log parsing.  BI's ALPR engine
+            # writes a log entry (typically level 8 / AI Alerted) whose
+            # ``msg`` or ``memo`` contains a "plate:XYZ NN%" token.  This
+            # complements the OnAlert HTTP webhook path in do_POST: it
+            # lets plateFound / plateMatch triggers fire even when BI is
+            # configured without the &MEMO=&ALERT_MEMO segment in its
+            # OnAlert URL, and it catches plates reported by BI's
+            # background ALPR pipeline rather than only the per-alert
+            # notification.
+            try:
+                self._dispatchPlatesFromLog(item)
+            except Exception:
+                self.logger.exception(u'Error dispatching plate triggers from log')
+
         except:
             self.logger.exception(u'Error in parseMsgReceived')
+
+    def _recordPlateSeen(self, cameraname, plate_norm, window_seconds=10):
+        """De-duplicate plate dispatches across the HTTP webhook and the
+        BI log-poll paths.  Returns True if this (camera, plate) pair
+        has NOT been seen within ``window_seconds`` and should be
+        dispatched; False to suppress.  Always records the timestamp
+        of the current sighting on a True return.
+        """
+        try:
+            cam = str(cameraname or '').strip()
+            plate = str(plate_norm or '').strip().upper()
+            if not plate:
+                return False
+            key = (cam, plate)
+            now = t.time()
+            # Garbage-collect old entries opportunistically.
+            try:
+                stale = [k for k, ts in self._recentPlates.items()
+                         if (now - ts) > max(60, window_seconds * 6)]
+                for k in stale:
+                    self._recentPlates.pop(k, None)
+            except Exception:
+                pass
+            last = self._recentPlates.get(key)
+            if last is not None and (now - last) < window_seconds:
+                if self.debugtriggers:
+                    self.logger.debug(u'Plate suppressed (dedupe): cam=%s plate=%s within %ss'
+                                      % (cam, plate, window_seconds))
+                return False
+            self._recentPlates[key] = now
+            return True
+        except Exception:
+            self.logger.exception(u'Error in _recordPlateSeen')
+            return True
+
+    def _dispatchPlatesFromLog(self, item):
+        """Scan a single BI log item for ALPR plate tokens and dispatch
+        ``plateDetected`` for each unique hit.  Uses the same
+        ``_extract_plates`` regex as the OnAlert HTTP path so the two
+        sources behave consistently.  ``item['obj']`` is the BI camera
+        short-name; it is propagated as ``camera`` for trigger filters.
+        """
+        if not isinstance(item, dict):
+            return
+        msg = str(item.get('msg', '') or '')
+        memo = str(item.get('memo', '') or '')
+        haystack = (msg + ' ' + memo).strip()
+        if not haystack:
+            return
+        # Fast pre-check: avoid the regex pass on the vast majority of
+        # non-ALPR log lines (motion, login, web requests, etc.).
+        if 'plate' not in haystack.lower():
+            return
+        try:
+            hits = self._extract_plates(haystack)
+        except Exception:
+            self.logger.exception(u'Error parsing ALPR plates from log item')
+            return
+        if not hits:
+            return
+        cam_short = str(item.get('obj', '') or '').strip()
+        update_time = t.strftime('%c')
+        for plate_norm, conf in hits:
+            # Mirror the HTTP path's per-camera state update so the
+            # camera device's lastPlate / lastPlateConfidence /
+            # lastPlateTime states reflect log-sourced detections too.
+            if cam_short:
+                for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
+                    if dev.enabled and dev.states.get('optionValue', '') == cam_short:
+                        try:
+                            dev.updateStateOnServer('lastPlate', value=plate_norm)
+                            dev.updateStateOnServer('lastPlateConfidence', value=int(conf))
+                            dev.updateStateOnServer('lastPlateTime', value=str(update_time))
+                        except Exception:
+                            self.logger.exception(u'Error updating plate states from log')
+                        break
+            if not self._recordPlateSeen(cam_short, plate_norm):
+                continue
+            plate_item = {
+                'plate': plate_norm,
+                'confidence': int(conf),
+                'camera': cam_short,
+                'memo': memo or msg,
+                'source': 'log',
+            }
+            try:
+                self.triggerCheck(None, plate_item, 'plateDetected')
+            except Exception:
+                self.logger.exception(u'Error dispatching plateDetected trigger from log')
 
     def parseLogin(self, item):
         if self.debugmsg:
@@ -2934,6 +3041,40 @@ color: #ff3300;
         assert trigger.id in self.triggers
         del self.triggers[trigger.id]
 
+    def _extract_plates(self, memo):
+        """Parse one or more license plates (and optional confidence %) out
+        of a BI ALPR alert memo string.
+
+        Returns a list of (plate_normalized, confidence_int) tuples.
+        ``plate_normalized`` is upper-case with spaces and dashes removed
+        so it can be compared against user-supplied whitelist entries.
+        ``confidence`` is 0 when BI did not include a percentage.
+        """
+        if not memo:
+            return []
+        try:
+            text = str(memo)
+        except Exception:
+            return []
+        # BI ALPR memos look like: "plate:ABC123 88%" or "plate=ABC-123 71%"
+        # or "Plate ABC123" (no percent).  Be tolerant of separators.
+        pattern = re.compile(r'plate[:=\s]+([A-Z0-9][A-Z0-9\-\s]{1,15}?)(?:\s*[,;]|\s+(\d{1,3})\s*%|\s*$)',
+                             re.IGNORECASE)
+        results = []
+        for m in pattern.finditer(text):
+            raw = (m.group(1) or '').strip()
+            if not raw:
+                continue
+            norm = re.sub(r'[\s\-]+', '', raw).upper()
+            if not norm:
+                continue
+            try:
+                conf = int(m.group(2)) if m.group(2) else 0
+            except (TypeError, ValueError):
+                conf = 0
+            results.append((norm, conf))
+        return results
+
     def triggerCheck(self, device, camera, event):
 
         if self.debugtriggers:
@@ -2947,7 +3088,8 @@ color: #ff3300;
             # the camera may legitimately be Offline / no-signal), so skip
             # the per-device guards for them.
             non_device_events = ('userLogin', 'logMessage', 'aiTag',
-                                 'softwareUpdate', 'diskFreeBelow', 'noSignal')
+                                 'softwareUpdate', 'diskFreeBelow', 'noSignal',
+                                 'plateDetected')
             if event not in non_device_events:
                 if "geofence" not in event:
                     if device.states['deviceIsOnline'] == False:
@@ -3063,6 +3205,75 @@ color: #ff3300;
                             continue
                     if self.debugtriggers:
                         self.logger.debug("===== Executing aiTag Trigger %s (%d) tag=%s" % (trigger.name, trigger.id, tag))
+                    indigo.trigger.execute(trigger)
+
+                elif trigger.pluginTypeId in ('plateFound', 'plateMatch') and event == 'plateDetected':
+                    # ``camera`` is a dict produced by httpHandler.do_POST:
+                    # {'plate': 'ABC123', 'confidence': 88, 'camera': '<short>', 'memo': '<raw>'}
+                    item = camera if isinstance(camera, dict) else {}
+                    plate = str(item.get('plate', '') or '').strip().upper()
+                    if not plate:
+                        continue
+                    try:
+                        conf = int(item.get('confidence', 0) or 0)
+                    except (TypeError, ValueError):
+                        conf = 0
+                    cam_short = str(item.get('camera', '') or '').strip()
+
+                    # Optional minimum confidence filter
+                    try:
+                        min_conf = int(trigger.pluginProps.get('minConfidence', 0) or 0)
+                    except (TypeError, ValueError):
+                        min_conf = 0
+                    if min_conf > 0 and conf < min_conf:
+                        continue
+
+                    # Optional camera filter (matches BI camera short-name)
+                    selected = trigger.pluginProps.get('deviceCamera') or []
+                    if selected:
+                        matched = False
+                        for sel_id in selected:
+                            try:
+                                sel_dev = indigo.devices[int(sel_id)]
+                            except Exception:
+                                continue
+                            if sel_dev.states.get('optionValue', '') == cam_short:
+                                matched = True
+                                break
+                        if not matched:
+                            continue
+
+                    if trigger.pluginTypeId == 'plateMatch':
+                        raw_list = str(trigger.pluginProps.get('plates', '') or '')
+                        # Accept comma, semicolon, whitespace, or newline
+                        # separated plate lists; normalise the same way as
+                        # the incoming plate (upper-case, strip spaces and
+                        # dashes) so users don't have to worry about format.
+                        candidates = []
+                        for tok in re.split(r'[,;\s]+', raw_list):
+                            n = re.sub(r'[\s\-]+', '', tok).upper()
+                            if n:
+                                candidates.append(n)
+                        if not candidates:
+                            continue
+                        mode = (trigger.pluginProps.get('matchMode', 'exact') or 'exact').lower()
+                        hit = False
+                        for cand in candidates:
+                            if mode == 'prefix' and plate.startswith(cand):
+                                hit = True
+                                break
+                            if mode == 'contains' and cand in plate:
+                                hit = True
+                                break
+                            if mode == 'exact' and plate == cand:
+                                hit = True
+                                break
+                        if not hit:
+                            continue
+
+                    if self.debugtriggers:
+                        self.logger.debug("===== Executing %s Trigger %s (%d) plate=%s conf=%s cam=%s" % (
+                            trigger.pluginTypeId, trigger.name, trigger.id, plate, conf, cam_short))
                     indigo.trigger.execute(trigger)
 
                 elif trigger.pluginTypeId == 'cameraNoSignalTrigger' and event == 'noSignal':
@@ -4116,6 +4327,8 @@ class httpHandler(BaseHTTPRequestHandler):
                     self.plugin.logger.info(u'& in reset when trigger is reset:')
                     self.plugin.logger.info(u'Should be: http://  IndigoIP:SelectedPort/&CAM/&TYPE/&PROFILE/False/&ALERT_PATH')
                     self.plugin.logger.info(u'POST text:  Indigo')
+                    self.plugin.logger.info(u'Optional ALPR form (adds &MEMO so the plate text is delivered):')
+                    self.plugin.logger.info(u'Should be: http://  IndigoIP:SelectedPort/&CAM/&TYPE/&PROFILE/True/&ALERT_PATH/&MEMO')
                     return
             cameraname = str(listresults[1])
             typetrigger= listresults[2]
@@ -4132,6 +4345,25 @@ class httpHandler(BaseHTTPRequestHandler):
             if len(listresults)>=6:
                 alertimage = str(listresults[5])
                 self.plugin.logger.debug("alertimage:" + str(listresults[5]))
+            # Optional ALPR memo segment (BI OnAlert URL form:
+            # /&CAM/&TYPE/&PROFILE/True/&ALERT_PATH/&MEMO).  When BI's ALPR
+            # is enabled and &MEMO contains a "plate:XYZ NN%" entry, the
+            # plugin extracts the plate(s) and fires plateFound /
+            # plateMatch triggers below.
+            memo_raw = ''
+            plate_hits = []
+            if len(listresults) >= 7:
+                try:
+                    memo_raw = urllib.parse.unquote_plus(str(listresults[6]))
+                except Exception:
+                    memo_raw = str(listresults[6])
+                if self.plugin.debugserver:
+                    self.plugin.logger.debug("memo:" + memo_raw)
+                try:
+                    plate_hits = self.plugin._extract_plates(memo_raw)
+                except Exception:
+                    self.plugin.logger.exception(u'Error parsing ALPR memo')
+                    plate_hits = []
             for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
                 if dev.enabled:
                     if dev.states['optionValue'] == cameraname:
@@ -4158,6 +4390,37 @@ class httpHandler(BaseHTTPRequestHandler):
                             dev.updateStateImageOnServer(indigo.kStateImageSel.MotionSensor)
                             dev.updateStateOnServer('lastMotionTriggerType', value=str(typetrigger))
                             self.plugin.triggerCheck(dev, cameraname, 'motionfalse')
+
+            # ---- License Plate (ALPR) handling ---------------------------
+            # Extracted from optional &MEMO segment further up.  When BI's
+            # ALPR engine has reported one or more plates, update the
+            # matching camera device's plate states and dispatch a
+            # plateDetected event so plateFound / plateMatch triggers
+            # can fire.
+            if plate_hits:
+                update_time = t.strftime('%c')
+                for plate_norm, conf in plate_hits:
+                    for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
+                        if dev.enabled and dev.states.get('optionValue', '') == cameraname:
+                            try:
+                                dev.updateStateOnServer('lastPlate', value=plate_norm)
+                                dev.updateStateOnServer('lastPlateConfidence', value=int(conf))
+                                dev.updateStateOnServer('lastPlateTime', value=str(update_time))
+                            except Exception:
+                                self.plugin.logger.exception(u'Error updating plate states')
+                            break
+                    plate_item = {
+                        'plate': plate_norm,
+                        'confidence': int(conf),
+                        'camera': cameraname,
+                        'memo': memo_raw,
+                        'source': 'http',
+                    }
+                    try:
+                        if self.plugin._recordPlateSeen(cameraname, plate_norm):
+                            self.plugin.triggerCheck(None, plate_item, 'plateDetected')
+                    except Exception:
+                        self.plugin.logger.exception(u'Error dispatching plateDetected trigger')
 
             for dev in indigo.devices.itervalues('self.BlueIrisDevice'):
                 if dev.enabled:

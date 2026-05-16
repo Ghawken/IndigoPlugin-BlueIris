@@ -443,6 +443,22 @@
                 <ControlPageLabel>Type of Motion Trigger</ControlPageLabel>
             </State>
 
+            <State id="lastPlate">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Last License Plate Detected</TriggerLabel>
+                <ControlPageLabel>Last License Plate Detected</ControlPageLabel>
+            </State>
+            <State id="lastPlateConfidence">
+                <ValueType>Number</ValueType>
+                <TriggerLabel>Last License Plate Confidence %</TriggerLabel>
+                <ControlPageLabel>Last License Plate Confidence %</ControlPageLabel>
+            </State>
+            <State id="lastPlateTime">
+                <ValueType>String</ValueType>
+                <TriggerLabel>Time of Last License Plate</TriggerLabel>
+                <ControlPageLabel>Time of Last License Plate</ControlPageLabel>
+            </State>
+
 
             <State id="nClips">
                 <ValueType>Number</ValueType>

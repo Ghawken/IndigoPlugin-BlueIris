@@ -1353,9 +1353,9 @@ class Plugin(indigo.PluginBase):
                             if 'motion' in cameraconfigdata:
                         #if cameraconfigdata is not None :
                                 stateList = [
-                                            {'key': 'MotionDetection', 'value': cameraconfigdata['motion'] },
-                                            {'key': 'PtzCycle', 'value': cameraconfigdata['ptzcycle']},
-                                            {'key': 'CameraPaused', 'value': cameraconfigdata['pause']}
+                                            {'key': 'MotionDetection', 'value': cameraconfigdata.get('motion', False) },
+                                            {'key': 'PtzCycle', 'value': cameraconfigdata.get('ptzcycle', False)},
+                                            {'key': 'CameraPaused', 'value': cameraconfigdata.get('pause', 0)}
                                             ]
                             if self.debugother:
                                 self.logger.debug(u'Updated Camera with new States:'+str(stateList))

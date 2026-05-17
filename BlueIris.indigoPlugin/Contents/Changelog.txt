@@ -1,5 +1,19 @@
 ChangeLog
 
+v1.3.51
+Fix License-plate (ALPR) detection.  The Blue Iris ``&MEMO`` macro
+expands to the AI findings string (e.g. ``car:97%``) and does not
+carry the plate text — the dedicated ``&PLATE`` macro does.  The
+OnAlert URL now accepts an optional 8th segment for the plate:
+   /&CAM/&TYPE/&PROFILE/True/&ALERT_PATH/&MEMO/&PLATE
+``&PLATE`` is taken as the bare plate string (e.g. ``BJJ82A``) with
+no prefix or confidence, normalised (upper-cased, spaces/dashes
+stripped) and dispatched through the existing ``plateFound`` /
+``plateMatch`` triggers.  The ``&MEMO`` segment is still parsed for
+``plate:XYZ NN%`` tokens for backwards compatibility, and the log
+poll now also recognises BI's own ``Plate: XYZ [NN%]`` log-line
+form (bracketed confidence).
+
 v1.3.48
 License-plate (ALPR) triggers can now also fire from the Blue Iris log
 poll, not just from the OnAlert HTTP webhook's optional &MEMO segment.

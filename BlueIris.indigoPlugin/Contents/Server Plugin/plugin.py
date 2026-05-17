@@ -3056,10 +3056,16 @@ color: #ff3300;
             text = str(memo)
         except Exception:
             return []
-        # BI ALPR memos look like: "plate:ABC123 88%" or "plate=ABC-123 71%"
-        # or "Plate ABC123" (no percent).  Be tolerant of separators.
-        pattern = re.compile(r'plate[:=\s]+([A-Z0-9][A-Z0-9\-\s]{1,15}?)(?:\s*[,;]|\s+(\d{1,3})\s*%|\s*$)',
-                             re.IGNORECASE)
+        # BI ALPR memos / log lines look like:
+        #   "plate:ABC123 88%"          (memo form)
+        #   "plate=ABC-123 71%"         (memo form)
+        #   "Plate: K8E [97%]"          (BI log line form — bracketed conf)
+        #   "Plate ABC123"              (no percent)
+        # Be tolerant of separators and of confidence wrapped in [] or ().
+        pattern = re.compile(
+            r'plate[:=\s]+([A-Z0-9][A-Z0-9\-\s]{1,15}?)'
+            r'(?:\s*[,;]|\s*[\[\(]?\s*(\d{1,3})\s*%\s*[\]\)]?|\s*$)',
+            re.IGNORECASE)
         results = []
         for m in pattern.finditer(text):
             raw = (m.group(1) or '').strip()
@@ -4327,8 +4333,8 @@ class httpHandler(BaseHTTPRequestHandler):
                     self.plugin.logger.info(u'& in reset when trigger is reset:')
                     self.plugin.logger.info(u'Should be: http://  IndigoIP:SelectedPort/&CAM/&TYPE/&PROFILE/False/&ALERT_PATH')
                     self.plugin.logger.info(u'POST text:  Indigo')
-                    self.plugin.logger.info(u'Optional ALPR form (adds &MEMO so the plate text is delivered):')
-                    self.plugin.logger.info(u'Should be: http://  IndigoIP:SelectedPort/&CAM/&TYPE/&PROFILE/True/&ALERT_PATH/&MEMO')
+                    self.plugin.logger.info(u'Optional ALPR form (adds &MEMO and &PLATE so the plate text is delivered):')
+                    self.plugin.logger.info(u'Should be: http://  IndigoIP:SelectedPort/&CAM/&TYPE/&PROFILE/True/&ALERT_PATH/&MEMO/&PLATE')
                     return
             cameraname = str(listresults[1])
             typetrigger= listresults[2]
@@ -4340,18 +4346,23 @@ class httpHandler(BaseHTTPRequestHandler):
                 self.plugin.logger.debug("typetrigger:" + str(listresults[2]))
                 self.plugin.logger.debug("activeprofile:" + str(listresults[3]))
                 self.plugin.logger.debug("motion:" + str(listresults[4]))
+            # Optional ALPR segments (BI OnAlert URL form:
+            # /&CAM/&TYPE/&PROFILE/True/&ALERT_PATH/&MEMO/&PLATE).
+            # &MEMO carries the AI findings token (e.g. "car:97%") and
+            # may also include a "plate:XYZ NN%" entry on some BI builds.
+            # &PLATE is the dedicated ALPR macro and expands to the bare
+            # plate text (e.g. "BJJ82A") with no prefix or confidence;
+            # this is the authoritative source for the plate when ALPR
+            # is enabled.  The plugin extracts plate(s) from either
+            # source and fires plateFound / plateMatch triggers below.
             alertimage = ''
-            ## add Alert Image data here
-            if len(listresults)>=6:
-                alertimage = str(listresults[5])
-                self.plugin.logger.debug("alertimage:" + str(listresults[5]))
-            # Optional ALPR memo segment (BI OnAlert URL form:
-            # /&CAM/&TYPE/&PROFILE/True/&ALERT_PATH/&MEMO).  When BI's ALPR
-            # is enabled and &MEMO contains a "plate:XYZ NN%" entry, the
-            # plugin extracts the plate(s) and fires plateFound /
-            # plateMatch triggers below.
             memo_raw = ''
+            plate_raw = ''
             plate_hits = []
+            if len(listresults) >= 6:
+                alertimage = str(listresults[5])
+                if self.plugin.debugserver:
+                    self.plugin.logger.debug("alertimage:" + str(listresults[5]))
             if len(listresults) >= 7:
                 try:
                     memo_raw = urllib.parse.unquote_plus(str(listresults[6]))
@@ -4364,6 +4375,20 @@ class httpHandler(BaseHTTPRequestHandler):
                 except Exception:
                     self.plugin.logger.exception(u'Error parsing ALPR memo')
                     plate_hits = []
+            if len(listresults) >= 8:
+                try:
+                    plate_raw = urllib.parse.unquote_plus(str(listresults[7])).strip()
+                except Exception:
+                    plate_raw = str(listresults[7]).strip()
+                if self.plugin.debugserver:
+                    self.plugin.logger.debug("plate:" + plate_raw)
+                # Skip unsubstituted macros / empty placeholders.  BI
+                # leaves the literal "&PLATE" in the URL when no plate
+                # was captured for the alert.
+                if plate_raw and plate_raw.lower() not in ('&plate', '-', 'none'):
+                    norm = re.sub(r'[\s\-]+', '', plate_raw).upper()
+                    if norm and not any(p == norm for p, _ in plate_hits):
+                        plate_hits.append((norm, 0))
             for dev in indigo.devices.itervalues('self.BlueIrisCamera'):
                 if dev.enabled:
                     if dev.states['optionValue'] == cameraname:

@@ -3970,15 +3970,14 @@ color: #ff3300;
         return None
 
     def _mp4_run_ffmpeg(self, source_url, source_type, output_path,
-                       duration, width, fps, crf, preset, profile, level,
-                       extra_args, stream_copy):
+                       duration, width, extra_args, stream_copy):
         """Run ffmpeg synchronously: pull <source_url>, write MP4 to
         <output_path>.  Returns True on success, False on any failure.
         Atomic rename via per-call unique tmp file.
 
-        For RTSP sources we mirror the proven HomeKitLink-Siri arg recipe:
-            -rtsp_transport tcp -probesize 32 -analyzeduration 0 -stimeout <us>
-        and default to -c:v copy (no re-encode).  This avoids the hangs seen
+        For h264/RTSP: BI scales the stream at source via &h= in the URL so
+        no ffmpeg scale filter is needed.  For MJPEG: scale is applied in
+        ffmpeg since BI's MJPEG endpoint does not honour &h=.
         with the HTTP /h264/<cam>/temp.h264 endpoint, which never sends EOF
         and tripped the duration+15s timeout."""
         ffmpeg_path = self._mp4_locate_ffmpeg()
@@ -4003,16 +4002,32 @@ color: #ff3300;
 
         argv = [ffmpeg_path, '-hide_banner', '-loglevel', 'warning', '-nostdin']
         if is_rtsp:
-            # HomeKitLink-Siri's known-good RTSP input options.  Modern ffmpeg
-            # renamed the RTSP demuxer's -stimeout to -timeout (microseconds);
-            # the bundled homekitlink_ffmpeg builds reject the old name with
-            # "Unrecognized option 'stimeout'".  Cap TCP connect/read at 10s
-            # so we fail fast instead of hanging until the outer Python
-            # timeout fires.
+            # RTSP input options tuned for recording (not live-stream latency).
+            #
+            # -timeout (µs): per-I/O socket read timeout.  The old HomeKitLink
+            #   value of 10 s is fine for LAN cameras but kills ffmpeg between
+            #   frames on slow WiFi or remote cameras.  Use max(30 s, 2× the
+            #   requested duration) so a sluggish stream can still deliver every
+            #   frame without ffmpeg bailing mid-recording.
+            #
+            # -probesize 500 000 (500 KB): enough for typical RTSP stream headers
+            #   without adding a noticeable startup stall.  The "not enough frames
+            #   to estimate rate" warning that appears on high-bitrate cameras is
+            #   cosmetic — ffmpeg still records correctly.
+            #
+            # -analyzeduration 5 000 000 (5 s): allow ffmpeg to gather enough
+            #   stream metadata before starting the encode.  Zero caused dropped
+            #   frames at the start of slow streams.
+            rtsp_io_timeout_us = max(30_000_000, int(float(duration) * 2) * 1_000_000)
             argv += ['-rtsp_transport', 'tcp',
-                     '-probesize', '32',
-                     '-analyzeduration', '0',
-                     '-timeout', '10000000']
+                     '-probesize', '500000',
+                     '-analyzeduration', '5000000',
+                     '-timeout', str(rtsp_io_timeout_us)]
+        # -thread_queue_size: frames that arrive in bursts over a slow or
+        # congested RTSP/TCP connection are silently dropped when the default
+        # input packet queue (8 slots) fills up while the decode thread is
+        # busy.  512 slots gives ample room to absorb a burst without loss.
+        argv += ['-thread_queue_size', '512']
         argv += ['-i', source_url, '-t', str(duration)]
 
         # Map first video track always; audio is optional (`?`) so cameras
@@ -4030,17 +4045,22 @@ color: #ff3300;
                      '-c:a', 'aac', '-b:a', '24k', '-ac', '1', '-ar', '16000',
                      '-movflags', '+faststart']
         else:
-            argv += ['-map', '0:v:0',
-                     '-map', '0:a:0?',
-                     '-vf', f'scale={int(width)}:-2,fps={int(fps)}',
-                     '-c:v', 'libx264',
-                     '-preset', str(preset),
-                     '-crf', str(crf),
-                     '-profile:v', str(profile),
-                     '-level', str(level),
-                     '-pix_fmt', 'yuv420p',
-                     '-c:a', 'aac', '-b:a', '24k', '-ac', '1', '-ar', '16000',
-                     '-movflags', '+faststart']
+            # For h264/RTSP: BI already scaled the stream via &h= in the URL,
+            # so no ffmpeg scale filter is needed — just encode.
+            # For MJPEG: BI's MJPEG endpoint doesn't support &h=, so scale
+            # here with ffmpeg (width setting applied, height auto-scaled).
+            vf_args = (['-vf', f'scale={int(width)}:-2']
+                       if source_type == 'mjpeg' else [])
+            argv += (['-map', '0:v:0', '-map', '0:a:0?']
+                     + vf_args
+                     + ['-c:v', 'libx264',
+                        '-preset', 'veryfast',
+                        '-crf', '23',
+                        '-profile:v', 'main',
+                        '-level', '3.1',
+                        '-pix_fmt', 'yuv420p',
+                        '-c:a', 'aac', '-b:a', '24k', '-ac', '1', '-ar', '16000',
+                        '-movflags', '+faststart'])
         if extra_args:
             try:
                 argv += shlex.split(str(extra_args))
@@ -4056,15 +4076,42 @@ color: #ff3300;
         for i, a in enumerate(log_argv):
             if isinstance(a, str) and ('user=' in a or 'pw=' in a or '://' in a):
                 log_argv[i] = self._mp4_scrub_url(a)
-        self.logger.debug(u'MP4: running ffmpeg: ' + ' '.join(log_argv))
+
+        # For the logged command, upgrade -loglevel to 'verbose' so the
+        # copy-pasted command shows full ffmpeg diagnostics — useful when
+        # diagnosing a dropped/interrupted RTSP stream.  The actual subprocess
+        # still uses 'warning' to keep normal Indigo logs clean.
+        log_verbose_argv = list(log_argv)
+        try:
+            ll_idx = log_verbose_argv.index('-loglevel')
+            log_verbose_argv[ll_idx + 1] = 'verbose'
+        except (ValueError, IndexError):
+            pass
+
+        # shlex.join() shell-quotes every argument so paths with spaces
+        # survive a copy-paste into the terminal.
+        self.logger.debug(
+            u'MP4: copy-paste command:\n' + shlex.join(log_verbose_argv)
+        )
+
+        # Outer Python timeout: allow up to 3× the requested clip duration so a
+        # slow or congested stream has time to deliver all its frames without
+        # being killed prematurely.  Minimum 60 s so short clips on flaky links
+        # still have a reasonable window.  ffmpeg's own -t flag still caps the
+        # captured content at the requested duration; this timeout only affects
+        # how long we wait for ffmpeg to finish writing those frames.
+        python_timeout = max(60.0, float(duration) * 3.0)
 
         try:
             proc = subprocess.run(
                 argv, capture_output=True, text=True,
-                timeout=float(duration) + 20.0,
+                timeout=python_timeout,
             )
         except subprocess.TimeoutExpired:
-            self.logger.error(f'MP4: ffmpeg timed out after duration+20s for {output_path}')
+            self.logger.error(
+                f'MP4: ffmpeg timed out after {python_timeout:.0f}s '
+                f'(3× duration) for {output_path}'
+            )
             try:
                 if tmp_output.exists():
                     tmp_output.unlink()
@@ -4112,21 +4159,19 @@ color: #ff3300;
         return True
 
     def _mp4_worker(self, cameraname, output_path, source_type,
-                   duration, width, fps, crf, preset, profile, level,
-                   extra_args, stream_copy):
+                   duration, width, extra_args, stream_copy):
         """Background worker: build the BI source URL, encode, update var.
 
-        For source_type='h264' we use BI's RTSP endpoint (mirrors the proven
-        HomeKitLink-Siri arg recipe); for 'mjpeg' we keep the HTTP MJPEG
-        endpoint as a fallback for cameras without a clean h264 substream."""
+        For source_type='h264' the RTSP URL carries &h= so BI scales the
+        stream at source (no ffmpeg scale filter needed).  &isolate=1
+        dedicates a BI playback slot for this connection so it doesn't
+        interfere with other RTSP consumers.  For 'mjpeg' we keep the HTTP
+        MJPEG endpoint as a fallback; ffmpeg scales the output there."""
         try:
             user = str(self.serverusername or '')
             pw = str(self.serverpassword or '')
 
             if source_type == 'h264':
-                # BI RTSP URL — mirrors HomeKitLink-Siri's known-good shape
-                # 'rtsp://user:pw@ip:rtspport/<short>&stream=2'.  &stream=2
-                # asks BI for the substream which is ideal for clip export.
                 rtsp_port = (str(self.rtspport).strip()
                              if getattr(self, 'rtspport', None)
                              else '') or str(self.serverport)
@@ -4134,11 +4179,28 @@ color: #ff3300;
                 if user or pw:
                     cred = (f'{urllib.parse.quote(user, safe="")}:'
                             f'{urllib.parse.quote(pw, safe="")}@')
-                source_url = (f'rtsp://{cred}{self.serverip}:{rtsp_port}'
-                              f'/{cameraname}&stream=2')
+
+                if stream_copy:
+                    # Full-resolution stream copy — no size parameter needed.
+                    # &isolate=1 dedicates a BI playback object for this
+                    # connection so concurrent viewers are unaffected.
+                    source_url = (f'rtsp://{cred}{self.serverip}:{rtsp_port}'
+                                  f'/{cameraname}&stream=2&isolate=1')
+                else:
+                    # Ask BI to deliver the stream pre-scaled to approximately
+                    # the desired output width.  BI supports &h= (height) and
+                    # maintains the camera's native aspect ratio; &w= is not
+                    # implemented by BI.  We derive height from width assuming
+                    # a 16:9 camera — round up to the nearest even pixel.
+                    rtsp_h = int(width * 9 / 16)
+                    if rtsp_h % 2:
+                        rtsp_h += 1
+                    source_url = (f'rtsp://{cred}{self.serverip}:{rtsp_port}'
+                                  f'/{cameraname}&stream=2'
+                                  f'&h={rtsp_h}&isolate=1')
 
             else:
-                # MJPEG HTTP fallback (unchanged).
+                # MJPEG HTTP fallback — ffmpeg scales in the filter graph.
                 qs = ''
                 if user or pw:
                     qs = (f'?user={urllib.parse.quote(user, safe="")}'
@@ -4151,14 +4213,12 @@ color: #ff3300;
                 f'streamCopy={stream_copy} '
                 f'thread={threading.current_thread().name} '
                 f'url={self._mp4_scrub_url(source_url)} '
-                f'output={output_path} duration={duration} width={width} fps={fps} '
-                f'crf={crf} preset={preset} profile={profile} level={level}'
+                f'output={output_path} duration={duration} width={width}'
             )
 
             ok = self._mp4_run_ffmpeg(
                 source_url=source_url, source_type=source_type,
                 output_path=output_path, duration=duration, width=width,
-                fps=fps, crf=crf, preset=preset, profile=profile, level=level,
                 extra_args=extra_args, stream_copy=stream_copy,
             )
             if ok:
@@ -4184,30 +4244,19 @@ color: #ff3300;
 
             duration = self._webp_int_prop(props, 'duration', 5)
             width = self._webp_int_prop(props, 'width', 720)
-            fps = self._webp_int_prop(props, 'fps', 15)
-            crf = self._webp_int_prop(props, 'crf', 23)
             # Clamp defensively.
             if duration < 1: duration = 1
             if duration > 60: duration = 60
             if width < 160: width = 160
             if width > 1920: width = 1920
-            if fps < 1: fps = 1
-            if fps > 60: fps = 60
-            if crf < 0: crf = 0
-            if crf > 51: crf = 51
 
             source_type = str(props.get('sourceType', 'h264') or 'h264').strip().lower()
             if source_type not in ('h264', 'mjpeg'):
                 source_type = 'h264'
-            preset = str(props.get('preset', 'veryfast') or 'veryfast').strip()
-            profile = str(props.get('profile', 'main') or 'main').strip()
-            level = str(props.get('level', '3.1') or '3.1').strip()
             extra_args = str(props.get('extraArgs', '') or '').strip()
-            # Stream-copy mode (default OFF): when enabled we just remux RTSP
-            # h264 into MP4 at native resolution/fps (ignores width/fps/CRF).
-            # Default-off so the user's width/fps/CRF settings are actually
-            # honoured and clips are sensibly sized.  MJPEG source can never
-            # be copied into MP4 cleanly — force re-encode.
+            # Stream-copy mode (default OFF): remux RTSP h264 into MP4 at
+            # native resolution/fps without re-encoding.  MJPEG can never be
+            # cleanly stream-copied into MP4 — force re-encode in that case.
             stream_copy_raw = props.get('streamCopy', False)
             if isinstance(stream_copy_raw, str):
                 stream_copy = stream_copy_raw.strip().lower() in ('true', 'yes', '1')
@@ -4240,8 +4289,7 @@ color: #ff3300;
                         target=self._mp4_worker,
                         name=f'mp4-{cameraname}',
                         args=[cameraname, output_path, source_type,
-                              duration, width, fps, crf, preset, profile, level,
-                              extra_args, stream_copy],
+                              duration, width, extra_args, stream_copy],
                     )
                     th.start()
                     self.logger.debug(

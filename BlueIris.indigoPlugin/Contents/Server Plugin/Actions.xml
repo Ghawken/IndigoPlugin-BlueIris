@@ -322,19 +322,14 @@
                 </Label>
             </Field>
 
-            <Field id="duration" type="textfield" tooltip="Capture duration in seconds (1-60)." defaultValue="5">
+            <Field id="duration" type="textfield" tooltip="Capture duration in seconds (1-60)." defaultValue="15">
                 <Label>Duration (seconds):</Label>
                 <Description>How many seconds of video to capture (1-60)</Description>
             </Field>
 
-            <Field id="width" type="textfield" tooltip="Output width in pixels (160-1920). Height is auto to keep aspect ratio." defaultValue="720">
+            <Field id="width" type="textfield" tooltip="Approximate output width in pixels (160-1920). For h264/RTSP the plugin requests this width from Blue Iris via &amp;h= (height calculated for 16:9 cameras). For MJPEG the width is applied in ffmpeg." defaultValue="720">
                 <Label>Output Width (px):</Label>
-                <Description>Width in pixels - height is auto to preserve aspect ratio</Description>
-            </Field>
-
-            <Field id="fps" type="textfield" tooltip="Output frame rate (1-60)." defaultValue="15">
-                <Label>Frame Rate (fps):</Label>
-                <Description>Constant output frame rate; ffmpeg drops/dups source frames as needed</Description>
+                <Description>Target width — Blue Iris scales the RTSP stream at source (16:9 assumed); MJPEG is scaled by ffmpeg</Description>
             </Field>
 
             <Field id="sourceType" type="menu" defaultValue="h264">
@@ -345,46 +340,14 @@
                 </List>
             </Field>
             <Field id="sourcelabel" type="label" fontSize="small" fontColor="black">
-                <Label>h264 pulls Blue Iris's RTSP substream (rtsp://...:rtspport/&lt;cam&gt;&amp;stream=2) - higher quality, lower bandwidth.
-                    MJPEG is an HTTP escape hatch for cameras that don't expose a clean h264 substream (forces re-encode).
+                <Label>h264: Blue Iris scales the RTSP stream to the requested width at source (&amp;h= + &amp;isolate=1) — no ffmpeg rescaling needed, full camera frame rate is delivered.
+                    MJPEG: HTTP fallback for cameras without a clean h264 substream; ffmpeg scales the output.
                 </Label>
             </Field>
 
-            <Field id="streamCopy" type="checkbox" defaultValue="false" tooltip="Stream copy: no re-encode (fastest, just remux RTSP h264 into MP4 at native resolution/fps). Leave OFF to honour the width/fps/CRF/preset/profile/level below.">
+            <Field id="streamCopy" type="checkbox" defaultValue="false" tooltip="Stream copy: remux the RTSP h264 stream directly into MP4 without re-encoding. Fastest option; produces a full-resolution clip at the camera's native frame rate. Width setting is ignored.">
                 <Label>Stream copy (no re-encode):</Label>
-                <Description>OFF (default): re-encode with libx264 using the settings below (resizes the clip). ON: remux only — ignores width/fps/CRF and produces a full-resolution clip.</Description>
-            </Field>
-
-            <Field id="crf" type="textfield" tooltip="x264 CRF quality (0-51, lower is better quality / larger file). 18-28 is the sane range." defaultValue="23">
-                <Label>x264 CRF (Quality):</Label>
-                <Description>0-51, lower = higher quality and larger file (18-28 typical)</Description>
-            </Field>
-
-            <Field id="preset" type="menu" defaultValue="veryfast">
-                <Label>x264 Preset:</Label>
-                <List>
-                    <Option value="ultrafast">ultrafast</Option>
-                    <Option value="superfast">superfast</Option>
-                    <Option value="veryfast">veryfast</Option>
-                    <Option value="faster">faster</Option>
-                    <Option value="fast">fast</Option>
-                    <Option value="medium">medium</Option>
-                    <Option value="slow">slow</Option>
-                </List>
-            </Field>
-
-            <Field id="profile" type="menu" defaultValue="main">
-                <Label>x264 Profile:</Label>
-                <List>
-                    <Option value="baseline">baseline</Option>
-                    <Option value="main">main</Option>
-                    <Option value="high">high</Option>
-                </List>
-            </Field>
-
-            <Field id="level" type="textfield" tooltip="x264 level (e.g. 3.0, 3.1, 4.0)." defaultValue="3.1">
-                <Label>x264 Level:</Label>
-                <Description>e.g. 3.0, 3.1, 4.0 - controls decoder compatibility</Description>
+                <Description>ON: remux only — full native resolution and frame rate, no re-encode. OFF (default): re-encode with libx264 at the width above.</Description>
             </Field>
 
             <Field id="extraArgs" type="textfield" tooltip="Optional extra ffmpeg args appended verbatim (shlex-split). Power-user only.">
@@ -393,9 +356,9 @@
             </Field>
 
             <Field id="extralabel" type="label" fontSize="small" fontColor="black">
-                <Label>Standalone ffmpeg-based MP4 encoder.  Pulls h264 (or MJPEG) directly from Blue Iris and encodes
-                    a single MP4 file via libx264.  Output is yuv420p with +faststart for iOS / Messages / browser playback.
-                    No audio is captured.  Variable 'lastmp4' is set on success.
+                <Label>Pulls h264 (or MJPEG) from Blue Iris and encodes an MP4 via libx264 (CRF 23, veryfast preset).
+                    Blue Iris scales the RTSP stream at source so the Mac encodes a small stream — full camera frame rate is captured.
+                    Audio is included (AAC-LC mono 24 kbps).  Variable 'lastmp4' is set on success.
                 </Label>
             </Field>
 

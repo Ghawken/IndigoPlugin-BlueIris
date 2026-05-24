@@ -1,4 +1,4 @@
-![BlueIris Plugin](../Images/banner.jpg)
+![BlueIris Plugin](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/banner.jpg)
 
 # Installation
 
@@ -7,8 +7,7 @@
 | Item | Requirement |
 |------|-------------|
 | Blue Iris | Version 4 or 5 (Windows, on your LAN) |
-| Indigo | 2023.x or later (macOS) |
-| Python | 3.10+ (bundled with modern Indigo) |
+| Indigo | 2025.2 (macOS) |
 | Network | Indigo Mac must reach BI's web server port |
 
 ---
@@ -26,7 +25,7 @@
 
 The plugin saves images, animated WebP/GIF/MP4 files, and clip lists to a local folder.  Create one before configuring:
 
-![Create directory example](../Images/CreateDirectory.png)
+![Create directory example](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/CreateDirectory.png)
 
 Suggested path: `~/Documents/Indigo-BlueIris/`  You can use any path; it is set in Plugin Config.
 
@@ -36,7 +35,7 @@ Suggested path: `~/Documents/Indigo-BlueIris/`  You can use any path; it is set 
 
 Go to **Plugins ▸ BlueIris ▸ Configure…** and fill in the server details:
 
-![Plugin configuration screen](../Images/PlugConfig1.png)
+![Plugin configuration screen](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/PlugConfig1.png)
 
 | Field | Description |
 |-------|-------------|
@@ -50,11 +49,11 @@ Go to **Plugins ▸ BlueIris ▸ Configure…** and fill in the server details:
 
 Set the listener port:
 
-![Plugin HTTP port setting](../Images/PlugConfigPort.png)
+![Plugin HTTP port setting](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/PlugConfigPort.png)
 
 Then click **Login / Generate Server Device**:
 
-![Login button](../Images/PlugConfigLoginbutton.png)
+![Login button](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/PlugConfigLoginbutton.png)
 
 ---
 
@@ -62,15 +61,15 @@ Then click **Login / Generate Server Device**:
 
 After a successful login the **Generate Cameras** button appears:
 
-![Generate cameras button](../Images/GenerateCameraButton.png)
+![Generate cameras button](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/GenerateCameraButton.png)
 
 Click it — the plugin queries BI and creates one Indigo device per camera:
 
-![List of camera devices created](../Images/ListCameraDevices.png)
+![List of camera devices created](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/ListCameraDevices.png)
 
 The main BI Server device also appears in Indigo:
 
-![Main server device created](../Images/MainDeviceCreated.png)
+![Main server device created](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/MainDeviceCreated.png)
 
 ---
 

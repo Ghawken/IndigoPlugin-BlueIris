@@ -1,4 +1,4 @@
-![BlueIris Plugin](../Images/banner.jpg)
+![BlueIris Plugin](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/banner.jpg)
 
 # Device Reference
 
@@ -17,7 +17,7 @@ The plugin creates four device types in Indigo:
 
 The server device tracks overall BI health and is created automatically when you click **Login / Generate Server Device** in Plugin Config.
 
-![BI server device states](../Images/BIServerStates.png)
+![BI server device states](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/BIServerStates.png)
 
 ### States
 
@@ -62,13 +62,13 @@ The server device tracks overall BI health and is created automatically when you
 
 One device per camera in BI.  Device name defaults to the BI camera display name.
 
-![Camera device states](../Images/BICameraStates.png)
+![Camera device states](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/BICameraStates.png)
 
 ### Camera Device Options
 
 Each camera device has configurable options (set in the device's edit dialog):
 
-![Camera options](../Images/CameraOptions.png)
+![Camera options](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/CameraOptions.png)
 
 ### Key States
 
@@ -132,9 +132,9 @@ Each camera device has configurable options (set in the device's edit dialog):
 
 Tracks mobile devices configured in BI for geofence monitoring.
 
-![BI mobile device settings in Blue Iris](../Images/BI-Settings-MobileDevices.png)
+![BI mobile device settings in Blue Iris](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/BI-Settings-MobileDevices.png)
 
-![Indigo BI device states](../Images/BIDeviceStates.png)
+![Indigo BI device states](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/BIDeviceStates.png)
 
 | State | Description |
 |-------|-------------|
@@ -152,7 +152,7 @@ Tracks mobile devices configured in BI for geofence monitoring.
 
 Tracks BI user accounts and login activity.
 
-![BI User device in Indigo](../Images/BI%20User%20Device.png)
+![BI User device in Indigo](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/BI%20User%20Device.png)
 
 | State | Description |
 |-------|-------------|

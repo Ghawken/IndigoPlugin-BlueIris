@@ -1,4 +1,4 @@
-![BlueIris Plugin](../Images/banner.jpg)
+![BlueIris Plugin](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/banner.jpg)
 
 # Blue Iris Setup — Webhook URLs
 
@@ -61,7 +61,7 @@ http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/True/&ALERT_PATH/&MEMO/&PLATE
 4. In **Post text** enter `Indigo`
 5. Check **"Request again when trigger is reset"** and paste the False-variant URL
 
-![BI v4 camera alert setup](../Images/v4CameraAlertSetup.png)
+![BI v4 camera alert setup](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/v4CameraAlertSetup.png)
 
 ### Blue Iris 5 — When Triggered
 
@@ -69,15 +69,15 @@ http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/True/&ALERT_PATH/&MEMO/&PLATE
 2. Under **When triggered** → **"Make a web request"**
 3. Paste the URL; set POST body to `Indigo`
 
-![BI v5 On Alert — trigger on](../Images/BIOnAlert.png)
+![BI v5 On Alert — trigger on](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/BIOnAlert.png)
 
-![BI v5 camera alert ON detail](../Images/v5CameraAlertON.png)
+![BI v5 camera alert ON detail](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/v5CameraAlertON.png)
 
 ### Blue Iris 5 — When Alert Ends
 
 Add a second web request entry using the `False` variant of the URL:
 
-![BI v5 camera alert OFF](../Images/v5CameraAlertOFF.png)
+![BI v5 camera alert OFF](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/v5CameraAlertOFF.png)
 
 ---
 
@@ -85,7 +85,7 @@ Add a second web request entry using the `False` variant of the URL:
 
 The plugin's HTTP listener port and server settings are visible in BI's plugin/server panel:
 
-![BI Plugin server settings](../Images/BIPluginServerSettings.png)
+![BI Plugin server settings](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/BIPluginServerSettings.png)
 
 ---
 

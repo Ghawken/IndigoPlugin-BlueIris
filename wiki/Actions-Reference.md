@@ -1,10 +1,10 @@
-![BlueIris Plugin](../Images/banner.jpg)
+![BlueIris Plugin](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/banner.jpg)
 
 # Actions Reference
 
 All plugin actions appear under **Actions ▸ BlueIris** in Indigo.
 
-![All available actions](../Images/ActionOptions.png)
+![All available actions](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/ActionOptions.png)
 
 ---
 
@@ -22,7 +22,7 @@ Manually triggers the selected camera in Blue Iris — equivalent to pressing th
 
 Changes camera settings such as motion detection enable/disable, PTZ cycle, pause state, and manual record.
 
-![Camera config options in BI v5](../Images/v5%20Config%20Camera%20Options.png)
+![Camera config options in BI v5](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/v5%20Config%20Camera%20Options.png)
 
 | Option | Description |
 |--------|-------------|
@@ -38,7 +38,7 @@ Changes camera settings such as motion detection enable/disable, PTZ cycle, paus
 
 Adjusts BI motion sensitivity settings for the selected camera.
 
-![Camera motion trigger settings](../Images/Camera%20Motion%20Trigger%20Settings.png)
+![Camera motion trigger settings](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/Camera%20Motion%20Trigger%20Settings.png)
 
 ---
 
@@ -82,7 +82,7 @@ Pulls a JPEG snapshot from the selected camera(s) and saves it to `<saveDir>/<ca
 
 Switches the active Blue Iris profile (0 = Away, 1–7 = user-defined).
 
-![Set profile action](../Images/Action-SetProfile.png)
+![Set profile action](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/Action-SetProfile.png)
 
 | Option | Description |
 |--------|-------------|
@@ -97,11 +97,11 @@ Updates the content of a named BI macro (the `~` macros in BI).  Requires an adm
 
 BI v5 supports camera overlay macros and server-level macros:
 
-![BI v5 camera overlay macros](../Images/v5CameraOverlayMacros.png)
+![BI v5 camera overlay macros](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/v5CameraOverlayMacros.png)
 
-![BI v5 server-level macros](../Images/v5MacrosServer.png)
+![BI v5 server-level macros](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/v5MacrosServer.png)
 
-![Macro change action in Indigo](../Images/v5MacroAction.png)
+![Macro change action in Indigo](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/v5MacroAction.png)
 
 | Option | Description |
 |--------|-------------|
@@ -127,7 +127,7 @@ Enables or disables the plugin's own motion trigger processing for the selected 
 
 Turns automatic animated GIF capture on or off for the selected cameras.
 
-![Enable animated GIF action](../Images/Action-EnableAnimGif.png)
+![Enable animated GIF action](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/Action-EnableAnimGif.png)
 
 ---
 
@@ -150,7 +150,7 @@ See [Animated Media](Animated-Media.md) for full details.
 
 ### Create Animated Gif — Options
 
-![Create animated GIF action](../Images/Action-CreateAnimGif.png)
+![Create animated GIF action](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/Action-CreateAnimGif.png)
 
 ### Create MP4 Video — Options
 

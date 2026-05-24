@@ -1,10 +1,10 @@
-![BlueIris Plugin](../Images/banner.jpg)
+![BlueIris Plugin](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/banner.jpg)
 
 # Plugin Configuration
 
 Open **Plugins ▸ BlueIris ▸ Configure…** to access plugin preferences.
 
-![Plugin configuration screen](../Images/PlugConfig1.png)
+![Plugin configuration screen](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/PlugConfig1.png)
 
 ---
 
@@ -25,7 +25,7 @@ Open **Plugins ▸ BlueIris ▸ Configure…** to access plugin preferences.
 |-------|---------|-------------|
 | **Plugin HTTP Port** | `4556` | The port the plugin's built-in HTTP server listens on.  This is the port you use in the BI webhook URL (see [Blue Iris Setup](Blue-Iris-Setup.md)).  Change it if 4556 is in use. |
 
-![Plugin HTTP port setting](../Images/PlugConfigPort.png)
+![Plugin HTTP port setting](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/PlugConfigPort.png)
 
 The listener accepts BI's webhook path segments and routes them to motion triggers, plate triggers, log triggers, etc.  No `subscribeToVariables` is required.
 
@@ -59,7 +59,7 @@ Each camera gets a sub-folder named after its BI short name, e.g.:
 
 The plugin exposes additional camera and motion settings under the Advanced Options panel:
 
-![Advanced options panel](../Images/AdvancedOptions.png)
+![Advanced options panel](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/AdvancedOptions.png)
 
 ---
 

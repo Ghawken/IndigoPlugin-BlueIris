@@ -1,4 +1,4 @@
-![BlueIris Plugin](../Images/banner.jpg)
+![BlueIris Plugin](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/banner.jpg)
 
 # License Plate Recognition (ALPR)
 
@@ -37,7 +37,7 @@ In each camera's BI alert settings, use the 7-segment URL:
 http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/True/&ALERT_PATH/&MEMO/&PLATE
 ```
 
-![BI v5 On Alert URL setup](../Images/BIOnAlert.png)
+![BI v5 On Alert URL setup](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/BIOnAlert.png)
 
 The 5-segment URL continues to work unchanged if you don't need ALPR:
 

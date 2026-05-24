@@ -1,10 +1,10 @@
-![BlueIris Plugin](../Images/banner.jpg)
+![BlueIris Plugin](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/banner.jpg)
 
 # Triggers Reference
 
 Indigo triggers appear under **Triggers ▸ Event ▸ Plugin ▸ BlueIris**.
 
-![Available BlueIris triggers](../Images/BITriggers.png)
+![Available BlueIris triggers](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/BITriggers.png)
 
 ---
 
@@ -18,7 +18,7 @@ Fires when one of the selected cameras starts a motion event.  The camera device
 **Config:**
 - **Camera(s)** — select one or more BlueIris Camera devices (multi-select)
 
-![Select trigger cameras](../Images/SelectTriggerCameras.png)
+![Select trigger cameras](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/SelectTriggerCameras.png)
 
 **Related states set on the camera device:**
 - `lastMotionTriggerType` — `MOTION`, `AUDIO`, `EXTERNAL`, `WATCHDOG`, or `TEST`
@@ -43,9 +43,9 @@ Fires when the motion event ends (BI sends the False webhook, or the plugin's 30
 
 Fires each time a specific BI user logs into the Blue Iris web interface.
 
-![BI v5 user alert configuration](../Images/v5UserAlert.png)
+![BI v5 user alert configuration](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/v5UserAlert.png)
 
-![BI v5 user alert detail](../Images/v5UserAlertDetail.png)
+![BI v5 user alert detail](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/v5UserAlertDetail.png)
 
 **Config:**
 - **Username** — select from the list of known BI users
@@ -59,7 +59,7 @@ Fires each time a specific BI user logs into the Blue Iris web interface.
 
 Fires when a mobile device enters the BI geofence zone.
 
-![Device enters geofence trigger](../Images/BI-DeviceEntersGeofence.png)
+![Device enters geofence trigger](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/BI-DeviceEntersGeofence.png)
 
 **Config:**
 - **Device** — select from the list of known BI mobile devices
@@ -71,7 +71,7 @@ Fires when a mobile device enters the BI geofence zone.
 
 Fires when a mobile device leaves the BI geofence zone.
 
-![Device exits geofence trigger](../Images/BI-DeviceExitGeofence.png)
+![Device exits geofence trigger](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/BI-DeviceExitGeofence.png)
 
 **Config:**
 - **Device** — select from the list of known BI mobile devices

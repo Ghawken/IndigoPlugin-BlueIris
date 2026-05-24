@@ -1,8 +1,8 @@
-![BlueIris Plugin](../Images/banner.jpg)
+![BlueIris Plugin](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/banner.jpg)
 
 # BlueIris Indigo Plugin
 
-![Plugin icon](../Images/iconsmall.png)
+![Plugin icon](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/iconsmall.png)
 
 Welcome to the BlueIris Indigo Plugin wiki. This plugin bridges [Blue Iris](https://blueirissoftware.com/) — the Windows camera-server software — with [Indigo](https://www.indigodomo.com/), giving you full two-way control and automation of your security cameras.
 
@@ -32,7 +32,7 @@ Welcome to the BlueIris Indigo Plugin wiki. This plugin bridges [Blue Iris](http
 - Exposes **Indigo actions** for PTZ control, macro/profile changes, image capture, animated WebP/GIF/HEIF/MP4 generation, and more
 - Runs a built-in **HTTP listener** (default port 4556) that BI calls with `&CAM/&TYPE/&PROFILE/…` webhook URLs — no variable subscriptions needed
 
-![Available actions overview](../Images/ActionOptions.png)
+![Available actions overview](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/ActionOptions.png)
 
 ---
 
@@ -40,4 +40,4 @@ Welcome to the BlueIris Indigo Plugin wiki. This plugin bridges [Blue Iris](http
 
 Current release: **1.3.50**
 
-Supports Indigo 2023.x / 2025.x and Python 3.10+.
+Supports Indigo 2025.2.

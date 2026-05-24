@@ -1,10 +1,10 @@
-![BlueIris Plugin](../Images/banner.jpg)
+![BlueIris Plugin](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/banner.jpg)
 
 # Animated Media
 
 The plugin can capture live camera footage and save it as animated image or video files.
 
-![Animated GIF example frames](../Images/AnimatedGifImages.png)
+![Animated GIF example frames](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/AnimatedGifImages.png)
 
 | Format | Action | Engine | Best For |
 |--------|--------|--------|----------|
@@ -51,7 +51,7 @@ end tell
 
 Captures JPEG snapshots at regular intervals, converts them to GIF frames using macOS `sips`, then packages them with the bundled [gifsicle](https://www.lcdf.org/gifsicle/) binary.
 
-![Create animated GIF action UI](../Images/Action-CreateAnimGif.png)
+![Create animated GIF action UI](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/Action-CreateAnimGif.png)
 
 **Options:**
 
@@ -177,6 +177,6 @@ end tell
 
 The **Enable Anim Gifs Enable/Disable** action (`CaptureAnim`) toggles whether the plugin automatically creates an animated GIF every time a camera is triggered.
 
-![Enable animated GIF action](../Images/Action-EnableAnimGif.png)
+![Enable animated GIF action](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/Action-EnableAnimGif.png)
 
 This is separate from the manual `makeAnim` action above.

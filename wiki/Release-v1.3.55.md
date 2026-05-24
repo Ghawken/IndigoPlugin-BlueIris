@@ -14,7 +14,7 @@ This is a major feature release covering all changes since **v1.3.20**.  It adds
 
 ### License Plate Recognition (ALPR)
 
-Blue Iris 5's ALPR engine can now drive Indigo triggers directly.
+Blue Iris ALPR engine can now drive Indigo triggers directly.
 
 - **`plateFound`** — fires on any plate detection, regardless of which plate
 - **`plateMatch`** — fires when the plate matches your personal watch list (exact / starts-with / contains, case-insensitive, dash/space normalised)
@@ -73,10 +73,10 @@ The **Create MP4 Video** action has been significantly hardened for real-world R
 
 ---
 
-### Animated HEIC (v1.3.36)
+###  HEIC (v1.3.36)
 
-New **Create Animated HEIC** action (`animateHeif`) — captures a single JPEG frame and encodes it as a HEIC file via [pillow-heif](https://github.com/bigcat88/pillow_heif) for Apple-ecosystem sharing.
-
+New **Create single HEIC** action (`animateHeif`) — captures a single JPEG frame and encodes it as a HEIC file via [pillow-heif](https://github.com/bigcat88/pillow_heif) for Apple-ecosystem sharing.
+Unfortunately animated HEIC aren't easily created currently, at least to apple playback standards.
 ---
 
 ### Full Documentation Wiki

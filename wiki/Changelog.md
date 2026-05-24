@@ -8,6 +8,8 @@ Major changes by version.  Full commit history is on [GitHub](https://github.com
 
 ## v1.3.55 — MP4 RTSP Scaling & Wiki  *(current)*
 
+📋 [Full release notes](Release-v1.3.55)
+
 - **animateMp4 — BI-side RTSP scaling:** plugin now appends `&h=<height>&isolate=1` to the RTSP URL so Blue Iris scales the video stream at the server before it reaches ffmpeg — eliminates encode back-pressure frame dropping on slower Macs
 - **animateMp4 — simplified action UI:** removed fps / CRF / preset / profile / level knobs; output size is controlled entirely via the Width field (height derived assuming 16:9 aspect ratio)
 - **animateMp4 — bursty stream handling:** `-thread_queue_size 512` prevents silent frame drops when BI delivers H.264 frames in large TCP bursts

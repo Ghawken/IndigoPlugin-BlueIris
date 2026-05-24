@@ -1,5 +1,3 @@
-[![BlueIris Plugin](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/iconsmall.png)](Home)
-
 ## BlueIris Plugin
 
 **[Home](Home)**

@@ -1,4 +1,4 @@
-![BlueIris Plugin](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/banner.jpg)
+![BlueIris Plugin](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/banner.png)
 
 # Changelog
 
@@ -6,7 +6,18 @@ Major changes by version.  Full commit history is on [GitHub](https://github.com
 
 ---
 
-## v1.3.50 — License Plate / ALPR Triggers  *(current)*
+## v1.3.55 — MP4 RTSP Scaling & Wiki  *(current)*
+
+- **animateMp4 — BI-side RTSP scaling:** plugin now appends `&h=<height>&isolate=1` to the RTSP URL so Blue Iris scales the video stream at the server before it reaches ffmpeg — eliminates encode back-pressure frame dropping on slower Macs
+- **animateMp4 — simplified action UI:** removed fps / CRF / preset / profile / level knobs; output size is controlled entirely via the Width field (height derived assuming 16:9 aspect ratio)
+- **animateMp4 — bursty stream handling:** `-thread_queue_size 512` prevents silent frame drops when BI delivers H.264 frames in large TCP bursts
+- **animateMp4 — copy-paste debug command:** Indigo log now emits the full ffmpeg command with `-loglevel verbose` substituted in, ready to paste into a terminal
+- **Wiki:** comprehensive GitHub wiki added covering all features; GitHub Actions workflow syncs `wiki/` on every push to master
+- **Bugfix:** ALPR doorbell alert path parsing corrected (backport from v1.3.50)
+
+---
+
+## v1.3.50 — License Plate / ALPR Triggers
 
 - **New triggers:** `plateFound` (any plate) and `plateMatch` (plate matches a user-supplied list)
 - **New webhook segment:** optional 7th URL segment `&PLATE` carries BI's dedicated ALPR macro directly; optional 6th segment `&MEMO` is parsed for `plate:ABC123 95%` / `Plate: ABC123 [95%]` patterns
@@ -14,7 +25,6 @@ Major changes by version.  Full commit history is on [GitHub](https://github.com
 - ALPR plate matching is case- and dash/space-insensitive; supports `exact`, `starts-with`, and `contains` modes with optional camera filtering and minimum-confidence threshold
 - Duplicate detections arriving via both webhook and log-poll paths within ~10 s fire only once
 - The existing 5-segment OnAlert URL continues to work unchanged
-- Bugfix: doorbell alert path parsing corrected
 
 ---
 
@@ -27,12 +37,11 @@ Major changes by version.  Full commit history is on [GitHub](https://github.com
 ## v1.3.40
 
 - **animateMp4 improvements:**
-  - Re-encode is now the **default** (was stream-copy); width/fps/CRF settings are honoured by default
+  - Re-encode is now the **default** (was stream-copy)
   - Added low-bitrate AAC mono audio track (24 kbps, 16 kHz) to MP4 output so clips play with sound in Messages/Mail
   - Fixed `-f mp4` flag to correctly handle the `.tmp` output filename
   - Replaced deprecated `-stimeout` with `-timeout` for RTSP (modern ffmpeg rejected old name)
   - Added stream-copy checkbox (OFF by default) for users who want fast remux-only mode
-  - Exposed all libx264 knobs (CRF, preset, profile, level) in the action UI
   - Log now includes thread name and active thread count for each MP4 worker
 
 ---

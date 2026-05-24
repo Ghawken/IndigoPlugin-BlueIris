@@ -1,243 +1,144 @@
+![BlueIris Plugin](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/banner.png)
+
 # BlueIris Indigo Plugin
 
-![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/Python3/Images/icon.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/Python3/Images/iconsmall.png?raw=True)
+An [Indigo](https://www.indigodomo.com/) plugin that gives full two-way control and automation of [Blue Iris](https://blueirissoftware.com/) — the Windows IP-camera server — from your Mac home automation hub.
 
+**[📖 Full documentation in the Wiki](https://github.com/Ghawken/IndigoPlugin-BlueIris/wiki)**
 
-Have put together the Indigo Plugin for BlueIris windows based Cam Server Software.
+---
 
-This plugin creates BlueIris Server Device and BlueIris Cameras within Indigo.  With these devices you can monitor the current condition of Server (CPU/Mem etc) and also trigger Cameras to record.  There are multiple actions that Indigo can perform on each or multiple cameras - IR on/IR off, Ptz cycle on, enable/disable camera/motion etc.
+## Overview
 
-From within BI we also setup communication back to Indigo - this enables immediate indigo awareness of any camera based motion events.  So Indigo based events can be triggered on one or multiple cameras - eg. motion turn lights on etc.  There is a small amount of setup required within BI for each Camera to enable this.
+The plugin creates Indigo devices for your BI server and every camera, then fires Indigo triggers the instant Blue Iris detects motion, a license plate, an AI tag, a geofence event, or a log condition.  You can also drive Blue Iris from Indigo — PTZ moves, profile switches, macro changes, image downloads, and animated clip creation.
 
-Here:
-http://www.indigodomo.com/pluginstore/149/
+### What it creates
 
-## Indigo 7 Only
+| Object | Description |
+|--------|-------------|
+| **BlueIris Server device** | CPU, memory, disk, profile, schedule, connection count |
+| **BlueIris Camera device** | Motion state, recording, PTZ, plate data, 30+ live states |
+| **BlueIris Device** | Geofence / mobile device inside/outside state |
+| **BlueIris User** | Login events per BI user account |
 
-Installation
-Download, Enable.
+### Triggers
 
-For Neatness I suggest creating a BlueIris Directory - which the plugin will use.
-![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/CreateDirectory.png?raw=True](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/CreateDirectory.png?raw=True)
+| Trigger | Fires when… |
+|---------|-------------|
+| Camera Motion On / Off | BI sends a motion start or reset webhook |
+| AI Tag | BI's AI engine tags an alert (`person`, `vehicle`, `animal`, …) |
+| License Plate Found | ALPR detects any plate |
+| License Plate Match | Detected plate matches your watch list |
+| User Login | A named BI user logs in |
+| Geofence Inside / Outside | Mobile device enters or leaves BI's geofence |
+| BI Log Message | Log entry matches a category / text filter |
+| No Signal | Camera loses video |
+| Disk Space Low | Free disk drops below a threshold |
+| Software Update Available | BI reports a new version |
 
+### Actions
 
-Go to Plugin Config
+| Category | Actions |
+|----------|---------|
+| **Camera control** | Trigger motion, enable/disable motion detection, pause, manual record |
+| **PTZ** | Pan, tilt, zoom, home, preset, IR on/off, brightness, Hz |
+| **Server** | Change active profile (0–7), change macro contents |
+| **Media** | Download JPEG snapshot, create animated WebP, GIF, HEIC, or MP4 clip |
+| **Plugin** | Enable/disable plugin triggering per camera, enable/disable auto-GIF |
 
-![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/PlugConfig1.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/PlugConfig1.png)
+---
 
+## Screenshots
 
-Enter:
-BlueIris Server: IP address
-Port Used for Webserver:
-Username
-Password
+![Plugin configuration](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/PlugConfig1.png)
 
-(for some actions your BI account needs to be admin enabled)
+![Camera device states](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/BICameraStates.png)
 
-## 0.6.0 Change
+![Available actions](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/ActionOptions.png)
 
-Changes to Plugin managing it's own Http Server:
+![Available triggers](https://raw.githubusercontent.com/Ghawken/IndigoPlugin-BlueIris/master/Images/BITriggers.png)
 
-Need to put port number of server in PluginConfig:
+---
 
-Default port 4556
+## Quick Start
 
-Can be changed to any allowed port if needed.
-
-
-Click Login/Generate Server Device, here:
-![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/PlugConfigLoginbutton.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/PlugConfigLoginbutton.png)
-
-
-(This will generate a main BI server device in either BlueIris directory or main)
-![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/MainDeviceCreated.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/MainDeviceCreated.png)
-
-if all goes well -- Generate Cameras button should appear
-![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/GenerateCameraButton.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/GenerateCameraButton.png)
-
-Click this - to generate all your camera devices...
-
-![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/ListCameraDevices.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/ListCameraDevices.png)
-
-
-
-
-## Main BI Server Device
-
-
-![http://i66.tinypic.com/1qh4yf.png](http://i66.tinypic.com/1qh4yf.png)
-
-Generates this device with status options
-
-![http://i64.tinypic.com/fongab.png](http://i64.tinypic.com/fongab.png)
-
-Allows CPU,Mem Monitoring etc and triggering if CPU gets out of hand
-
-
-
------------------------------------------------------------------------------------
-
-# BlueIris Server Camera End Setup
-
-NB:  Sometime recently blueiris changed &ALERT to &ALERT_PATH or &ALERT_DB
-
-To enable triggers from with the plugin - add
-```
-http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/True/&ALERT_PATH
-```
-or
-```
-http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/False/&ALERT_PATH
-```
-
-
-eg. IndigoIP = 192.168.1.6,  Port selected in PluginConfig: 4556
+1. **Install** — download from the [Indigo Plugin Store](http://www.indigodomo.com/pluginstore/149/) or from [GitHub Releases](https://github.com/Ghawken/IndigoPlugin-BlueIris/releases) and double-click the `.indigoPlugin` bundle
+2. **Configure** — open **Plugins ▸ BlueIris ▸ Configure…**, enter your BI server IP, port, username and password
+3. **Login** — click **Login / Generate Server Device** to create the server device
+4. **Cameras** — click **Generate Cameras** to create one Indigo device per camera
+5. **Webhooks** — in Blue Iris, add the plugin's URL to each camera's alert settings:
 
 ```
-When Triggered
-http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/True/&ALERT_PATH
-POST text: Indigo
-
-Request again when trigger is reset
-http://192.168.1.6:4556/&CAM/&TYPE/&PROFILE/False/&ALERT_PATH
-POST text: Indigo
+http://<IndigoMacIP>:4556/&CAM/&TYPE/&PROFILE/True/&ALERT_PATH
 ```
 
+For full setup instructions including ALPR, see the **[Wiki](https://github.com/Ghawken/IndigoPlugin-BlueIris/wiki)**.
 
-to each camera in BlueIris;  Camera: Alerts, request from web service:  When triggered.
-&
+---
 
+## Animated Media
 
-**BI ScreenShots:**
+The plugin can capture live footage and save it as an animated file ready to send via iMessage, email, or push notification.
 
-eg. Version 4
+| Format | Engine | Best For |
+|--------|--------|----------|
+| **Animated WebP** | Pillow / MJPEG | iMessage, web pages |
+| **Animated GIF** | gifsicle (bundled) | Email, broad compatibility |
+| **HEIC still** | pillow-heif | Apple ecosystem |
+| **MP4 video** | ffmpeg (bundled) | Highest quality, iMessage video |
 
-![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/v4CameraAlertSetup.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/v4CameraAlertSetup.png)
+MP4 recording pulls from Blue Iris's RTSP H.264 substream with BI-side scaling (`&h=` parameter) so the stream arrives at the correct resolution without taxing the Mac's encoder.
 
+See **[Animated Media](https://github.com/Ghawken/IndigoPlugin-BlueIris/wiki/Animated-Media)** in the wiki for full details.
 
-eg. Version 5
+---
 
-Trigger On:
+## License Plate Recognition (ALPR)
 
-![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/BIOnAlert.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/BIOnAlert.png)
-
-
-Trigger Ended:
-![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/v5CameraAlertOFF.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/v5CameraAlertOFF.png)
-
- 
------------------------------------------------------------------------------------------------------------------------------
-This has changed from new version 0.6.0
-Same for everyone - no longer different for Basic/Digest Authenication
-
-Allows:Motion On& Off, and adds
-
-Add new Camera Device States:
-lastMotionTriggerType  possible results
-- TEST [from the Test button]
-- MOTION
-- AUDIO
-- EXTERNAL
-- WATCHDOG
-
-
-timelastMotion = time of last Motion Detection
------------------------------------------------------------------------------------------------------------------------------
-
-This will trigger and update camera in Indigo everytime triggered or motion sensor changes - this happens immediately.
-
------------------------------------------------------------------------------------------------------------------------------
-
-## **Actions:**
-
-There are multiple support actions that can be performed on each/some/or the Server
-
-![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/ActionOptions.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/ActionOptions.png)
-
-![https://camo.githubusercontent.com/6da5f1a4ee61eefae425c1064cfc4ff058fdc757/687474703a2f2f6936332e74696e797069632e636f6d2f33327a693235642e706e67](https://camo.githubusercontent.com/6da5f1a4ee61eefae425c1064cfc4ff058fdc757/687474703a2f2f6936332e74696e797069632e636f6d2f33327a693235642e706e67)
-
-## Recent Actions Added
-
-Add Enable/Disable Generate Animated Gifs as Action Group per Camera/s
-[this enables you to change the camera settings with an action as required - e.g arrived home; stop making them]
-
-Add Status PluginTriggeringEnabled to each Camera.
-[this enabled you as an action to disable any Plugin Based triggering [this doesn't affect BI Server]
-eg. arrived home - Disable this setting and no Plugin Triggers for this camera will occur]
-
-PluginTriggeringEnabled for all Cameras reset at Plugin startup to Enabled.
-
-
-
-
-## Triggers
-
-The Plugin also creates a Trigger which is run when the selected Camera(s) detects motion.
-
-You can select multiple cameras:
-
-![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/SelectTriggerCameras.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/SelectTriggerCameras.png)
-
-The triggering of these alerts is dependant in the settings that are created within BlueIris as above - including the retrigger timeout - will not retrigger until this time has passed.
-
-
-## Camera Device Options
-
-The Camera Devices have a few user configurable options:
-
-- Save Image if Camera Triggered
-- Width in Pixels of image (up to maximum of the camera)  Proportions are left unchanged
-
-![https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/CameraOptions.png](https://github.com/Ghawken/IndigoPlugin-BlueIris/blob/cliplist/Images/CameraOptions.png)
-
-If this option is select the plugin will download an image from this camera locally everytime it is triggered.
-It is stored in path
-`/User/Documents/Indigo-BlueIris/`
-
-This image can be used in Control Pages (showing last triggering) or used to send via iMsg/PushOver etc with these plugins.
-
-## Animated GIFs Created
-
-
-The Plugin can also generate an Animated Gif for each Camera.  This can be done automatically if triggered from within the Camera Device settings, or it can be performed as an Action on selected Cameras
-
-The animated Gif once triggered is then generated - eg. if length is 10 seconds 15 images/10 seconds are taken, and then packaged and sent, so if being used in a action group will need to add appropriate delay
-for it all to be created.
-
-The way I have done this is to use two external calls - one to build-in Sips app to convert jpg to Gif. The next is to package gifiscle within the plugin and this is called to create the Anims. Separate threads are created so there is no main-thread time impact for this.
-There are no additional libraries required (I hope....)
-
-***Options***
-
-These can then be sent via imsg very easily with the following Applescript action group.
-
+Blue Iris 5's built-in ALPR engine can read plate text from camera footage.  The plugin turns those detections into Indigo triggers with a 7-segment webhook URL:
 
 ```
-delay 5
-tell application "Messages"
-   set myid to get id of first service
-   set theBuddy to buddy "toemailaddress" of service "E:fromemailaddress note the E:"
-   send POSIX file "/Users/Username/Documents/Indigo-BlueIris/CameraNameShort/Animated.gif" to theBuddy
-end tell
+http://<IndigoMacIP>:4556/&CAM/&TYPE/&PROFILE/True/&ALERT_PATH/&MEMO/&PLATE
 ```
 
+- `plateFound` trigger — fires on any detected plate
+- `plateMatch` trigger — fires when the plate matches your watch list (exact / starts-with / contains, case-insensitive)
+- Camera states `lastPlate`, `lastPlateConfidence`, `lastPlateTime` updated on every detection
 
-Would suggest this is best in a external script given the time to run aspects. Delay above depends on how long images are captured for.
+See **[License Plate / ALPR](https://github.com/Ghawken/IndigoPlugin-BlueIris/wiki/License-Plate-ALPR)** in the wiki.
 
+---
 
+## Requirements
 
+| Item | Version |
+|------|---------|
+| Indigo | 2025.2 (macOS) |
+| Blue Iris | 4 or 5 (Windows, on your LAN) |
+| Network | Indigo Mac must reach BI's web server and RTSP ports |
 
+---
 
+## Documentation
 
+All documentation is in the **[GitHub Wiki](https://github.com/Ghawken/IndigoPlugin-BlueIris/wiki)**:
 
+| Page | Topic |
+|------|-------|
+| [Installation](https://github.com/Ghawken/IndigoPlugin-BlueIris/wiki/Installation) | Download, install, first-run setup |
+| [Blue Iris Setup](https://github.com/Ghawken/IndigoPlugin-BlueIris/wiki/Blue-Iris-Setup) | Webhook URLs for BI alert settings |
+| [Plugin Configuration](https://github.com/Ghawken/IndigoPlugin-BlueIris/wiki/Plugin-Configuration) | All plugin preference fields |
+| [Device Reference](https://github.com/Ghawken/IndigoPlugin-BlueIris/wiki/Device-Reference) | Every device type and its states |
+| [Actions Reference](https://github.com/Ghawken/IndigoPlugin-BlueIris/wiki/Actions-Reference) | Every action and its options |
+| [Triggers Reference](https://github.com/Ghawken/IndigoPlugin-BlueIris/wiki/Triggers-Reference) | Every trigger event and its config |
+| [Animated Media](https://github.com/Ghawken/IndigoPlugin-BlueIris/wiki/Animated-Media) | WebP / GIF / HEIC / MP4 capture |
+| [License Plate / ALPR](https://github.com/Ghawken/IndigoPlugin-BlueIris/wiki/License-Plate-ALPR) | ALPR trigger setup and troubleshooting |
+| [Changelog](https://github.com/Ghawken/IndigoPlugin-BlueIris/wiki/Changelog) | Version history |
 
+---
 
-Glenn
+## Current Release
 
+**v1.3.55** — MP4 RTSP scaling, simplified action UI, bursty-stream fix, full wiki
 
-
-
-
-
-
-
+See the [Changelog](https://github.com/Ghawken/IndigoPlugin-BlueIris/wiki/Changelog) for full version history.

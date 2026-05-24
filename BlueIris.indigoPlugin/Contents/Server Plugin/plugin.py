@@ -1074,6 +1074,9 @@ class Plugin(indigo.PluginBase):
 
     def updateBIServerdevice(self, dev, statusresults):
 
+        if not isinstance(statusresults, dict):
+            self.logger.debug(u'updateBIServerdevice: statusresults is not a dict (got %s), skipping update.' % type(statusresults).__name__)
+            return False
 
         try:
             if self.debugextra:
@@ -1534,7 +1537,7 @@ class Plugin(indigo.PluginBase):
                 self.logger.debug(u'Status code'+str(r.status_code) )
                 self.logger.debug(u'Text :'+str(r.text))  #r.text
                 self.logger.debug(u'Error Running command')
-                return ''
+                return None
             else:
                 if self.debugextra:
                     self.logger.debug(u'SUCCESS Text :' + str(r.text))
